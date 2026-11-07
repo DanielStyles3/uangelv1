@@ -1,0 +1,10 @@
+# Files not uploaded to EAS Build (the app doesn't need them)
+node_modules/
+.expo/
+dist/
+website/
+supabase/
+.idea/
+*.log
+.env
+.env*.local

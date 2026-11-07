@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="en-NG">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>U Angel Foods — Cakes, Catering, Drinks &amp; Groceries Delivered in Lagos</title>
+  <meta name="description" content="U Angel Foods brings cakes, drinks, health foods, fresh market produce and groceries to your door in Lagos — plus catering and event packages. Order in the app, pay securely online with Paystack (card, transfer or USSD), flat ₦1,500 delivery.">
+  <meta name="theme-color" content="#FD652A">
+  <meta name="robots" content="index, follow">
+  <!-- TODO: once a domain is live, add <link rel="canonical"> and make og:image / og:url absolute URLs -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="U Angel Foods">
+  <meta property="og:title" content="U Angel Foods — Delivered with love in Lagos">
+  <meta property="og:description" content="Cakes, drinks, health foods, market produce, groceries, catering and events — order in the U Angel Foods app and pay securely with Paystack.">
+  <meta property="og:image" content="assets/app-icon.png">
+  <meta property="og:image:alt" content="U Angel Foods logo on orange">
+  <meta property="og:locale" content="en_NG">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="U Angel Foods — Delivered with love in Lagos">
+  <meta name="twitter:description" content="Cakes, catering &amp; groceries delivered in Lagos. Secure Paystack checkout.">
+  <meta name="twitter:image" content="assets/app-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+
+  <script>
+    (function () {
+      var d = document.documentElement;
+      d.classList.add('js');
+      var reduced = false, seen = false;
+      try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+      try { seen = sessionStorage.getItem('ua-intro-seen') === '1'; } catch (e) {}
+      if (reduced) d.classList.add('reduced');
+      if (reduced || seen) d.classList.add('skip-intro');
+      // Christmas announcement bar: shown unless dismissed this session or the campaign has ended
+      var xbarOff = false;
+      try { xbarOff = sessionStorage.getItem('ua-xbar-dismissed') === '1'; } catch (e) {}
+      if (!xbarOff && Date.now() < Date.UTC(2026, 11, 15, 22, 59)) d.classList.add('has-xbar');
+    })();
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FoodEstablishment",
+    "name": "U Angel Foods",
+    "description": "Cakes, drinks, health foods, market produce, groceries, catering and event services delivered in Lagos.",
+    "areaServed": "Lagos, Nigeria",
+    "paymentAccepted": "Credit Card, Debit Card, Bank transfer, USSD (via Paystack)",
+    "currenciesAccepted": "NGN"
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <!-- ============ INTRO LOADER ============ -->
+  <div class="loader" id="loader" aria-hidden="true">
+    <div class="loader-glows">
+      <span class="glow glow-1"></span>
+      <span class="glow glow-2"></span>
+      <span class="glow glow-3"></span>
+    </div>
+    <div class="logo-stack loader-logo" data-logo>
+      <img class="l-u" src="assets/splash/u.png" alt="" width="1024" height="1024">
+      <img class="l-a" src="assets/splash/a.png" alt="" width="1024" height="1024">
+      <img class="l-dot" src="assets/splash/dot.png" alt="" width="1024" height="1024">
+      <img class="l-dish" src="assets/splash/dish.png" alt="" width="1024" height="1024">
+      <img class="l-text" src="assets/splash/text.png" alt="" width="1024" height="1024">
+    </div>
+    <p class="loader-skip">Tap to skip</p>
+  </div>
+
+  <!-- cursor follower (desktop only, decorative) -->
+  <div class="cursor" aria-hidden="true"><span class="cursor-dot"></span><span class="cursor-ring"></span></div>
+
+  <!-- ============ NAV ============ -->
+  <header class="nav" id="nav">
+    <!-- Christmas campaign announcement (dismissible; state kept in sessionStorage) -->
+    <div class="xbar" id="xbar" role="region" aria-label="Christmas campaign announcement">
+      <div class="xbar-inner container">
+        <p class="xbar-text">
+          <span class="xbar-tree" aria-hidden="true">🎄</span>
+          <span class="xbar-long">Christmas campaign: help us reach <b>10,000 pre-orders</b> by 15 December — every order feeds someone in need</span>
+          <span class="xbar-short"><b>10,000 pre-orders</b> by 15 Dec — every order feeds someone in need</span>
+        </p>
+        <a class="xbar-link" href="#christmas">Pre-order<span class="xbar-now"> now</span> <span aria-hidden="true">→</span></a>
+        <button class="xbar-close" id="xbar-close" type="button" aria-label="Dismiss Christmas announcement">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="nav-inner container">
+      <a class="brand" href="#top" aria-label="U Angel Foods — back to top">
+        <span class="brand-mark"><img src="assets/icon-180.png" alt="" width="180" height="180"></span>
+        <span class="brand-name">U Angel <b>Foods</b></span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#christmas" class="nav-xmas"><span class="xmas-dot" aria-hidden="true"></span>Christmas</a>
+        <a href="#shop">Shop</a>
+        <a href="#catering">Catering</a>
+        <a href="#events">Events</a>
+        <a href="#market">Market</a>
+        <a href="#how">How it works</a>
+        <a href="#mission">Our mission</a>
+        <a href="about.html">Our story</a>
+      </nav>
+      <a class="btn btn-nav magnetic" href="#app">Get the app</a>
+      <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="mobile-menu" id="mobile-menu" aria-hidden="true" data-lenis-prevent>
+    <nav aria-label="Mobile">
+      <a href="#christmas" class="mm-xmas"><span><i class="xmas-dot" aria-hidden="true"></i></span>Christmas</a>
+      <a href="#shop"><span>01</span>Shop</a>
+      <a href="#catering"><span>02</span>Catering</a>
+      <a href="#events"><span>03</span>Events</a>
+      <a href="#market"><span>04</span>Market</a>
+      <a href="#how"><span>05</span>How it works</a>
+      <a href="#mission"><span>06</span>Our mission</a>
+      <a href="about.html"><span>07</span>Our story</a>
+      <a href="#app" class="mm-cta"><span>→</span>Get the app</a>
+    </nav>
+  </div>
+
+  <main id="main">
+    <!-- ============ HERO ============ -->
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-bg" aria-hidden="true">
+        <span class="blob blob-1"></span>
+        <span class="blob blob-2"></span>
+        <span class="blob blob-3"></span>
+        <span class="blob blob-4"></span>
+        <span class="grain"></span>
+      </div>
+
+      <div class="hero-inner container">
+        <div class="hero-copy">
+          <p class="eyebrow hero-eyebrow"><span class="pulse-dot" aria-hidden="true"></span> Now serving Lagos</p>
+          <h1 class="hero-title" id="hero-title" data-split>Cakes, catering &amp; groceries — <span class="accent">delivered with love.</span></h1>
+          <p class="hero-sub">From birthday cakes and chilled drinks to fresh market produce, everyday groceries and full event catering — order it all in the U Angel Foods app and pay securely with Paystack at checkout.</p>
+          <div class="hero-ctas">
+            <a class="btn btn-dark btn-lg magnetic" href="#app">Get the app <span class="btn-arrow" aria-hidden="true">→</span></a>
+            <a class="btn btn-light btn-lg magnetic" href="#catering">Plan an event</a>
+          </div>
+          <ul class="hero-chips" aria-label="Highlights">
+            <li>🔒 Secure Paystack checkout</li>
+            <li>🛵 Flat ₦1,500 delivery</li>
+          </ul>
+        </div>
+
+        <div class="hero-art" aria-label="U Angel Foods products">
+          <figure class="pcard pcard-cake" data-depth="26" data-speed="-60">
+            <div class="pcard-move"><div class="pcard-frame">
+              <img src="assets/photos/cake.jpg" alt="An orange U Angel Foods birthday cake" width="1199" height="1280" fetchpriority="high">
+              <figcaption>Birthday cakes 🎂</figcaption>
+            </div></div>
+          </figure>
+          <figure class="pcard pcard-drinks" data-depth="40" data-speed="-130">
+            <div class="pcard-move"><div class="pcard-frame">
+              <img src="assets/photos/drinks.jpg" alt="Three U Angel branded fruit-infused drink cans in front of a plant" width="960" height="1016">
+              <figcaption>Fruit-infused drinks 🥤</figcaption>
+            </div></div>
+          </figure>
+          <figure class="pcard pcard-juice" data-depth="55" data-speed="-200">
+            <div class="pcard-move"><div class="pcard-frame">
+              <img src="assets/photos/juice.jpg" alt="A hand holding an orange-infused U Angel drink can" width="720" height="1280">
+              <figcaption>Served chilled 🍊</figcaption>
+            </div></div>
+          </figure>
+          <div class="sticker sticker-1" aria-hidden="true"><b>₦1,500</b><span>flat delivery</span></div>
+          <div class="sticker sticker-2" aria-hidden="true">Secure<br>Paystack<br>checkout ✓</div>
+        </div>
+      </div>
+
+      <a class="scroll-cue" href="#shop" aria-label="Scroll to shop">
+        <span class="scroll-cue-line" aria-hidden="true"></span>
+        <span>Scroll</span>
+      </a>
+    </section>
+
+    <!-- ============ CHRISTMAS CAMPAIGN ============ -->
+    <section class="xmas" id="christmas" aria-labelledby="xmas-title">
+      <div class="xmas-bg" aria-hidden="true">
+        <span class="xmas-glow xmas-glow-1"></span>
+        <span class="xmas-glow xmas-glow-2"></span>
+        <span class="xmas-glow xmas-glow-3"></span>
+        <span class="xmas-spark" style="--x:8%;--y:14%;--d:-.4s"></span>
+        <span class="xmas-spark" style="--x:46%;--y:8%;--d:-1.6s"></span>
+        <span class="xmas-spark" style="--x:92%;--y:22%;--d:-.9s"></span>
+        <span class="xmas-spark" style="--x:58%;--y:88%;--d:-2.2s"></span>
+        <span class="xmas-spark" style="--x:4%;--y:72%;--d:-1.2s"></span>
+        <span class="xmas-spark" style="--x:84%;--y:66%;--d:-2.8s"></span>
+      </div>
+      <canvas class="xmas-snow" id="xmas-snow" aria-hidden="true"></canvas>
+
+      <div class="container xmas-inner">
+        <div class="xmas-art">
+          <div class="xmas-tilt">
+            <div class="xmas-float">
+              <figure class="xmas-frame">
+                <img src="assets/campaign/xmas-10000-preorders.jpg" width="1254" height="1254" loading="lazy" decoding="async"
+                     alt="U Angel Foods Christmas pre-order campaign flyer: a smiling child in a Santa hat holds a U Angel Foods meal box beside the headline “We want to get 10,000 pre-orders between now and the 15th December — all pre-orders will be delivered next day — to provide food during the Xmas period for the less privileged.”">
+              </figure>
+            </div>
+            <div class="xmas-badge" aria-hidden="true">
+              <svg viewBox="0 0 200 200">
+                <defs><path id="xmas-badge-path" d="M100 100 m-74 0 a74 74 0 1 1 148 0 a74 74 0 1 1 -148 0"/></defs>
+                <text><textPath href="#xmas-badge-path" startOffset="0">EVERY MENU ITEM PURCHASED FEEDS SOMEONE IN NEED • </textPath></text>
+              </svg>
+              <span class="xmas-badge-heart">
+                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-7.5-4.6-10-9.3C.4 8.6 2.1 4.5 6 4.1c2.2-.2 3.6 1 4.4 2.2.4.6.8.6 1.2 0 .8-1.2 2.2-2.4 4.4-2.2 3.9.4 5.6 4.5 4 7.6C19.5 16.4 12 21 12 21z"/></svg>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="xmas-copy">
+          <p class="eyebrow xmas-eyebrow"><span class="xmas-star" aria-hidden="true">✦</span> Christmas 2026 campaign</p>
+          <h2 class="xmas-title" id="xmas-title">
+            <span class="sr-only">We Want to Get 10,000 Pre-Orders</span>
+            <span class="xmas-title-vis" aria-hidden="true">
+              <span class="xmas-line"><span class="xmas-line-in">We Want to Get</span></span>
+              <span class="xmas-line xmas-line-goal"><span class="xmas-line-in"><span class="xmas-num" data-goal="10000">10,000</span><span class="xmas-goal-tag">Our goal</span></span></span>
+              <span class="xmas-line"><span class="xmas-line-in">Pre-Orders</span></span>
+            </span>
+          </h2>
+
+          <ul class="xmas-pills">
+            <li class="xmas-pill xmas-pill-gold">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8" cy="14.5" r="1.2" fill="currentColor"/><circle cx="12" cy="14.5" r="1.2" fill="currentColor"/><circle cx="16" cy="14.5" r="1.2" fill="currentColor"/></svg>
+              Between now and 15 December
+            </li>
+            <li class="xmas-pill xmas-pill-white">
+              <span class="xmas-truck" aria-hidden="true">
+                <svg viewBox="0 0 32 24"><path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h14A1.5 1.5 0 0 1 19 5.5V17H2z" fill="currentColor"/><path d="M19 8h5.6a2 2 0 0 1 1.7.9l3.3 4.8c.3.4.4.8.4 1.2V17H19z" fill="currentColor"/><path d="M21.5 10h3.2l2.3 3.5h-5.5z" fill="#fff"/><circle cx="8" cy="18.5" r="3" fill="#fff" stroke="currentColor" stroke-width="2"/><circle cx="24" cy="18.5" r="3" fill="#fff" stroke="currentColor" stroke-width="2"/></svg>
+              </span>
+              All pre-orders delivered next day!
+            </li>
+          </ul>
+
+          <p class="xmas-purpose">Every pre-order helps us <b>provide food during the Xmas period for the less privileged.</b></p>
+
+          <ul class="xmas-points" aria-label="Why pre-order">
+            <li>
+              <span class="xmas-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11h18a9 9 0 0 1-18 0z" fill="currentColor"/><path d="M8 3c-.8 1 .8 2 0 3M12 2.5c-.8 1 .8 2 0 3M16 3c-.8 1 .8 2 0 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+              Feed Someone in Need
+            </li>
+            <li>
+              <span class="xmas-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-7.5-4.6-10-9.3C.4 8.6 2.1 4.5 6 4.1c2.2-.2 3.6 1 4.4 2.2.4.6.8.6 1.2 0 .8-1.2 2.2-2.4 4.4-2.2 3.9.4 5.6 4.5 4 7.6C19.5 16.4 12 21 12 21z"/></svg></span>
+              Share Love This Christmas
+            </li>
+            <li>
+              <span class="xmas-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="5" rx="1.2" fill="currentColor"/><path d="M5 13h14v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 20z" fill="currentColor"/><path d="M12 8v13.5" stroke="#fff" stroke-width="2"/><path d="M12 8C10.5 4.5 6.5 4 7 6.5 7.3 8 10 8 12 8zm0 0c1.5-3.5 5.5-4 5-1.5C16.7 8 14 8 12 8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+              Make a Difference Together
+            </li>
+          </ul>
+
+          <div class="xmas-countdown" id="xmas-countdown" role="timer" aria-label="Time left in the Christmas pre-order campaign">
+            <p class="xmas-cd-label">Campaign closes in</p>
+            <div class="xmas-cd-units">
+              <div class="xmas-cd-unit"><span class="xmas-cd-num" data-cd="d">--</span><span class="xmas-cd-cap">days</span></div>
+              <div class="xmas-cd-unit"><span class="xmas-cd-num" data-cd="h">--</span><span class="xmas-cd-cap">hours</span></div>
+              <div class="xmas-cd-unit"><span class="xmas-cd-num" data-cd="m">--</span><span class="xmas-cd-cap">minutes</span></div>
+            </div>
+          </div>
+          <p class="xmas-thanks" id="xmas-thanks" hidden>Thank you for supporting our Christmas campaign!</p>
+
+          <p class="xmas-closing">Let's make this Christmas brighter for the less privileged!</p>
+
+          <div class="xmas-ctas">
+            <a class="btn btn-gold btn-lg magnetic" href="#app">Pre-order in the app <span class="btn-arrow" aria-hidden="true">→</span></a>
+            <a class="btn btn-ghost btn-lg magnetic" href="about.html">Read our story</a>
+          </div>
+          <p class="xmas-brandline">U ANGEL FOODS® …Every Menu Item Purchased Feeds Someone in Need.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MARQUEE ============ -->
+    <section class="marquee-section" aria-label="What we deliver">
+      <div class="marquee marquee-1" data-marquee data-dir="1">
+        <div class="marquee-track">
+          <ul class="marquee-group">
+            <li>🎂 Cakes &amp; Celebrations</li><li class="star" aria-hidden="true">✦</li>
+            <li>🍽️ Catering</li><li class="star" aria-hidden="true">✦</li>
+            <li>🎉 Events &amp; Celebrations</li><li class="star" aria-hidden="true">✦</li>
+            <li>🥤 Drinks &amp; Refreshments</li><li class="star" aria-hidden="true">✦</li>
+            <li>🌿 Health &amp; Wellness</li><li class="star" aria-hidden="true">✦</li>
+            <li>🛒 The Local Market</li><li class="star" aria-hidden="true">✦</li>
+            <li>🛍️ Groceries &amp; Essentials</li><li class="star" aria-hidden="true">✦</li>
+          </ul>
+        </div>
+      </div>
+      <div class="marquee marquee-2" data-marquee data-dir="-1">
+        <div class="marquee-track">
+          <ul class="marquee-group">
+            <li>🧁 Cupcakes</li><li class="star" aria-hidden="true">●</li>
+            <li>💍 Wedding Cakes</li><li class="star" aria-hidden="true">●</li>
+            <li>🍹 Mocktails</li><li class="star" aria-hidden="true">●</li>
+            <li>🥭 Smoothies</li><li class="star" aria-hidden="true">●</li>
+            <li>🍵 Herbal Drinks</li><li class="star" aria-hidden="true">●</li>
+            <li>🥬 Fresh Vegetables</li><li class="star" aria-hidden="true">●</li>
+            <li>🐟 Fish &amp; Seafood</li><li class="star" aria-hidden="true">●</li>
+            <li>🍚 Rice, Beans &amp; Garri</li><li class="star" aria-hidden="true">●</li>
+            <li>🍯 Honey</li><li class="star" aria-hidden="true">●</li>
+            <li>🥘 Buffet Services</li><li class="star" aria-hidden="true">●</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SHOP BY CATEGORY ============ -->
+    <section class="shop section" id="shop" aria-labelledby="shop-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow eyebrow-ink">Shop by category</p>
+          <h2 class="section-title" id="shop-title" data-split>Seven ways to <span class="hl">treat yourself</span></h2>
+          <p class="section-lead" data-reveal>Everything from celebration cakes to the Saturday market run — browse it in the app and we bring it to your door.</p>
+        </div>
+
+        <ul class="facts" aria-label="Quick facts">
+          <li data-reveal><b><span data-count="7">7</span></b><span>categories in one app</span></li>
+          <li data-reveal><b>₦<span data-count="1500">1,500</span></b><span>flat delivery fee</span></li>
+          <li data-reveal><b><span data-count="3">3</span></b><span>ways to pay: card, transfer or USSD via Paystack</span></li>
+          <li data-reveal><b>Next&#8209;day</b><span>Local Market delivery</span></li>
+        </ul>
+
+        <ul class="cat-grid">
+          <li class="cat-item cat-wide">
+            <article class="cat-card" style="--c:#9D174D">
+              <div class="cat-media"><img src="https://rembodejacmfbeohvmhl.supabase.co/storage/v1/object/public/catalog/cakes-celebrations.jpg" alt="Freshly baked celebration cakes" loading="lazy" decoding="async" width="1200" height="800"></div>
+              <div class="cat-body">
+                <span class="cat-emoji" aria-hidden="true">🎂</span>
+                <h3>Cakes &amp; Celebrations</h3>
+                <p>Freshly baked cakes and sweet treats for every milestone, made to order in Lagos.</p>
+                <ul class="cat-subs"><li>Cupcakes</li><li>Cake in a Can</li><li>Birthday Cakes</li><li>Wedding Cakes</li><li>+3 more</li></ul>
+              </div>
+            </article>
+          </li>
+          <li class="cat-item">
+            <article class="cat-card" style="--c:#991B1B">
+              <div class="cat-media"><img src="https://images.unsplash.com/photo-1555244162-803834f70033?w=1200&amp;q=80&amp;auto=format&amp;fit=crop" alt="A catered buffet spread" loading="lazy" decoding="async" width="1200" height="800"></div>
+              <span class="cat-badge">📝 Request a quote</span>
+              <div class="cat-body">
+                <span class="cat-emoji" aria-hidden="true">🍽️</span>
+                <h3>Catering</h3>
+                <p>Full-service catering for offices, parties and events of every size across Lagos.</p>
+                <ul class="cat-subs"><li>Corporate Catering</li><li>Buffet Services</li><li>Food Stands</li><li>+4 more</li></ul>
+              </div>
+            </article>
+          </li>
+          <li class="cat-item">
+            <article class="cat-card" style="--c:#6B21A8">
+              <div class="cat-media"><img src="https://images.unsplash.com/photo-1783314867628-220ab03cac99?w=1200&amp;q=80&amp;auto=format&amp;fit=crop" alt="A decorated celebration event" loading="lazy" decoding="async" width="1200" height="800"></div>
+              <span class="cat-badge">📝 Request a quote</span>
+              <div class="cat-body">
+                <span class="cat-emoji" aria-hidden="true">🎉</span>
+                <h3>Events &amp; Celebrations</h3>
+                <p>Party and event planning packages with food, decor and service handled for you.</p>
+                <ul class="cat-subs"><li>Birthday Parties</li><li>Wedding Parties</li><li>Church Events</li><li>+4 more</li></ul>
+              </div>
+            </article>
+          </li>
+          <li class="cat-item">
+            <article class="cat-card" style="--c:#9A3412">
+              <div class="cat-media"><img src="https://rembodejacmfbeohvmhl.supabase.co/storage/v1/object/public/catalog/drinks-refreshments.jpg" alt="Chilled drinks and refreshments" loading="lazy" decoding="async" width="1200" height="800"></div>
+              <div class="cat-body">
+                <span class="cat-emoji" aria-hidden="true">🥤</span>
+                <h3>Drinks &amp; Refreshments</h3>
+                <p>Chilled juices, Chapman, smoothies, soft drinks, wines and party drink bundles delivered cold.</p>
+                <ul class="cat-subs"><li>Fresh Juices</li><li>Mocktails</li><li>Smoothies</li><li>+4 more</li></ul>
+              </div>
+            </article>
+          </li>
+          <li class="cat-item">
+            <article class="cat-card" style="--c:#166534">
+              <div class="cat-media"><img src="https://rembodejacmfbeohvmhl.supabase.co/storage/v1/object/public/catalog/wm/af7d4b890ca15915.jpg" alt="Wholesome health foods and herbal drinks" loading="lazy" decoding="async" width="1200" height="800"></div>
+              <div class="cat-body">
+                <span class="cat-emoji" aria-hidden="true">🌿</span>
+                <h3>Health &amp; Wellness</h3>
+                <p>Wholesome Nigerian staples, herbal drinks, teas and better-for-you snacks.</p>
+                <ul class="cat-subs"><li>Whole Foods</li><li>Herbal Drinks</li><li>Teas</li><li>+6 more</li></ul>
+              </div>
+            </article>
+          </li>
+          <li class="cat-item cat-wide">
+            <article class="cat-card" style="--c:#7A4419">
+              <div class="cat-media"><img src="https://rembodejacmfbeohvmhl.supabase.co/storage/v1/object/public/catalog/wm/c400d6d44be0f38b.jpg" alt="Fresh produce from the local open market" loading="lazy" decoding="async" width="1200" height="800"></div>
+              <span class="cat-badge cat-badge-green">🚚 Standard next-day delivery</span>
+              <div class="cat-body">
+                <span class="cat-emoji" aria-hidden="true">🛒</span>
+                <h3>The Local Market</h3>
+                <p>Fresh open-market produce, meat, fish and staples, picked and delivered to your door.</p>
+                <ul class="cat-subs"><li>Fresh Vegetables</li><li>Meat</li><li>Fish &amp; Seafood</li><li>Rice, Beans, Garri</li><li>+7 more</li></ul>
+              </div>
+            </article>
+          </li>
+          <li class="cat-item">
+            <article class="cat-card" style="--c:#0F5B78">
+              <div class="cat-media"><img src="https://rembodejacmfbeohvmhl.supabase.co/storage/v1/object/public/catalog/wm/515f10b6338b1cd8.jpg" alt="Packaged groceries and household essentials" loading="lazy" decoding="async" width="1200" height="800"></div>
+              <div class="cat-body">
+                <span class="cat-emoji" aria-hidden="true">🛍️</span>
+                <h3>Groceries &amp; Essentials</h3>
+                <p>Packaged supermarket favourites and household essentials, delivered fast.</p>
+                <ul class="cat-subs"><li>Biscuits &amp; Snacks</li><li>Beverages</li><li>Honey</li><li>+7 more</li></ul>
+              </div>
+            </article>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ CATERING & EVENTS (pinned horizontal) ============ -->
+    <section class="events" id="catering" aria-labelledby="events-title">
+      <div class="events-pin">
+        <div class="container events-head">
+          <div>
+            <p class="eyebrow eyebrow-light">Catering &amp; Events</p>
+            <h2 class="section-title" id="events-title" data-split>Your event. <span class="hl-o">Our kitchen.</span></h2>
+          </div>
+          <ol class="flow" aria-label="How to request catering or an event">
+            <li>🎈 Event type</li>
+            <li>📅 Date</li>
+            <li>👥 Guests</li>
+            <li>💰 Budget</li>
+            <li>📍 Location</li>
+            <li class="flow-end">📞 We call you with a quote</li>
+          </ol>
+        </div>
+
+        <div class="events-viewport">
+          <ul class="events-track">
+            <li class="ev-card ev-intro" style="--c:#991B1B">
+              <img src="https://images.unsplash.com/photo-1555244162-803834f70033?w=1200&amp;q=80&amp;auto=format&amp;fit=crop" alt="" loading="lazy" decoding="async" width="1200" height="800">
+              <div class="ev-intro-body">
+                <span class="ev-tag">Service</span>
+                <h3>🍽️ Catering</h3>
+                <p>Offices, parties and events of every size across Lagos. Tell us what you need in the app — we'll call you with a quote.</p>
+              </div>
+            </li>
+            <li class="ev-card"><span class="ev-num">01</span><span class="ev-emoji" aria-hidden="true">🏢</span><h3>Corporate Catering</h3><span class="ev-kind">Catering</span></li>
+            <li class="ev-card"><span class="ev-num">02</span><span class="ev-emoji" aria-hidden="true">🥂</span><h3>Event Catering</h3><span class="ev-kind">Catering</span></li>
+            <li class="ev-card"><span class="ev-num">03</span><span class="ev-emoji" aria-hidden="true">🍢</span><h3>Food Stands</h3><span class="ev-kind">Catering</span></li>
+            <li class="ev-card"><span class="ev-num">04</span><span class="ev-emoji" aria-hidden="true">🥘</span><h3>Buffet Services</h3><span class="ev-kind">Catering</span></li>
+            <li class="ev-card"><span class="ev-num">05</span><span class="ev-emoji" aria-hidden="true">🎁</span><h3>Party Food Packages</h3><span class="ev-kind">Catering</span></li>
+            <li class="ev-card"><span class="ev-num">06</span><span class="ev-emoji" aria-hidden="true">🍱</span><h3>Small Gathering Packages</h3><span class="ev-kind">Catering</span></li>
+            <li class="ev-card"><span class="ev-num">07</span><span class="ev-emoji" aria-hidden="true">✍️</span><h3>Custom Catering Requests</h3><span class="ev-kind">Catering</span></li>
+            <li class="ev-card ev-intro" id="events" style="--c:#6B21A8">
+              <img src="https://images.unsplash.com/photo-1783314867628-220ab03cac99?w=1200&amp;q=80&amp;auto=format&amp;fit=crop" alt="" loading="lazy" decoding="async" width="1200" height="800">
+              <div class="ev-intro-body">
+                <span class="ev-tag">Service</span>
+                <h3>🎉 Events &amp; Celebrations</h3>
+                <p>Party and event packages with food, decor and service handled for you.</p>
+              </div>
+            </li>
+            <li class="ev-card ev-purple"><span class="ev-num">01</span><span class="ev-emoji" aria-hidden="true">🎂</span><h3>Birthday Parties</h3><span class="ev-kind">Events</span></li>
+            <li class="ev-card ev-purple"><span class="ev-num">02</span><span class="ev-emoji" aria-hidden="true">💼</span><h3>Business Gatherings</h3><span class="ev-kind">Events</span></li>
+            <li class="ev-card ev-purple"><span class="ev-num">03</span><span class="ev-emoji" aria-hidden="true">⛪</span><h3>Church Events</h3><span class="ev-kind">Events</span></li>
+            <li class="ev-card ev-purple"><span class="ev-num">04</span><span class="ev-emoji" aria-hidden="true">🍗</span><h3>Feasts</h3><span class="ev-kind">Events</span></li>
+            <li class="ev-card ev-purple"><span class="ev-num">05</span><span class="ev-emoji" aria-hidden="true">🏠</span><h3>House Parties</h3><span class="ev-kind">Events</span></li>
+            <li class="ev-card ev-purple"><span class="ev-num">06</span><span class="ev-emoji" aria-hidden="true">💍</span><h3>Wedding Parties</h3><span class="ev-kind">Events</span></li>
+            <li class="ev-card ev-purple"><span class="ev-num">07</span><span class="ev-emoji" aria-hidden="true">✨</span><h3>Special Occasions</h3><span class="ev-kind">Events</span></li>
+            <li class="ev-card ev-cta">
+              <h3>Ready to plan?</h3>
+              <p>Open the app, pick Catering or Events, and send a request with your event type, date, guest count, budget and location. Our team calls you back with a quote.</p>
+              <a class="btn btn-orange magnetic" href="#app">Get the app <span class="btn-arrow" aria-hidden="true">→</span></a>
+            </li>
+          </ul>
+        </div>
+        <div class="container"><div class="events-progress" aria-hidden="true"><span></span></div></div>
+      </div>
+    </section>
+
+    <!-- ============ LOCAL MARKET ============ -->
+    <section class="market section" id="market" aria-labelledby="market-title">
+      <div class="container market-inner">
+        <div class="market-copy">
+          <p class="eyebrow eyebrow-ink">🛒 The Local Market</p>
+          <h2 class="section-title" id="market-title" data-split>The market run, <span class="hl">without the run.</span></h2>
+          <p class="section-lead" data-reveal>Fresh open-market produce, meat, fish and staples — picked and delivered to your door. Order today, and it arrives with standard next-day delivery.</p>
+          <ul class="market-list" data-reveal>
+            <li>Fresh Vegetables</li><li>Meat</li><li>Fish &amp; Seafood</li><li>Eggs &amp; Dairy</li><li>Condiments &amp; Spices</li><li>Frozen Foods</li><li>Cooking Oils</li><li>Rice, Beans, Garri &amp; more</li>
+          </ul>
+          <span class="pill-green" data-reveal>🚚 Standard next-day delivery</span>
+        </div>
+
+        <div class="route-card" data-reveal>
+          <div class="produce" aria-hidden="true">
+            <span>🍅</span><span>🥬</span><span>🐟</span><span>🥚</span><span>🧅</span><span>🌶️</span><span>🍠</span><span>🥕</span>
+          </div>
+          <svg class="route" viewBox="0 0 600 420" role="img" aria-labelledby="route-desc">
+            <desc id="route-desc">A delivery route drawing from the market to your door.</desc>
+            <path class="route-bg" d="M70 340 C 170 340, 160 220, 260 220 S 360 330, 430 250 S 470 90, 530 90" />
+            <path class="route-line" id="route-path" d="M70 340 C 170 340, 160 220, 260 220 S 360 330, 430 250 S 470 90, 530 90" />
+            <g class="route-stop route-start" transform="translate(70 340)">
+              <circle r="34"></circle><text y="12" text-anchor="middle">🧺</text>
+            </g>
+            <g class="route-stop route-end" transform="translate(530 90)">
+              <circle r="34"></circle><text y="12" text-anchor="middle">🏠</text>
+            </g>
+            <g class="route-rider" id="route-rider" transform="translate(70 340)">
+              <text y="10" text-anchor="middle">🛵</text>
+            </g>
+            <text class="route-label" x="70" y="400" text-anchor="middle">The market</text>
+            <text class="route-label" x="530" y="40" text-anchor="middle">Your door</text>
+          </svg>
+          <div class="route-foot"><span>Order today</span><span class="route-arrow" aria-hidden="true">→</span><span>At your door tomorrow</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HOW IT WORKS ============ -->
+    <section class="how section" id="how" aria-labelledby="how-title">
+      <div class="container">
+        <div class="section-head center">
+          <p class="eyebrow eyebrow-ink">How it works</p>
+          <h2 class="section-title" id="how-title" data-split>Four steps to <span class="hl">something good.</span></h2>
+        </div>
+        <div class="steps-wrap">
+          <svg class="steps-line steps-line-h" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true">
+            <path class="steps-line-bg" d="M40 60 C 180 0, 300 120, 500 60 S 820 0, 960 60" pathLength="1"/>
+            <path class="steps-line-fg" d="M40 60 C 180 0, 300 120, 500 60 S 820 0, 960 60" pathLength="1"/>
+          </svg>
+          <svg class="steps-line steps-line-v" viewBox="0 0 40 1000" preserveAspectRatio="none" aria-hidden="true">
+            <path class="steps-line-bg" d="M20 0 L20 1000" pathLength="1"/>
+            <path class="steps-line-fg" d="M20 0 L20 1000" pathLength="1"/>
+          </svg>
+          <ol class="steps">
+            <li class="step">
+              <span class="step-icon" aria-hidden="true">📱</span>
+              <span class="step-num">Step 1</span>
+              <h3>Browse</h3>
+              <p>Explore seven categories — cakes, drinks, health foods, the local market, groceries, catering and events.</p>
+            </li>
+            <li class="step">
+              <span class="step-icon" aria-hidden="true">🛒</span>
+              <span class="step-num">Step 2</span>
+              <h3>Add to cart</h3>
+              <p>Pick what you love and check out in a few taps. Delivery is a flat ₦1,500.</p>
+            </li>
+            <li class="step">
+              <span class="step-icon" aria-hidden="true">💳</span>
+              <span class="step-num">Step 3</span>
+              <h3>Pay securely with Paystack</h3>
+              <p>Pay online at checkout by card, bank transfer or USSD through Paystack's secure checkout.</p>
+            </li>
+            <li class="step">
+              <span class="step-icon" aria-hidden="true">😋</span>
+              <span class="step-num">Step 4</span>
+              <h3>Enjoy</h3>
+              <p>Dig in, celebrate, stock up. Planning an event? Send a request and we'll call with a quote.</p>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ OUR MISSION (letter) ============ -->
+    <section class="mission section" id="mission" aria-labelledby="mission-title">
+      <div class="container">
+        <div class="mission-inner">
+          <div class="section-head center">
+            <p class="eyebrow eyebrow-ink">Our mission</p>
+            <h2 class="section-title" id="mission-title" data-split>A letter from <span class="hl">Ecclesia Nation</span></h2>
+          </div>
+          <article class="letter">
+            <span class="letter-quote" aria-hidden="true">&ldquo;</span>
+            <div class="letter-body">
+              <!-- TODO: client to supply the opening paragraph(s) of the letter -->
+              <p>the work of GOD while restoring dignity to those in need.</p>
+              <p>We warmly invite you to support this initiative by purchasing our products. Your purchases will feed people, create jobs, improve communities, strengthen Christian businesses, and build a lasting legacy of compassion for generations to come.</p>
+              <p>Thank you for partnering with us as we seek to serve CHRIST by serving people. Together, we can build a stronger Church, and a better world.</p>
+              <p class="letter-closing">Yours faithfully,</p>
+              <p class="letter-signature">ECCLESIA NATION</p>
+            </div>
+          </article>
+          <div class="mission-cta">
+            <a class="btn btn-orange btn-lg magnetic" href="#shop">Support the mission — shop now <span class="btn-arrow" aria-hidden="true">→</span></a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FOOD WITH A PURPOSE (teaser → about.html) ============ -->
+    <section class="purpose" id="purpose" aria-labelledby="purpose-title">
+      <div class="container">
+        <div class="purpose-card" data-reveal>
+          <div class="purpose-copy">
+            <p class="eyebrow purpose-eyebrow">FOOD WITH A PURPOSE</p>
+            <h2 class="section-title purpose-title" id="purpose-title" data-split>U Are An <span class="purpose-white">Angel</span></h2>
+            <div class="purpose-vision">
+              <h3>OUR VISION</h3>
+              <p>To build a sustainable food ecosystem that uplifts communities—where every meal purchased helps provide nourishment, dignity, and hope to the less privileged.</p>
+            </div>
+            <p class="purpose-pill"><span aria-hidden="true">🍲</span> Every purchase helps fund soup kitchens.</p>
+            <a class="btn btn-orange btn-lg magnetic" href="about.html">Read our story <span class="btn-arrow" aria-hidden="true">→</span></a>
+          </div>
+          <div class="purpose-art" aria-hidden="true">
+            <span class="purpose-ring"></span>
+            <span class="purpose-ring purpose-ring-2"></span>
+            <img src="assets/uangel-logo-white.png" alt="" width="1024" height="1024" loading="lazy">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ APP DOWNLOAD ============ -->
+    <section class="app section" id="app" aria-labelledby="app-title">
+      <div class="hero-bg" aria-hidden="true">
+        <span class="blob blob-1"></span>
+        <span class="blob blob-3"></span>
+        <span class="grain"></span>
+      </div>
+      <div class="container app-inner">
+        <div class="app-copy">
+          <p class="eyebrow">The U Angel Foods app</p>
+          <h2 class="section-title" id="app-title" data-split>All of it, right <span class="accent">in your pocket.</span></h2>
+          <ul class="app-points" data-reveal>
+            <li>✓ Shop all seven categories in one place</li>
+            <li>✓ Request catering &amp; event quotes</li>
+            <li>✓ Pay securely with Paystack (card, transfer or USSD)</li>
+            <li>✓ Flat ₦1,500 delivery fee</li>
+          </ul>
+          <!-- TODO: replace with real App Store / Google Play links when the app is published -->
+          <div class="stores" data-reveal>
+            <span class="store" aria-disabled="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.1zM13.9 4.9c.7-.9 1.2-2 1.1-3.2-1 0-2.3.7-3 1.6-.7.8-1.2 2-1.1 3.1 1.2.1 2.3-.6 3-1.5z"/></svg>
+              <span><small>App Store</small>Coming soon</span>
+            </span>
+            <span class="store" aria-disabled="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3.6 1.8 13.5 12l-9.9 10.2c-.4-.2-.6-.6-.6-1.1V2.9c0-.5.2-.9.6-1.1zm11.1 11.4 2.5 2.6-11.4 6.5 8.9-9.1zm0-2.4L5.8 1.7l11.4 6.5-2.5 2.6zm3.6-1.9 3 1.7c.9.5.9 1.7 0 2.2l-3 1.7-2.8-2.5 2.8-3.1z"/></svg>
+              <span><small>Google Play</small>Coming soon</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="phone-wrap" data-reveal>
+          <div class="phone">
+            <span class="phone-btn phone-btn-1" aria-hidden="true"></span>
+            <span class="phone-btn phone-btn-2" aria-hidden="true"></span>
+            <div class="phone-screen">
+              <span class="phone-notch" aria-hidden="true"></span>
+              <span class="phone-glow" aria-hidden="true"></span>
+              <div class="logo-stack phone-logo" data-logo role="img" aria-label="U Angel Foods logo">
+                <img class="l-u" src="assets/splash/u.png" alt="" width="1024" height="1024" loading="lazy">
+                <img class="l-a" src="assets/splash/a.png" alt="" width="1024" height="1024" loading="lazy">
+                <img class="l-dot" src="assets/splash/dot.png" alt="" width="1024" height="1024" loading="lazy">
+                <img class="l-dish" src="assets/splash/dish.png" alt="" width="1024" height="1024" loading="lazy">
+                <img class="l-text" src="assets/splash/text.png" alt="" width="1024" height="1024" loading="lazy">
+              </div>
+              <span class="phone-bar" aria-hidden="true"></span>
+            </div>
+          </div>
+          <span class="phone-shadow" aria-hidden="true"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <img src="assets/uangel-logo-white.png" alt="U Angel Foods" width="1024" height="1024" loading="lazy">
+        <p>Cakes, drinks, health foods, market produce, groceries, catering and events — delivered with love across Lagos. Pay securely online with Paystack.</p>
+      </div>
+      <nav class="footer-col" aria-label="Footer">
+        <h3>Explore</h3>
+        <a href="#shop">Shop</a>
+        <a href="#catering">Catering</a>
+        <a href="#events">Events</a>
+        <a href="#market">Market</a>
+        <a href="#how">How it works</a>
+        <a href="#mission">Our mission</a>
+        <a href="about.html">Our story</a>
+      </nav>
+      <div class="footer-col">
+        <h3>Say hello</h3>
+        <!-- TODO: add real phone/WhatsApp/Instagram -->
+        <a href="#">Phone (coming soon)</a>
+        <a href="#">WhatsApp (coming soon)</a>
+        <a href="#">Instagram (coming soon)</a>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>© <span id="year">2026</span> U Angel Foods. Lagos, Nigeria.</p>
+      <a href="#top" class="to-top">Back to top ↑</a>
+    </div>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js" defer></script>
+  <script src="js/main.js" defer></script>
+</body>
+</html>
