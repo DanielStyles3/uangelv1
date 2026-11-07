@@ -34,7 +34,7 @@
         esc(((c.name || c.email || '?').trim().charAt(0) || '?').toUpperCase()) + '</span>' +
         '<div style="min-width:0"><div class="cell-main nowrap">' + esc(c.name || '—') + (c.is_admin ? ' <span class="badge badge-admin no-dot">Admin</span>' : '') + '</div></div></div></td>' +
       '<td class="tc-line">' + (c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '<span class="muted">—</span>') + '</td>' +
-      '<td class="nowrap tc-inline">' + (c.phone ? '<a href="' + esc(A.telLink(c.phone)) + '">' + esc(c.phone) + '</a>' : '<span class="muted">—</span>') + '</td>' +
+      '<td class="nowrap ' + (c.phone ? 'tc-inline' : 'tc-hide-card') + '">' + (c.phone ? '<a href="' + esc(A.telLink(c.phone)) + '">' + esc(c.phone) + '</a>' : '<span class="muted">—</span>') + '</td>' +
       (locText(c) ? '<td class="tc-inline">' : '<td class="tc-hide-card">') + esc(locText(c) || '—') + '</td>' +
       '<td class="nowrap tc-stat" data-label="Joined">' + esc(A.formatDate(c.created_at)) + '</td>' +
       '<td class="num tc-stat" data-label="Orders">' + esc(A.formatNumber(n)) + '</td>' +

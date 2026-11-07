@@ -523,6 +523,7 @@ body.modal-open { overflow: hidden; }
 .req-card .foot { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line-2); padding-top: 10px; }
 .upcoming { color: #C2410C; }
 .upcoming-pill { background: var(--orange-soft); color: #C2410C; border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 700; margin-left: 4px; white-space: nowrap; }
+.req-card .facts .upcoming-pill { display: inline-block; color: #C2410C; font-size: 11px; font-weight: 700; margin: 2px 0 0; }
 
 /* Lists (dashboard) */
 .list { display: grid; grid-template-columns: minmax(0, 1fr); }
@@ -627,6 +628,7 @@ body.modal-open { overflow: hidden; }
     font-size: clamp(16px, 4.8vw, 20px); line-height: 1.25;
     white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere;
   }
+  .stat-value.is-long { font-size: clamp(14px, 3.9vw, 18px); }
   .stat-sub { font-size: 11.5px; line-height: 1.35; }
 
   .login-card { padding: 28px 20px; }
@@ -738,20 +740,23 @@ body.modal-open { overflow: hidden; }
   .table-cards .tc-id { flex: 1 1 auto; order: 1; }
   .table-cards .tc-total { flex: 0 0 auto; order: 2; text-align: right; font-size: 15px; }
   .table-cards .tc-main { order: 3; }
-  .table-cards .tc-date { flex: 1 1 auto; order: 4; font-size: 13px; color: var(--grey-2); }
+  .table-cards .tc-date { flex: 1 1 60%; order: 6; font-size: 13px; color: var(--grey-2); }
   .table-cards .tc-date .cell-sub, .table-cards .tc-id .cell-sub { display: inline; font-size: 13px; }
   .table-cards .tc-date .cell-sub::before, .table-cards .tc-id .cell-sub::before { content: " · "; }
-  .table-cards .tc-items { flex: 0 0 auto; order: 5; font-size: 13px; color: var(--muted); }
+  .table-cards .tc-items { flex: 0 0 auto; order: 7; font-size: 13px; color: var(--muted); text-align: right; }
   .table-cards .tc-only { display: inline; }
-  .table-cards .tc-badge { flex: 0 0 auto; order: 6; }
-  .table-cards .tc-badge + .tc-badge { order: 7; }
+  .table-cards .tc-badge { flex: 0 0 auto; order: 5; }
+  .table-cards .tc-badge .chip { height: 26px; padding: 0 10px; font-size: 12px; cursor: default; }
+  .table-cards .tc-id { flex-basis: 55%; }
   .table-cards .tc-time { flex: 1 1 auto; order: 8; text-align: right; font-size: 12px; color: var(--muted); }
   .table-cards .tc-first { order: 0; }
   .table-cards .tc-hide-card { display: none; }
   .table-cards .tc-line { order: 4; font-size: 14px; overflow-wrap: anywhere; }
   .table-cards .tc-inline { flex: 0 1 auto; order: 5; font-size: 13px; color: var(--grey-2); overflow-wrap: anywhere; }
   .table-cards .tc-inline + .tc-inline::before { content: "· "; color: var(--muted); }
-  .table-cards .tc-stat { flex: 1 1 0; order: 6; min-width: 72px; margin-top: 4px; font-size: 14px; }
+  .table-cards .tc-stat { flex: 1 1 0; order: 7; min-width: 72px; margin-top: 4px; font-size: 14px; }
+  /* Line break so the stats row never shares a line with the phone / location. */
+  .table-cards tr:has(> .tc-stat)::before { content: ""; order: 6; flex: 1 1 100%; height: 0; margin-bottom: -6px; }
   .table-cards .tc-stat.num { text-align: left; }
   .table-cards .tc-actions { order: 9; }
   .table-cards .tc-actions .btn { width: 100%; }

@@ -337,6 +337,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 
 @media (max-width: 899px) {
   .hero { padding-bottom: 64px; }
+  .hero-art { width: 100%; max-width: 560px; margin-inline: auto; }
   /* keep the ₦1,500 sticker off the "Birthday cakes" caption on phones/tablets */
   .sticker-1 { top: -2%; bottom: auto; left: -1%; }
 }
@@ -416,6 +417,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   .cat-badge { top: 14px; left: 14px; }
 }
 @media (min-width: 640px) { .cat-grid { grid-template-columns: repeat(2, 1fr); } .cat-wide { grid-column: span 2; } }
+@media (min-width: 640px) and (max-width: 999px) { .cat-item:last-child { grid-column: span 2; } .cat-item:last-child .cat-card { min-height: 360px; } }
 @media (min-width: 1000px) {
   .cat-grid { grid-template-columns: repeat(3, 1fr); gap: 22px; }
   .cat-card { min-height: 460px; }
@@ -477,8 +479,10 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   /* phones: two compact columns for the small service cards instead of one 3000px-long list */
   .events-track { gap: 10px; }
   .ev-card { padding: 16px 14px; min-height: 148px; border-radius: 18px; gap: 8px; }
-  .ev-card h3 { font-size: clamp(1.02rem, 4.4vw, 1.2rem); line-height: 1.12; }
+  .ev-card:not(.ev-intro):not(.ev-cta) h3 { font-size: clamp(1.02rem, 4.4vw, 1.2rem); line-height: 1.12; }
   .ev-emoji { font-size: 2rem; }
+  /* the 7th card of each group would sit alone: let it fill the row */
+  .events-track > .ev-card:nth-child(8), .events-track > .ev-card:nth-child(16) { grid-column: 1 / -1; min-height: 0; }
   .ev-kind { font-size: .68rem; letter-spacing: .12em; }
   .ev-intro, .ev-cta { min-height: 260px; }
   .ev-intro-body { padding: 20px; }
@@ -706,6 +710,8 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 @media (max-width: 759px) {
   .footer { padding-top: 56px; }
   .footer-inner { gap: 32px; }
+}
+@media (max-width: 759px), (pointer: coarse) {
   /* thumb-sized link rows (≥44px) */
   .footer-col { gap: 0; }
   .footer-col h3 { margin-bottom: 4px; }

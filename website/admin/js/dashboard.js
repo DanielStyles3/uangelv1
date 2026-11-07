@@ -11,7 +11,9 @@
     return '<' + tag + ' class="stat"' + (o.href ? ' href="' + esc(o.href) + '"' : '') + '>' +
       '<div class="stat-icon ' + (o.tone || '') + '">' + o.icon + '</div>' +
       '<div class="stat-body"><div class="stat-label">' + esc(o.label) + '</div>' +
-      '<div class="stat-value" title="' + esc(o.value) + '">' + esc(o.value) + '</div>' +
+      // Long amounts get a smaller size on phones and may only break after a thousands separator.
+      '<div class="stat-value' + (String(o.value).length >= 12 ? ' is-long' : '') + '" title="' + esc(o.value) + '">' +
+        esc(o.value).replace(/,/g, ',<wbr>') + '</div>' +
       (o.sub ? '<div class="stat-sub">' + esc(o.sub) + '</div>' : '') + '</div></' + tag + '>';
   }
 
