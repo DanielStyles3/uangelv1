@@ -14,6 +14,8 @@ export interface MenuItem {
     calories: number | null;
     protein: number | null;
     rating: number;
+    /** false = sold out: still shown, but can't be added to the cart. */
+    is_available?: boolean;
     /** Always a subcategory id. */
     category_id: string | null;
     created_at: string;
@@ -41,7 +43,22 @@ export interface Category {
     created_at: string;
 }
 
+/** A Home banner from the admin Promotions page (only live ones reach the app). */
+export interface Promotion {
+    id: string;
+    eyebrow: string | null;
+    title: string;
+    cta: string;
+    image_url: string;
+    color: string;
+    /** 'category' → category page, 'product' → product page, 'service' → request form. */
+    link_type: 'none' | 'category' | 'product' | 'service';
+    link_id: string | null;
+}
+
 export interface SubcategoryWithCount extends Category {
+    /** Options under this one (Catering › Events has the event types). */
+    child_count?: number;
     product_count: number;
 }
 
@@ -62,15 +79,23 @@ export interface User {
     address: string | null;
     city: string | null;
     state: string | null;
+    /** Delivery extras: a landmark for the rider, and the rider's call number (null = use `phone`). */
+    landmark?: string | null;
+    delivery_phone?: string | null;
     created_at: string;
 }
 
-export type ProfileUpdate = Partial<Pick<User, 'name' | 'phone' | 'address' | 'city' | 'state'>>;
+export type ProfileUpdate = Partial<Pick<User, 'name' | 'phone' | 'address' | 'city' | 'state' | 'landmark' | 'delivery_phone'>>;
 
 export type OrderStatus = 'awaiting_payment' | 'pending' | 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
 export type PaymentStatus = 'unpaid' | 'paid' | 'failed' | 'refunded';
-/** New orders are always 'paystack'; cash/transfer only exist on old orders. */
-export type PaymentMethod = 'paystack' | 'cash' | 'transfer';
+/**
+ * 'paystack' = everything paid online; 'pay_on_delivery' = delivery fee paid online,
+ * the items paid to the rider. cash/transfer only exist on old orders.
+ */
+export type PaymentMethod = 'paystack' | 'pay_on_delivery' | 'cash' | 'transfer';
+/** What the customer can choose at checkout. */
+export type CheckoutPaymentMethod = 'paystack' | 'pay_on_delivery';
 
 export interface OrderItem {
     id: string;
@@ -95,6 +120,11 @@ export interface Order {
     subtotal: number;
     delivery_fee: number;
     total: number;
+    /** Charged via Paystack: the total, or only the delivery fee for pay on delivery. null on old orders (= total). */
+    online_amount: number | null;
+    /** Pay on delivery: what the rider collects (the subtotal); 0 otherwise. */
+    balance_due: number;
+    balance_collected_at: string | null;
     delivery_address: string;
     city: string;
     state: string;
@@ -124,11 +154,19 @@ export interface ServiceRequest {
     city: string;
     state: string;
     details: string | null;
+    /** 'Morning' | 'Afternoon' | 'Evening' */
+    event_time?: string | null;
+    /** 'Indoor' | 'Outdoor' | 'Not sure yet' */
+    venue_type?: string | null;
+    /** What the customer needs, e.g. ['Food', 'Drinks', 'Decor']. */
+    needs?: string[];
+    /** The amount the business quoted (set in the admin). */
+    quote_amount?: number | null;
     status: ServiceRequestStatus;
     created_at: string;
 }
 
-export type NewServiceRequest = Omit<ServiceRequest, 'id' | 'user_id' | 'status' | 'created_at'>;
+export type NewServiceRequest = Omit<ServiceRequest, 'id' | 'user_id' | 'status' | 'created_at' | 'quote_amount'>;
 
 export interface PlaceOrderParams {
     items: CartItemType[];
@@ -136,8 +174,8 @@ export interface PlaceOrderParams {
     city: string;
     state: string;
     phone: string;
-    /** Ignored: every order is paid online with Paystack. */
-    paymentMethod?: PaymentMethod;
+    /** Default 'paystack' (pay everything now). */
+    paymentMethod?: CheckoutPaymentMethod;
     note?: string;
 }
 
@@ -145,7 +183,34 @@ export interface CartCustomization {
     id: string;
     name: string;
     price: number;
+    /** 'topping' | 'side' (add-ons), 'option' (a chosen option value), 'text' (id = option group id). */
     type: string;
+    /** For type 'text': what the customer typed (e.g. the message on the cake). */
+    text?: string;
+}
+
+/** "Customise your cake": a question on a product (Size, Flavour, Message on the cake…). */
+export interface OptionGroup {
+    id: string;
+    menu_id: string;
+    name: string;
+    /** 'single' = pick one value; 'text' = type something. */
+    kind: 'single' | 'text';
+    required: boolean;
+    max_length: number | null;
+    placeholder: string | null;
+    sort_order: number;
+    option_values: OptionValue[];
+}
+
+export interface OptionValue {
+    id: string;
+    group_id: string;
+    name: string;
+    price: number;
+    hint: string | null;
+    swatch: string | null;
+    sort_order: number;
 }
 
 export interface CartItemType {

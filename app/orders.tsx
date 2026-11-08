@@ -211,13 +211,13 @@ const MiniProgress = ({ status }: { status: OrderStatus }) => {
     );
 };
 
-const PaymentNotice = ({ orderId }: { orderId: string }) => (
+const PaymentNotice = ({ orderId, deliveryOnly }: { orderId: string; deliveryOnly?: boolean }) => (
     <View style={styles.payNotice}>
         <Ionicons name="card-outline" size={18} color={C.orange} />
         <View style={styles.payNoticeTextWrap}>
             <Text style={styles.payNoticeTitle}>Payment pending</Text>
             <Text style={styles.payNoticeSub} numberOfLines={1}>
-                Pay to confirm your order
+                {deliveryOnly ? "Pay the delivery fee to confirm" : "Pay to confirm your order"}
             </Text>
         </View>
         <TouchableOpacity style={styles.payBtn} activeOpacity={0.85} onPress={() => openPayment(orderId, 'push')} hitSlop={6}>
@@ -254,7 +254,7 @@ const OrderCard = ({ order, index }: { order: Order; index: number }) => {
                 </Text>
 
                 {order.status === "awaiting_payment" ? (
-                    <PaymentNotice orderId={order.id} />
+                    <PaymentNotice orderId={order.id} deliveryOnly={order.payment_method === "pay_on_delivery"} />
                 ) : active ? (
                     <MiniProgress status={order.status} />
                 ) : null}
@@ -265,6 +265,13 @@ const OrderCard = ({ order, index }: { order: Order; index: number }) => {
                     <View>
                         <Text style={styles.totalLabel}>Total</Text>
                         <Text style={styles.total}>{formatNaira(order.total)}</Text>
+                        {order.payment_method === "pay_on_delivery" && Number(order.balance_due) > 0 && (
+                            <Text style={styles.podNote} numberOfLines={1}>
+                                {order.balance_collected_at
+                                    ? "Paid on delivery ✓"
+                                    : `Pay ${formatNaira(order.balance_due)} to the rider`}
+                            </Text>
+                        )}
                     </View>
                     <View style={styles.viewDetails}>
                         <Text style={styles.viewDetailsText}>View details</Text>
@@ -530,6 +537,7 @@ const styles = StyleSheet.create({
     cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     totalLabel: { fontFamily: "Quicksand-Medium", fontSize: 11, color: C.grey },
     total: { fontFamily: "Quicksand-Bold", fontSize: 17, color: C.navy },
+    podNote: { fontFamily: "Quicksand-Bold", fontSize: 11.5, color: "#B45309", marginTop: 2 },
     viewDetails: { flexDirection: "row", alignItems: "center", gap: 2 },
     viewDetailsText: { fontFamily: "Quicksand-SemiBold", fontSize: 13, color: C.orange },
 

@@ -222,6 +222,7 @@
     failed: 'Failed',
     refunded: 'Refunded',
     paystack: 'Paystack',
+    pay_on_delivery: 'Pay on delivery (delivery fee via Paystack)',
     cash: 'Cash on delivery',
     transfer: 'Bank transfer'
   };

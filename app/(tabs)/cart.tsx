@@ -11,8 +11,9 @@ import CartItem from "@/components/CartItem";
 import ProductImage from "@/components/ProductImage";
 import {DELIVERY_FEE, images} from "@/constants";
 import {formatNaira} from "@/lib/format";
-import {getMenu} from "@/lib/api";
+import {getMenu, getProductsNeedingChoices} from "@/lib/api";
 import useFetch from "@/lib/useFetch";
+import useDeliveryFee from "@/lib/useDeliveryFee";
 import {CartItemType, MenuItem} from "@/type";
 
 const cartItemKey = (item: CartItemType) =>
@@ -39,8 +40,10 @@ const SuggestionCard = ({ item }: { item: MenuItem }) => {
                 <Pressable
                     style={styles.sugAdd}
                     hitSlop={8}
-                    onPress={() => {
+                    onPress={async () => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                        // Cakes need a size/flavour first: open their page instead.
+                        if ((await getProductsNeedingChoices()).has(item.id)) return router.push({ pathname: '/menu/[id]', params: { id: item.id } });
                         addItem({ id: item.id, name: item.name, price: item.price, image_url: item.image_url, emoji: item.emoji, customizations: [] });
                     }}
                     accessibilityLabel={`Add ${item.name} to cart`}
@@ -73,9 +76,11 @@ const Cart = () => {
     const { user } = useAuthStore();
     const { data: menu } = useFetch({ fn: getMenu, params: { limit: 12 } });
 
+    const { fee: deliveryFee, ready: feeReady } = useDeliveryFee(items.map((i) => i.id));
+
     const totalItems = getTotalItems();
     const subtotal = getTotalPrice();
-    const total = subtotal + DELIVERY_FEE;
+    const total = subtotal + deliveryFee;
     const inCart = new Set(items.map((i) => i.id));
     const suggestions = (menu ?? []).filter((m) => !inCart.has(m.id)).slice(0, 8);
     const address = [user?.address, user?.city, user?.state].filter(Boolean).join(', ');
@@ -134,7 +139,7 @@ const Cart = () => {
                 </View>
 
                 {/* Delivering to */}
-                <Pressable style={styles.deliver} onPress={() => router.push('/edit-profile')}>
+                <Pressable style={styles.deliver} onPress={() => router.push('/delivery-address')}>
                     <View style={styles.deliverIcon}>
                         <Ionicons name="location" size={18} color="#fff" />
                     </View>
@@ -150,13 +155,16 @@ const Cart = () => {
                     <Text style={styles.sectionTitle}>Order summary</Text>
                     <View style={{ marginTop: 10, gap: 10 }}>
                         <Row label={`Subtotal (${totalItems} item${totalItems === 1 ? '' : 's'})`} value={formatNaira(subtotal)} />
-                        <Row label="Delivery fee" value={formatNaira(DELIVERY_FEE)} />
+                        <Row label="Delivery fee" value={feeReady ? formatNaira(deliveryFee) : '…'} />
                         <View style={styles.divider} />
-                        <Row label="Total" value={formatNaira(total)} bold />
+                        <Row label="Total" value={feeReady ? formatNaira(total) : '…'} bold />
                     </View>
+                    {feeReady && deliveryFee > DELIVERY_FEE && (
+                        <Text style={styles.feeNote}>{formatNaira(deliveryFee)} delivery for orders with groceries or Local Market items.</Text>
+                    )}
                     <View style={styles.payNote}>
                         <Ionicons name="shield-checkmark-outline" size={16} color="#2F9B65" />
-                        <Text style={styles.payNoteText}>Secure payment with Paystack: card, transfer or USSD</Text>
+                        <Text style={styles.payNoteText}>Pay online with Paystack, or pay on delivery (delivery fee online first)</Text>
                     </View>
                 </Animated.View>
 
@@ -167,7 +175,7 @@ const Cart = () => {
             <View style={styles.checkoutBar}>
                 <View>
                     <Text style={styles.barLabel}>Total</Text>
-                    <Text style={styles.barTotal}>{formatNaira(total)}</Text>
+                    <Text style={styles.barTotal}>{feeReady ? formatNaira(total) : '…'}</Text>
                 </View>
                 <TouchableOpacity
                     style={[styles.primaryBtn, styles.barBtn]}
@@ -211,7 +219,8 @@ const styles = StyleSheet.create({
     rowValueBold: { fontFamily: 'Quicksand-Bold', fontSize: 19, color: '#FE8C00' },
     divider: { height: 1, backgroundColor: '#EFEFF2', marginVertical: 2 },
     payNote: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, padding: 10, borderRadius: 12, backgroundColor: '#EAF7F0' },
-    payNoteText: { fontFamily: 'Quicksand-SemiBold', fontSize: 12.5, color: '#2F9B65' },
+    payNoteText: { flex: 1, fontFamily: 'Quicksand-SemiBold', fontSize: 12.5, color: '#2F9B65' },
+    feeNote: { fontFamily: 'Quicksand-Medium', fontSize: 12, color: '#878787', marginTop: 10 },
 
     sugCard: {
         width: 150, padding: 10, borderRadius: 20, backgroundColor: '#fff',

@@ -12,7 +12,11 @@ Deno.serve(async (req) => {
         if (!reference) return json({ error: "reference is required" }, 400);
 
         const [order] = await sql`
-            select id from public.orders where paystack_reference = ${reference} and user_id = ${user.id}`;
+            select o.id from public.orders o
+             where o.user_id = ${user.id}
+               and (o.paystack_reference = ${reference}
+                    or o.id = (select a.order_id from public.payment_attempts a where a.reference = ${reference}))
+             limit 1`;
         if (!order) return json({ error: "Payment not found" }, 404);
 
         const status = await verifyAndMarkPaid(reference);

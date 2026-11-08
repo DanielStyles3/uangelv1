@@ -1,4 +1,7 @@
-/* U Angel Foods admin — Customers & admins section. */
+/* U Angel Foods admin — Customers.
+ * Summary tiles, customer groups, a sortable table with WhatsApp / call buttons, a profile
+ * side panel (contact, stats, what they usually buy, recent orders, admin access) and a CSV
+ * download. Styles: css/manage.css (cu-) + shared drawer styles in css/categories.css. */
 (function () {
   'use strict';
   var A = window.Admin;
@@ -6,245 +9,274 @@
   var esc = A.escapeHtml;
   var I = A.icons;
   var PAGE = 50;
+  var DAY = 86400000;
+  var AV = ['#9D174D', '#0F5B78', '#166534', '#7A4419', '#6B21A8', '#9A3412', '#181C2E'];
+  var GROUPS = [
+    ['all', 'All'], ['vip', 'Top customers'], ['regular', 'Regulars'], ['new', 'New'],
+    ['quiet', 'Inactive 30+ days'], ['none', 'No orders yet'], ['admin', 'Admins']
+  ];
 
   var S;
 
-  function locText(c) { return [c.city, c.state].filter(Boolean).join(', '); }
+  function nameOf(c) { return c.name || c.email || 'Customer'; }
+  function initials(c) { return nameOf(c).trim().split(/\s+/).map(function (x) { return x.charAt(0); }).join('').slice(0, 2).toUpperCase() || '?'; }
+  function avColor(c) { var h = 0, s = String(c.id || ''); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return AV[Math.abs(h) % AV.length]; }
+  function area(c) { return [c.city, c.state].filter(Boolean).join(', '); }
+  function daysSince(iso) { return iso ? Math.floor((Date.now() - new Date(iso).getTime()) / DAY) : null; }
+  function lastText(c) {
+    var d = daysSince(c.last_order_at);
+    if (d == null) return Number(c.orders_count) ? '—' : 'Never';
+    return d === 0 ? 'Today' : d === 1 ? 'Yesterday' : d < 60 ? d + ' days ago' : A.formatDate(c.last_order_at);
+  }
+
+  /* Group: none → inactive → top → new → regular. "Top" = top 10% by spend (at least 1). */
+  function group(c) {
+    if (!Number(c.orders_count)) return ['none', 'No orders yet'];
+    var d = daysSince(c.last_order_at);
+    if (d != null && d > 30) return ['quiet', 'Inactive 30+ days'];
+    if (Number(c.total_spent) >= S.vipMin) return ['vip', 'Top customer'];
+    if (daysSince(c.created_at) != null && daysSince(c.created_at) <= 30) return ['new', 'New'];
+    return ['regular', 'Regular'];
+  }
 
   function filtered() {
     var q = S.q.toLowerCase();
     var rows = S.rows.filter(function (c) {
-      if (S.onlyAdmins && !c.is_admin) return false;
+      if (S.group === 'admin' ? !c.is_admin : (S.group !== 'all' && group(c)[0] !== S.group)) return false;
       if (!q) return true;
       return [c.name, c.email, c.phone, c.city, c.state].some(function (v) { return v && String(v).toLowerCase().indexOf(q) >= 0; });
     });
     var by = {
-      newest: function (a, b) { return String(b.created_at || '').localeCompare(String(a.created_at || '')); },
       spent: function (a, b) { return (Number(b.total_spent) || 0) - (Number(a.total_spent) || 0); },
       orders: function (a, b) { return (Number(b.orders_count) || 0) - (Number(a.orders_count) || 0); },
-      name: function (a, b) { return String(a.name || a.email || '').localeCompare(String(b.name || b.email || '')); }
-    }[S.sort] || function () { return 0; };
+      last: function (a, b) { return String(b.last_order_at || '').localeCompare(String(a.last_order_at || '')); },
+      newest: function (a, b) { return String(b.created_at || '').localeCompare(String(a.created_at || '')); },
+      name: function (a, b) { return nameOf(a).localeCompare(nameOf(b)); }
+    }[S.sort];
     return rows.sort(by);
   }
 
-  function rowHtml(c) {
-    var n = Number(c.orders_count) || 0;
-    return '<tr>' +
-      '<td class="tc-first"><div class="row" style="gap:10px;flex-wrap:nowrap"><span class="avatar" aria-hidden="true" style="width:34px;height:34px;font-size:13px">' +
-        esc(((c.name || c.email || '?').trim().charAt(0) || '?').toUpperCase()) + '</span>' +
-        '<div style="min-width:0"><div class="cell-main nowrap">' + esc(c.name || '—') + (c.is_admin ? ' <span class="badge badge-admin no-dot">Admin</span>' : '') + '</div></div></div></td>' +
-      '<td class="tc-line">' + (c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '<span class="muted">—</span>') + '</td>' +
-      '<td class="nowrap ' + (c.phone ? 'tc-inline' : 'tc-hide-card') + '">' + (c.phone ? '<a href="' + esc(A.telLink(c.phone)) + '">' + esc(c.phone) + '</a>' : '<span class="muted">—</span>') + '</td>' +
-      (locText(c) ? '<td class="tc-inline">' : '<td class="tc-hide-card">') + esc(locText(c) || '—') + '</td>' +
-      '<td class="nowrap tc-stat" data-label="Joined">' + esc(A.formatDate(c.created_at)) + '</td>' +
-      '<td class="num tc-stat" data-label="Orders">' + esc(A.formatNumber(n)) + '</td>' +
-      '<td class="num strong tc-stat" data-label="Spent">' + esc(A.formatNaira(c.total_spent)) + '</td>' +
-      '<td class="text-right tc-actions"><button type="button" class="btn btn-ghost btn-sm" data-orders="' + esc(c.id) + '"' + (n ? '' : ' disabled') +
-        ' aria-label="View orders from ' + esc(c.name || c.email || 'this customer') + '">' + I.bag + 'View orders</button></td>' +
-    '</tr>';
+  /* ---------------- Rendering ---------------- */
+
+  function tilesHtml() {
+    var rows = S.rows, buyers = rows.filter(function (c) { return Number(c.orders_count) > 0; });
+    var repeat = buyers.filter(function (c) { return Number(c.orders_count) > 1; }).length;
+    var spent = buyers.reduce(function (s, c) { return s + (Number(c.total_spent) || 0); }, 0);
+    var joined30 = rows.filter(function (c) { var d = daysSince(c.created_at); return d != null && d <= 30; }).length;
+    function tile(label, value, sub) { return '<div class="card cu-tile"><span>' + esc(label) + '</span><b>' + esc(value) + '</b><small>' + esc(sub) + '</small></div>'; }
+    return tile('Customers', A.formatNumber(rows.length), '+' + joined30 + ' joined in the last 30 days') +
+      tile('Have ordered', A.formatNumber(buyers.length), rows.length ? Math.round(buyers.length / rows.length * 100) + '% of sign-ups' : '—') +
+      tile('Come back again', buyers.length ? Math.round(repeat / buyers.length * 100) + '%' : '—', repeat + ' ordered more than once') +
+      tile('Average spend', buyers.length ? A.formatNaira(spent / buyers.length) : '—', 'per customer who ordered');
   }
 
-  function renderTable() {
-    var list = filtered();
-    var shown = list.slice(0, S.limit);
-    var wrap = S.el.querySelector('.table-wrap');
-    var emptyBox = S.el.querySelector('[data-empty]');
-    var foot = S.el.querySelector('[data-foot]');
-    var tbody = S.el.querySelector('tbody');
-    if (!list.length) {
-      wrap.hidden = true;
-      foot.hidden = true;
-      emptyBox.hidden = false;
-      emptyBox.innerHTML = S.rows.length
-        ? A.emptyState('No matching customers', 'Try a different search.', I.search)
-        : A.emptyState('No customers yet', 'People who sign up in the app will appear here.', I.users);
-      return;
-    }
-    wrap.hidden = false;
-    emptyBox.hidden = true;
-    foot.hidden = false;
-    tbody.innerHTML = shown.map(rowHtml).join('');
-    S.el.querySelector('[data-count]').textContent = 'Showing ' + A.formatNumber(shown.length) + ' of ' + A.formatNumber(list.length) +
-      ' customer' + (list.length === 1 ? '' : 's') + (list.length !== S.rows.length ? ' (filtered from ' + A.formatNumber(S.rows.length) + ')' : '');
-    S.el.querySelector('[data-more]').hidden = shown.length >= list.length;
-  }
-
-  function renderAdmins() {
-    var box = S.el.querySelector('[data-admins]');
-    var admins = S.rows.filter(function (c) { return c.is_admin; })
-      .sort(function (a, b) { return String(a.name || a.email || '').localeCompare(String(b.name || b.email || '')); });
-    if (!admins.length) { box.innerHTML = A.emptyState('No admins found', '', I.shield); return; }
-    var me = A.user && A.user.id;
-    box.innerHTML = admins.map(function (c) {
-      var self = c.id === me;
-      return '<div class="list-item" style="cursor:default">' +
-        '<span class="avatar" aria-hidden="true" style="width:36px;height:36px;font-size:14px;background:var(--navy)">' + esc(((c.name || c.email || '?').trim().charAt(0) || '?').toUpperCase()) + '</span>' +
-        '<span class="li-body"><span class="li-title" style="display:block">' + esc(c.name || c.email) + (self ? ' <span class="badge badge-orange no-dot">You</span>' : '') + '</span>' +
-        '<span class="li-sub" style="display:block">' + esc(c.email || '') + '</span></span>' +
-        (c.email ? '<button type="button" class="btn btn-ghost btn-sm" data-remove="' + esc(c.email) + '" data-self="' + (self ? '1' : '') + '" style="color:var(--red)" aria-label="Remove admin access from ' + esc(c.email) + '">Remove</button>' : '') +
-      '</div>';
+  function chipsHtml() {
+    var counts = { all: S.rows.length, admin: S.rows.filter(function (c) { return c.is_admin; }).length };
+    S.rows.forEach(function (c) { var g = group(c)[0]; counts[g] = (counts[g] || 0) + 1; });
+    return GROUPS.map(function (g) {
+      var on = S.group === g[0];
+      return '<button type="button" class="cu-chip' + (on ? ' on' : '') + '" data-group="' + g[0] + '" aria-pressed="' + on + '">' + esc(g[1]) + ' <b>' + (counts[g[0]] || 0) + '</b></button>';
     }).join('');
   }
 
-  async function loadData() {
-    var res = await A.sb.rpc('admin_customers');
-    S.rows = A.unwrap(res) || [];
+  function sortTh(key, label) {
+    var on = S.sort === key;
+    return '<th class="num"' + (on ? ' aria-sort="descending"' : '') + '><button type="button" class="cu-sort' + (on ? ' on' : '') + '" data-sort="' + key + '">' + esc(label) + (on ? ' ↓' : '') + '</button></th>';
   }
 
-  async function reload() {
+  function rowHtml(c) {
+    var g = group(c);
+    var wa = c.phone ? '<a class="cu-cbtn wa" href="' + esc(A.waLink(c.phone)) + '" target="_blank" rel="noopener" aria-label="WhatsApp ' + esc(nameOf(c)) + '" data-stop>' + I.whatsapp + '</a>' : '';
+    var call = c.phone ? '<a class="cu-cbtn" href="' + esc(A.telLink(c.phone)) + '" aria-label="Call ' + esc(nameOf(c)) + '" data-stop>' + I.phone + '</a>' : '';
+    return '<tr class="clickable" tabindex="0" data-id="' + esc(c.id) + '">' +
+      '<td><div class="cu-who"><span class="cu-av" style="background:' + avColor(c) + '" aria-hidden="true">' + esc(initials(c)) + '</span>' +
+        '<span><b>' + esc(nameOf(c)) + (c.is_admin ? ' <span class="cu-g admin">Admin</span>' : '') + '</b><small>' + esc(c.phone || c.email || '') + '</small></span></div></td>' +
+      '<td>' + esc(area(c) || '—') + '</td>' +
+      '<td><span class="cu-g ' + g[0] + '">' + esc(g[1]) + '</span></td>' +
+      '<td class="num">' + A.formatNumber(Number(c.orders_count) || 0) + '</td>' +
+      '<td class="num"><b>' + esc(A.formatNaira(c.total_spent)) + '</b></td>' +
+      '<td class="num nowrap">' + esc(lastText(c)) + '</td>' +
+      '<td><div class="cu-contact">' + (wa + call || '<span class="muted small">—</span>') + '</div></td></tr>';
+  }
+
+  function renderTable() {
+    var list = filtered(), shown = list.slice(0, S.limit);
+    var box = S.el.querySelector('[data-table]');
+    if (!list.length) {
+      box.innerHTML = S.rows.length ? A.emptyState('No matching customers', 'Try a different search or group.', I.search)
+        : A.emptyState('No customers yet', 'People who sign up in the app will appear here.', I.users);
+      return;
+    }
+    box.innerHTML = '<div class="table-wrap"><table class="table cu-table"><thead><tr>' +
+      '<th>Customer</th><th>Area</th><th>Group</th>' + sortTh('orders', 'Orders') + sortTh('spent', 'Total spent') + sortTh('last', 'Last order') +
+      '<th><span class="sr-only">Contact</span></th></tr></thead><tbody>' + shown.map(rowHtml).join('') + '</tbody></table></div>' +
+      '<div class="table-foot"><span>Showing ' + A.formatNumber(shown.length) + ' of ' + A.formatNumber(list.length) + '</span>' +
+      (shown.length < list.length ? '<button type="button" class="btn btn-ghost btn-sm" data-more>Show more</button>' : '') + '</div>';
+  }
+
+  function renderAll() {
+    S.el.querySelector('[data-tiles]').innerHTML = tilesHtml();
+    S.el.querySelector('[data-chips]').innerHTML = chipsHtml();
+    renderTable();
+  }
+
+  /* ---------------- Profile panel ---------------- */
+
+  async function openProfile(c) {
+    var g = group(c);
+    var body = document.createElement('div');
+    body.className = 'cg-form';
+    var orders = Number(c.orders_count) || 0;
+    body.innerHTML =
+      '<div class="cu-prof"><span class="cu-av big" style="background:' + avColor(c) + '" aria-hidden="true">' + esc(initials(c)) + '</span>' +
+        '<div><b>' + esc(nameOf(c)) + '</b><small>' + esc(area(c) || 'No address yet') + ' · <span class="cu-g ' + g[0] + '">' + esc(g[1]) + '</span></small></div></div>' +
+      '<div class="cu-actions">' +
+        (c.phone ? '<a class="btn btn-ghost btn-sm" href="' + esc(A.waLink(c.phone)) + '" target="_blank" rel="noopener">' + I.whatsapp + 'WhatsApp</a>' +
+          '<a class="btn btn-ghost btn-sm" href="' + esc(A.telLink(c.phone)) + '">' + I.phone + 'Call</a>' : '') +
+        (c.email ? '<a class="btn btn-ghost btn-sm" href="mailto:' + esc(c.email) + '">' + I.mail + 'Email</a>' : '') +
+      '</div>' +
+      '<p class="cu-note">' + esc([c.phone, c.email].filter(Boolean).join(' · ') || 'No contact details') + ' · Joined ' + esc(A.formatDate(c.created_at)) + '</p>' +
+      '<div class="cu-stats"><div><span>Orders</span><b>' + A.formatNumber(orders) + '</b></div>' +
+        '<div><span>Total spent</span><b>' + esc(A.formatNaira(c.total_spent)) + '</b></div>' +
+        '<div><span>Average order</span><b>' + (orders ? esc(A.formatNaira((Number(c.total_spent) || 0) / orders)) : '—') + '</b></div></div>' +
+      '<div data-history>' + (orders ? A.skeletonBlocks(3, 'line') : '<p class="cu-note">Signed up but hasn’t ordered yet. A friendly WhatsApp message about a popular product often helps.</p>') + '</div>' +
+      '<div class="cu-adminrow"><div><b>Admin access</b><small>Lets this person sign in to this dashboard.</small></div>' +
+        '<button type="button" class="pp-switch" role="switch" aria-checked="' + !!c.is_admin + '" data-admin aria-label="Admin access"' + (c.email ? '' : ' disabled') + '><i></i></button></div>';
+
+    var m = A.modal({
+      title: nameOf(c), body: body, className: 'cg-drawer',
+      actions: [{ label: 'Close', variant: 'ghost', onClick: function (close) { close(); } }]
+    });
+
+    body.querySelector('[data-admin]').addEventListener('click', async function () {
+      var btn = this, make = !c.is_admin, self = A.user && A.user.id === c.id;
+      var ok = await A.confirm(make
+        ? 'Give ' + nameOf(c) + ' full admin access?\n\nThey will be able to see all orders and customers, and change the menu.'
+        : (self ? 'Remove your own admin access?\n\nYou will be signed out and won’t be able to use this dashboard unless another admin adds you back.'
+                : 'Remove admin access from ' + nameOf(c) + '?\n\nTheir customer account stays.'),
+        { danger: !make, confirmLabel: make ? 'Make admin' : 'Remove admin', title: make ? 'Add admin' : 'Remove admin' });
+      if (!ok) return;
+      btn.disabled = true;
+      var res = await A.sb.rpc('admin_set_admin', { p_email: c.email, p_make_admin: make });
+      btn.disabled = false;
+      if (res.error) { A.toast(A.errMessage(res.error), 'error'); return; }
+      if (self && !make) { A.signOut(); return; }
+      c.is_admin = make;
+      btn.setAttribute('aria-checked', String(make));
+      A.toast(make ? nameOf(c) + ' is now an admin' : nameOf(c) + ' is no longer an admin', 'success');
+      renderAll();
+    });
+
+    if (!orders) return;
+    var hist = body.querySelector('[data-history]');
     try {
-      await loadData();
-      if (!S.el.isConnected) return;
-      renderTable();
-      renderAdmins();
+      var res = await A.sb.from('orders').select('id, status, payment_status, total, created_at, order_items(name, quantity)')
+        .eq('user_id', c.id).order('created_at', { ascending: false }).limit(20);
+      var list = A.unwrap(res) || [];
+      if (!m.isOpen()) return;
+      var counts = {};
+      list.forEach(function (o) { if (o.payment_status === 'paid') (o.order_items || []).forEach(function (it) { var k = String(it.name || '').split(' – ')[0]; counts[k] = (counts[k] || 0) + (Number(it.quantity) || 1); }); });
+      var favs = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a]; }).slice(0, 4);
+      hist.innerHTML =
+        (favs.length ? '<div class="field"><span class="cg-lbl">Usually buys</span><div class="cu-favs">' + favs.map(function (f) { return '<span>' + esc(f) + ' <b>×' + counts[f] + '</b></span>'; }).join('') + '</div></div>' : '') +
+        '<div class="field"><span class="cg-lbl">Recent orders</span><div class="cu-olist">' + list.slice(0, 5).map(function (o) {
+          var n = (o.order_items || []).reduce(function (s, it) { return s + (Number(it.quantity) || 0); }, 0);
+          return '<button type="button" data-order="' + esc(o.id) + '"><span>#' + esc(A.shortId(o.id)) + '<small>' + esc(A.timeAgo(o.created_at)) + ' · ' + n + ' item' + (n === 1 ? '' : 's') + '</small></span>' +
+            '<b>' + esc(A.formatNaira(o.total)) + '</b>' + A.badge(o.status) + '</button>';
+        }).join('') + '</div>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-all-orders style="align-self:flex-start">See all their orders →</button></div>';
+      hist.addEventListener('click', function (e) {
+        var o = e.target.closest('[data-order]');
+        if (o && typeof A.openOrder === 'function') { A.openOrder(o.getAttribute('data-order')); return; }
+        if (e.target.closest('[data-all-orders]')) { m.close(); A.navigate('orders', { view: 'list', customer: c.id }); }
+      });
     } catch (e) {
-      A.toast(A.errMessage(e), 'error');
+      hist.innerHTML = '';
+      hist.appendChild(A.errorState(A.errMessage(e), function () { m.close(); openProfile(c); }));
     }
   }
 
-  async function setAdmin(email, make) {
-    var res = await A.sb.rpc('admin_set_admin', { p_email: email, p_make_admin: make });
-    if (res.error) throw new Error(A.errMessage(res.error));
+  /* ---------------- CSV ---------------- */
+
+  function downloadCsv() {
+    var list = filtered();
+    var cell = function (v) { var s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    var lines = [['Name', 'Email', 'Phone', 'City', 'State', 'Group', 'Orders', 'Total spent (NGN)', 'Last order', 'Joined'].join(',')];
+    list.forEach(function (c) {
+      lines.push([c.name, c.email, c.phone, c.city, c.state, group(c)[1], Number(c.orders_count) || 0, Number(c.total_spent) || 0,
+        c.last_order_at ? A.lagosDateKey(c.last_order_at) : '', A.lagosDateKey(c.created_at)].map(cell).join(','));
+    });
+    var blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'u-angel-customers-' + A.lagosDateKey(new Date()) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    A.toast('Downloaded ' + list.length + ' customer' + (list.length === 1 ? '' : 's'), 'success');
   }
 
-  function bindAdmins(el) {
-    var form = el.querySelector('[data-admin-form]');
-    var input = form.querySelector('input');
-    var err = form.querySelector('[data-admin-error]');
-    var btn = form.querySelector('button[type=submit]');
-    input.addEventListener('input', function () { err.hidden = true; input.removeAttribute('aria-invalid'); });
-
-    form.addEventListener('submit', async function (e) {
-      e.preventDefault();
-      err.hidden = true;
-      var email = input.value.trim();
-      if (!/^\S+@\S+\.\S+$/.test(email)) {
-        err.textContent = 'Enter a valid email address.';
-        err.hidden = false;
-        input.setAttribute('aria-invalid', 'true');
-        input.focus();
-        return;
-      }
-      var existing = S.rows.find(function (c) { return (c.email || '').toLowerCase() === email.toLowerCase(); });
-      if (existing && existing.is_admin) {
-        err.textContent = email + ' is already an admin.';
-        err.hidden = false;
-        return;
-      }
-      if (!existing) {
-        err.textContent = 'No account with that email. They must sign up in the app first.';
-        err.hidden = false;
-        input.setAttribute('aria-invalid', 'true');
-        return;
-      }
-      var ok = await A.confirm('Give ' + (existing.name ? existing.name + ' (' + email + ')' : email) +
-        ' full admin access?\n\nThey will be able to see all orders and customers, and change the menu.', { confirmLabel: 'Make admin', title: 'Add admin' });
-      if (!ok) return;
-      A.setLoading(btn, true, 'Adding…');
-      try {
-        await setAdmin(email, true);
-        A.toast(email + ' is now an admin');
-        input.value = '';
-        await reload();
-      } catch (e2) {
-        err.textContent = A.errMessage(e2);
-        err.hidden = false;
-      } finally {
-        A.setLoading(btn, false);
-      }
-    });
-
-    el.querySelector('[data-admins]').addEventListener('click', async function (e) {
-      var b = e.target.closest('[data-remove]');
-      if (!b) return;
-      var email = b.getAttribute('data-remove');
-      var self = b.getAttribute('data-self') === '1';
-      var ok = await A.confirm(self
-        ? 'Remove your own admin access?\n\nYou will be signed out and won’t be able to use this dashboard again unless another admin adds you back.'
-        : 'Remove admin access from ' + email + '?\n\nTheir customer account stays; they just can’t use this dashboard.',
-        { danger: true, confirmLabel: 'Remove admin', title: 'Remove admin' });
-      if (!ok) return;
-      A.setLoading(b, true, 'Removing…');
-      try {
-        await setAdmin(email, false);
-        A.toast('Admin access removed from ' + email);
-        if (self) { A.signOut(); return; }
-        await reload();
-      } catch (e2) {
-        A.setLoading(b, false);
-        A.toast(A.errMessage(e2), 'error');
-      }
-    });
-  }
+  /* ---------------- Page ---------------- */
 
   async function render(el, params) {
     params = params || A.getParams();
-    S = { el: el, rows: [], q: params.get('q') || '', sort: 'newest', limit: PAGE, onlyAdmins: false };
+    var g = params.get('group');
+    S = { el: el, rows: [], q: params.get('q') || '', group: GROUPS.some(function (x) { return x[0] === g; }) ? g : 'all', sort: 'spent', limit: PAGE, vipMin: Infinity };
 
     el.innerHTML =
       '<div class="page-head"><div><h1>Customers</h1><p>Everyone who has signed up in the U Angel Foods app.</p></div>' +
-      '<div class="actions"><button type="button" class="btn btn-ghost btn-sm" data-reload>' + I.refresh + 'Refresh</button></div></div>' +
-      '<div class="toolbar">' +
-        '<label class="search"><span class="sr-only">Search customers</span>' + I.search +
-          '<input class="input" type="search" data-search placeholder="Name, email, phone or city" value="' + esc(S.q) + '" autocomplete="off"></label>' +
-        '<select class="select" data-sort aria-label="Sort customers">' +
-          '<option value="newest">Newest first</option><option value="spent">Top spenders</option>' +
-          '<option value="orders">Most orders</option><option value="name">Name A–Z</option></select>' +
-        '<label class="check"><input type="checkbox" data-only-admins> Admins only</label>' +
-      '</div>' +
-      '<div class="card flush">' +
-        '<div class="table-wrap"><table class="table table-cards"><thead><tr>' +
-          '<th>Name</th><th>Email</th><th>Phone</th><th>Location</th><th>Joined</th><th class="num">Orders</th><th class="num">Total spent</th><th class="text-right"><span class="sr-only">Actions</span></th>' +
-        '</tr></thead><tbody>' + A.skeletonRows(6, 8) + '</tbody></table></div>' +
-        '<div data-empty hidden></div>' +
-        '<div class="table-foot" data-foot hidden><span data-count></span>' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-more hidden>Show more</button></div>' +
-      '</div>' +
-      '<section class="card section-gap" aria-labelledby="admins-h">' +
-        '<div class="card-head"><div><h2 id="admins-h">Admins</h2><p class="small muted" style="margin-top:2px">People who can sign in to this dashboard.</p></div></div>' +
-        '<div class="grid grid-2">' +
-          '<div class="list" data-admins>' + A.skeletonBlocks(3, 'line') + '</div>' +
-          '<form data-admin-form novalidate class="stack" style="gap:10px;align-content:start">' +
-            '<div class="field"><label for="admin-email">Add an admin by email</label>' +
-              '<div class="row" style="flex-wrap:nowrap"><input id="admin-email" class="input" type="email" autocomplete="off" placeholder="name@example.com" aria-describedby="admin-email-hint">' +
-              '<button type="submit" class="btn btn-primary">' + I.plus + 'Add</button></div>' +
-              '<span class="hint" id="admin-email-hint">They must already have an account in the U Angel Foods app.</span>' +
-              '<span class="error-text" data-admin-error role="alert" hidden></span></div>' +
-          '</form>' +
-        '</div>' +
-      '</section>';
+        '<div class="actions"><button type="button" class="btn btn-ghost btn-sm" data-csv>' + I.upload + 'Download list (CSV)</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-reload>' + I.refresh + 'Refresh</button></div></div>' +
+      '<div class="cu-tiles" data-tiles>' + A.skeletonBlocks(4, 'cu-sk') + '</div>' +
+      '<div class="toolbar"><label class="search"><span class="sr-only">Search customers</span>' + I.search +
+        '<input class="input" type="search" data-search placeholder="Name, phone, email or area" value="' + esc(S.q) + '" autocomplete="off"></label></div>' +
+      '<div class="cu-chips" role="group" aria-label="Customer groups" data-chips></div>' +
+      '<div class="card flush" data-table><div class="table-wrap"><table class="table"><tbody>' + A.skeletonRows(6, 6) + '</tbody></table></div></div>';
 
     var search = el.querySelector('[data-search]');
-    var sort = el.querySelector('[data-sort]');
     search.addEventListener('input', A.debounce(function () {
-      S.q = search.value.trim();
-      S.limit = PAGE;
-      A.replaceParams({ q: S.q });
+      S.q = search.value.trim(); S.limit = PAGE;
+      A.replaceParams({ q: S.q, group: S.group !== 'all' ? S.group : '' });
       if (S.loaded) renderTable();
     }, 200));
-    sort.addEventListener('change', function () { S.sort = sort.value; if (S.loaded) renderTable(); });
-    el.querySelector('[data-only-admins]').addEventListener('change', function (e) { S.onlyAdmins = e.target.checked; S.limit = PAGE; if (S.loaded) renderTable(); });
-    el.querySelector('[data-more]').addEventListener('click', function () { S.limit += PAGE; renderTable(); });
     el.querySelector('[data-reload]').addEventListener('click', function () { A.rerender(); });
-    el.querySelector('tbody').addEventListener('click', function (e) {
-      var b = e.target.closest('[data-orders]');
-      if (b) A.navigate('orders', { customer: b.getAttribute('data-orders') });
+    el.querySelector('[data-csv]').addEventListener('click', function () { if (S.loaded) downloadCsv(); });
+    el.querySelector('[data-chips]').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-group]');
+      if (!b) return;
+      S.group = b.getAttribute('data-group'); S.limit = PAGE;
+      A.replaceParams({ q: S.q, group: S.group !== 'all' ? S.group : '' });
+      el.querySelector('[data-chips]').innerHTML = chipsHtml();
+      renderTable();
     });
-    bindAdmins(el);
+    var table = el.querySelector('[data-table]');
+    table.addEventListener('click', function (e) {
+      if (e.target.closest('[data-stop]')) return;
+      var s = e.target.closest('[data-sort]');
+      if (s) { S.sort = s.getAttribute('data-sort'); renderTable(); return; }
+      if (e.target.closest('[data-more]')) { S.limit += PAGE; renderTable(); return; }
+      var tr = e.target.closest('tr[data-id]');
+      if (tr) { var c = S.rows.find(function (x) { return x.id === tr.getAttribute('data-id'); }); if (c) openProfile(c); }
+    });
+    table.addEventListener('keydown', function (e) {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr[data-id]')) {
+        e.preventDefault();
+        var c = S.rows.find(function (x) { return x.id === e.target.getAttribute('data-id'); });
+        if (c) openProfile(c);
+      }
+    });
 
     try {
-      await loadData();
+      S.rows = A.unwrap(await A.sb.rpc('admin_customers')) || [];
     } catch (e) {
-      var card = el.querySelector('.card.flush');
-      card.innerHTML = '';
-      card.appendChild(A.errorState(A.errMessage(e), function () { A.rerender(); }));
-      el.querySelector('[data-admins]').innerHTML = '<p class="muted small">Couldn’t load admins.</p>';
+      table.innerHTML = '';
+      table.appendChild(A.errorState(A.errMessage(e), function () { A.rerender(); }));
       return;
     }
     if (!el.isConnected) return;
+    var spends = S.rows.map(function (c) { return Number(c.total_spent) || 0; }).filter(function (v) { return v > 0; }).sort(function (a, b) { return b - a; });
+    S.vipMin = spends.length ? spends[Math.max(0, Math.ceil(spends.length * 0.1) - 1)] : Infinity;
     S.loaded = true;
-    renderTable();
-    renderAdmins();
+    renderAll();
   }
 
   A.registerSection({ id: 'customers', label: 'Customers', icon: I.users, order: 6, render: render });

@@ -3,6 +3,7 @@ import {router} from "expo-router";
 import {MenuItem} from "@/type";
 import {useCartStore} from "@/store/cart.store";
 import {formatNaira} from "@/lib/format";
+import {getProductsNeedingChoices} from "@/lib/api";
 import ProductImage from "@/components/ProductImage";
 
 /**
@@ -10,7 +11,7 @@ import ProductImage from "@/components/ProductImage";
  * Web photos aren't transparent cut-outs, so the floating image is a round photo.
  * Parents use the original staggered 2-column grid (see app/(tabs)/search.tsx).
  */
-const MenuCard = ({ item: { id, image_url, emoji, name, price }}: { item: MenuItem}) => {
+const MenuCard = ({ item: { id, image_url, emoji, name, price, is_available }}: { item: MenuItem}) => {
     const { addItem } = useCartStore();
 
     return (
@@ -30,9 +31,17 @@ const MenuCard = ({ item: { id, image_url, emoji, name, price }}: { item: MenuIt
             </View>
             <Text className="text-center base-bold text-dark-100 mb-2" numberOfLines={1}>{name}</Text>
             <Text className="body-regular text-gray-200 mb-4">From {formatNaira(price)}</Text>
-            <TouchableOpacity onPress={() => addItem({ id, name, price, image_url, emoji, customizations: []})}>
-                <Text className="paragraph-bold text-primary">Add to Cart +</Text>
-            </TouchableOpacity>
+            {is_available === false ? (
+                <Text className="paragraph-bold text-gray-200">Sold out</Text>
+            ) : (
+                <TouchableOpacity onPress={async () => {
+                    // Cakes need a size/flavour first: open their page instead.
+                    if ((await getProductsNeedingChoices()).has(id)) return router.push({ pathname: '/menu/[id]', params: { id } });
+                    addItem({ id, name, price, image_url, emoji, customizations: []});
+                }}>
+                    <Text className="paragraph-bold text-primary">Add to Cart +</Text>
+                </TouchableOpacity>
+            )}
         </TouchableOpacity>
     )
 }

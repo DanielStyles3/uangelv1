@@ -1,4 +1,7 @@
-/* U Angel Foods admin: Categories section (main categories + subcategories). Uses only the window.Admin contract. */
+/* U Angel Foods admin: Categories section.
+ * Main categories + subcategories with photos, drag-and-drop ordering (arrows as the
+ * keyboard / touch alternative), a side-panel editor and a live preview of the app's Home.
+ * Uses only the window.Admin contract (core.js). Styles: css/categories.css (cg- prefix). */
 (function () {
   'use strict';
   if (!window.Admin || typeof window.Admin.registerSection !== 'function') return;
@@ -7,28 +10,52 @@
   var IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   var MAX_BYTES = 5 * 1024 * 1024;
   var DEFAULT_COLOR = '#FE8C00';
+  var SWATCHES = ['#9D174D', '#991B1B', '#6B21A8', '#9A3412', '#166534', '#7A4419', '#0F5B78', '#FE8C00', '#181C2E'];
   var COLS = 'id,name,description,parent_id,emoji,color,image_url,sort_order,delivery_note,kind,created_at';
 
+  function svg(d, size, sw) {
+    return '<svg width="' + (size || 16) + '" height="' + (size || 16) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 2.4) +
+      '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+  }
   var ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><path d="M7 7h.01"/></svg>';
-  var I_UP = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>';
-  var I_DOWN = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
-  var I_INFO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>';
-  var I_PLUS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="vertical-align:-3px;margin-right:4px"><path d="M12 5v14M5 12h14"/></svg>';
+  var I_GRIP = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"/><circle cx="15" cy="6" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="18" r="1.8"/><circle cx="15" cy="18" r="1.8"/></svg>';
+  var I_UP = svg('<path d="m18 15-6-6-6 6"/>', 14, 2.6);
+  var I_DOWN = svg('<path d="m6 9 6 6 6-6"/>', 14, 2.6);
+  var I_LEFT = svg('<path d="m15 18-6-6 6-6"/>', 13, 2.6);
+  var I_RIGHT = svg('<path d="m9 18 6-6-6-6"/>', 13, 2.6);
+  var I_PLUS = svg('<path d="M12 5v14M5 12h14"/>', 16, 2.6);
 
-  var S = null;            // { cats, byId, mains, subsBy, countBySub }
+  var S = null;            // { cats, byId, mains, subsBy, countBySub, menuTotal }
   var root = null;
-  var expanded = {};       // main id -> true (persists across visits)
-  var moving = false;
+  var expanded = {};       // main id -> true (kept across visits)
+  var filter = 'all';      // 'all' | 'products' | 'service'
+  var previewId = null;    // main category whose subcategories the preview shows
+  var flashId = null;
+  var saving = false;      // a reorder is being saved
+  var drag = null;         // { type: 'main'|'sub', id }
+
+  /* ---------------- Helpers ---------------- */
 
   function esc(s) { return Admin.escapeHtml(s == null ? '' : String(s)); }
   function norm(s) { return String(s || '').trim().toLowerCase(); }
-  function validHex(c) { return typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c.trim()) ? c.trim() : null; }
+  function validHex(c) { return typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c.trim()) ? c.trim().toUpperCase() : null; }
   function initial(name) { var t = String(name || '').trim(); return t ? Array.from(t)[0].toUpperCase() : '?'; }
   function errMsg(e) { return (e && (e.message || e.error_description)) || 'Something went wrong'; }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
   function sortCats(a, b) {
     var x = a.sort_order == null ? 1e9 : a.sort_order, y = b.sort_order == null ? 1e9 : b.sort_order;
     return x - y || String(a.name).localeCompare(String(b.name));
+  }
+  // A light tint of a colour (placeholder backgrounds).
+  function tint(hex) {
+    var h = validHex(hex) || DEFAULT_COLOR;
+    var n = parseInt(h.slice(1), 16), mix = function (c) { return Math.round(c + (255 - c) * 0.86); };
+    return 'rgb(' + mix(n >> 16) + ',' + mix((n >> 8) & 255) + ',' + mix(n & 255) + ')';
+  }
+  function colorOf(c) {
+    if (!c) return DEFAULT_COLOR;
+    if (c.parent_id) { var p = S.byId[c.parent_id]; return validHex(c.color) || (p && validHex(p.color)) || DEFAULT_COLOR; }
+    return validHex(c.color) || DEFAULT_COLOR;
   }
 
   async function fetchAll(make) {
@@ -76,96 +103,133 @@
     return subsOf(cat.id).reduce(function (n, s) { return n + (S.countBySub[s.id] || 0); }, 0);
   }
 
+  /* Photo or placeholder. `cls` sizes it; the placeholder is a tinted box with the initial. */
+  function pic(c, cls) {
+    var color = colorOf(c);
+    if (c.image_url) return '<img class="' + cls + '" src="' + esc(c.image_url) + '" alt="" loading="lazy" data-cid="' + esc(c.id) + '" data-cls="' + cls + '">';
+    return placeholder(c, cls, color);
+  }
+  function placeholder(c, cls, color) {
+    return '<span class="' + cls + ' cg-ph" style="background:' + tint(color) + ';color:' + (validHex(color) || DEFAULT_COLOR) + '" aria-hidden="true">' + esc(c.emoji || initial(c.name)) + '</span>';
+  }
+
   /* ---------------- Rendering ---------------- */
 
   function skeleton() {
     var rows = '';
-    for (var i = 0; i < 5; i++) rows += '<div class="skeleton cx-skel-cat"></div>';
-    return '<div class="page-head"><div><h1>Categories</h1><p class="cx-sub">Loading categories…</p></div></div>' +
+    for (var i = 0; i < 6; i++) rows += '<div class="skeleton cg-skel"></div>';
+    return '<div class="page-head"><div><h1>Categories</h1><p class="cg-sub">Loading categories…</p></div></div>' +
       '<div aria-busy="true" aria-label="Loading categories">' + rows + '</div>';
-  }
-
-  function media(c, cls) {
-    var color = validHex(c.color) || DEFAULT_COLOR;
-    if (c.image_url) return '<img src="' + esc(c.image_url) + '" alt="" loading="lazy" data-cid="' + esc(c.id) + '"' + (cls ? ' class="' + cls + '"' : '') + '>';
-    return phHtml(c, color, cls === 'thumb');
-  }
-  function phHtml(c, color, small) {
-    var txt = c.emoji ? c.emoji : initial(c.name);
-    return '<div class="cx-ph' + (small ? ' cx-ph-sm cx-thumb-ph' : '') + '" style="background:' + color + '" aria-hidden="true">' + esc(txt) + '</div>';
   }
 
   function renderAll() {
     if (!root) return;
+    var shopCount = S.mains.filter(function (m) { return m.kind !== 'service'; }).length;
     var subTotal = S.cats.length - S.mains.length;
-    var html = '<div class="page-head">' +
-      '<div><h1>Categories</h1><p class="cx-sub">' + plural(S.mains.length, 'main category', 'main categories') + ' · ' +
-      plural(subTotal, 'subcategory', 'subcategories') + ' · ' + plural(S.menuTotal, 'product') + '</p></div>' +
-      '<div class="cx-head-actions"><button type="button" class="btn btn-primary" data-act="add-main">' + I_PLUS + 'Add main category</button></div></div>' +
-      '<p class="cx-hint">' + I_INFO + '<span>Main categories appear on the app’s Home screen in this order. Products belong to subcategories. Service categories take requests instead of selling products.</span></p>';
-
-    if (!S.mains.length) {
-      html += '<div class="empty"><p><b>No categories yet</b></p><p>Create a main category, then add subcategories to it.</p></div>';
-      root.innerHTML = html;
-      return;
+    if (!previewId || !S.byId[previewId]) {
+      var firstShop = S.mains.find(function (m) { return m.kind !== 'service'; });
+      previewId = firstShop ? firstShop.id : (S.mains[0] && S.mains[0].id);
     }
-    html += '<div class="cx-cats">' + S.mains.map(function (m, i) { return mainCard(m, i, S.mains.length); }).join('') + '</div>';
+
+    var html =
+      '<div class="page-head cg-head"><div><h1>Categories</h1><p class="cg-sub">' +
+        plural(S.mains.length, 'category', 'categories') + ' · ' + plural(subTotal, 'subcategory', 'subcategories') + ' · ' + plural(S.menuTotal, 'product') + '</p></div>' +
+        '<button type="button" class="btn btn-primary" data-act="add-main">' + I_PLUS + 'New category</button></div>' +
+      '<div class="cg-layout"><div class="cg-col">' +
+        '<p class="cg-tip" role="note">' + I_GRIP + '<span>Drag the dots to change the order customers see in the app, or use the arrows. Changes save straight away.</span></p>' +
+        '<div class="cg-tabs" role="tablist" aria-label="Filter categories">' +
+          tab('all', 'All', S.mains.length) + tab('products', 'Shop', shopCount) + tab('service', 'Services', S.mains.length - shopCount) +
+        '</div>' +
+        (S.mains.length ? '<div class="cg-list">' + mainRows() + '</div>'
+          : '<div class="card cg-empty"><p><b>No categories yet</b></p><p>Create your first category, then add subcategories to it.</p></div>') +
+      '</div>' +
+      '<aside class="cg-preview" aria-label="Live app preview"><h4>Live app preview</h4><p>What customers see on Home. It updates as you make changes.</p>' +
+        '<div class="cg-phone"><div class="cg-screen"><div class="cg-pbar"><span>9:41</span><i></i><span>100%</span></div><div class="cg-pv">' + previewHtml() + '</div></div></div>' +
+      '</aside></div>';
     root.innerHTML = html;
   }
 
-  function mainCard(m, i, total) {
-    var subs = subsOf(m.id);
-    var pc = productCount(m);
-    var color = validHex(m.color);
-    var service = m.kind === 'service';
-    var open = !!expanded[m.id];
-    var listId = 'cx-subs-' + m.id;
-    return '<article class="card cx-ccard" aria-labelledby="cx-ct-' + esc(m.id) + '">' +
-      '<div class="cx-ctop">' +
-      '<div class="cx-cmedia" style="border-bottom-color:' + (color || 'transparent') + '">' + media(m) + '</div>' +
-      '<div class="cx-cinfo">' +
-      '<h2 class="cx-ctitle" id="cx-ct-' + esc(m.id) + '">' + (m.emoji ? '<span class="cx-emoji" aria-hidden="true">' + esc(m.emoji) + '</span>' : '') + esc(m.name) +
-      ' <span class="cx-kind ' + (service ? 'cx-kind-service' : 'cx-kind-products') + '">' + (service ? 'Service' : 'Products') + '</span></h2>' +
-      (m.description ? '<p class="cx-cdesc">' + esc(m.description) + '</p>' : '') +
-      '<div class="cx-cmeta">' +
-      '<span class="cx-swatch" title="Card colour">' + (color ? '<i style="background:' + color + '"></i>' + esc(color.toUpperCase()) : '<span>No colour</span>') + '</span>' +
-      '<span>' + plural(subs.length, 'subcategory', 'subcategories') + '</span>' +
-      (service ? (pc ? '<span>' + plural(pc, 'product') + '</span>' : '<span class="cx-muted">Requests only</span>') : '<span>' + plural(pc, 'product') + '</span>') +
-      (m.delivery_note ? '<span class="cx-muted">Delivery: ' + esc(m.delivery_note) + '</span>' : '') +
-      '</div></div></div>' +
-      '<div class="cx-cbar">' +
-      '<div class="cx-order">' +
-      '<button type="button" class="btn btn-ghost btn-sm cx-icon-btn" data-move-main="' + esc(m.id) + '" data-dir="-1"' + (i === 0 ? ' disabled' : '') + ' aria-label="Move ' + esc(m.name) + ' up" title="Move up">' + I_UP + '</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm cx-icon-btn" data-move-main="' + esc(m.id) + '" data-dir="1"' + (i === total - 1 ? ' disabled' : '') + ' aria-label="Move ' + esc(m.name) + ' down" title="Move down">' + I_DOWN + '</button>' +
-      '</div>' +
-      '<div class="cx-actions">' +
-      '<button type="button" class="btn btn-ghost btn-sm cx-toggle" data-toggle="' + esc(m.id) + '" aria-expanded="' + open + '" aria-controls="' + esc(listId) + '">Subcategories (' + subs.length + ') ' + I_DOWN + '</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(m.id) + '" aria-label="Edit ' + esc(m.name) + '">Edit</button>' +
-      '<button type="button" class="btn btn-danger btn-sm" data-del="' + esc(m.id) + '" aria-label="Delete ' + esc(m.name) + '">Delete</button>' +
-      '</div></div>' +
-      '<div class="cx-subs" id="' + esc(listId) + '"' + (open ? '' : ' hidden') + '>' +
-      (subs.length ? '<ul class="cx-sublist">' + subs.map(function (s, j) { return subRow(s, j, subs.length, service); }).join('') + '</ul>'
-        : '<p class="cx-muted" style="margin:4px 0">No subcategories yet.</p>') +
-      '<button type="button" class="btn btn-ghost btn-sm cx-subadd" data-add-sub="' + esc(m.id) + '">' + I_PLUS + 'Add subcategory</button>' +
-      '</div></article>';
+  function tab(id, label, n) {
+    var on = filter === id;
+    return '<button type="button" class="cg-tab' + (on ? ' on' : '') + '" role="tab" aria-selected="' + on + '" data-filter="' + id + '">' + label + ' <b>' + n + '</b></button>';
   }
 
-  function subRow(s, j, total, service) {
-    var pc = S.countBySub[s.id] || 0;
-    var parent = S.byId[s.parent_id];
-    var color = validHex(s.color) || (parent && validHex(parent.color)) || DEFAULT_COLOR;
-    var thumb = s.image_url
-      ? '<img class="thumb" src="' + esc(s.image_url) + '" alt="" loading="lazy" data-cid="' + esc(s.id) + '" data-small="1">'
-      : phHtml(s, color, true);
-    return '<li class="cx-subrow">' + thumb +
-      '<div class="cx-subname"><b>' + (s.emoji ? '<span aria-hidden="true">' + esc(s.emoji) + '</span> ' : '') + esc(s.name) + '</b>' +
-      '<small>' + (service && !pc ? 'Service' : plural(pc, 'product')) + (s.image_url ? '' : ' · no photo') + '</small></div>' +
-      '<div class="cx-actions">' +
-      '<button type="button" class="btn btn-ghost btn-sm cx-icon-btn" data-move-sub="' + esc(s.id) + '" data-dir="-1"' + (j === 0 ? ' disabled' : '') + ' aria-label="Move ' + esc(s.name) + ' up" title="Move up">' + I_UP + '</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm cx-icon-btn" data-move-sub="' + esc(s.id) + '" data-dir="1"' + (j === total - 1 ? ' disabled' : '') + ' aria-label="Move ' + esc(s.name) + ' down" title="Move down">' + I_DOWN + '</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-edit-sub="' + esc(s.id) + '" aria-label="Edit ' + esc(s.name) + '">Edit</button>' +
-      '<button type="button" class="btn btn-danger btn-sm" data-del-sub="' + esc(s.id) + '" aria-label="Delete ' + esc(s.name) + '">Delete</button>' +
-      '</div></li>';
+  function mainRows() {
+    var shopPos = 0, svcPos = 0, total = S.mains.length;
+    return S.mains.map(function (m, i) {
+      var service = m.kind === 'service';
+      var pos = service ? ++svcPos : ++shopPos;
+      if (filter !== 'all' && (service ? 'service' : 'products') !== filter) return '';
+      var subs = subsOf(m.id);
+      var open = !!expanded[m.id];
+      var noPhoto = subs.filter(function (s) { return !s.image_url; }).length + (m.image_url ? 0 : 1);
+      var color = colorOf(m);
+      return '<article class="cg-cat' + (open ? ' open' : '') + '" data-id="' + esc(m.id) + '">' +
+        '<div class="cg-row">' +
+          '<button type="button" class="cg-handle" draggable="true" data-drag-main="' + esc(m.id) + '" aria-label="Drag to reorder ' + esc(m.name) + '" title="Drag to reorder">' + I_GRIP + '</button>' +
+          '<span class="cg-pos' + (service ? '' : ' live') + '" title="' + esc(service ? 'Position ' + pos + ' in the Catering & Events banner' : 'Position ' + pos + ' in the circles on Home') + '">' + pos + '</span>' +
+          '<span class="cg-ring" style="border-color:' + color + '">' + pic(m, 'cg-ring-img') + '</span>' +
+          '<div class="cg-info"><h3>' + esc(m.name) +
+            ' <span class="cg-pill ' + (service ? 'svc">Service' : 'shop">Shop') + '</span>' +
+            (noPhoto ? '<span class="cg-pill warn">' + plural(noPhoto, 'photo') + ' missing</span>' : '') + '</h3>' +
+            '<small>' + plural(subs.length, 'subcategory', 'subcategories') +
+              (service ? ' · customers send requests' : ' · ' + plural(productCount(m), 'product')) +
+              (m.delivery_note ? ' · 🚚 ' + esc(m.delivery_note) : '') + '</small></div>' +
+          '<div class="cg-acts">' +
+            '<button type="button" class="cg-icon" data-move-main="' + esc(m.id) + '" data-dir="-1" aria-label="Move ' + esc(m.name) + ' up"' + (i === 0 ? ' disabled' : '') + '>' + I_UP + '</button>' +
+            '<button type="button" class="cg-icon" data-move-main="' + esc(m.id) + '" data-dir="1" aria-label="Move ' + esc(m.name) + ' down"' + (i === total - 1 ? ' disabled' : '') + '>' + I_DOWN + '</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(m.id) + '">Edit</button>' +
+            '<button type="button" class="cg-icon cg-chev" data-toggle="' + esc(m.id) + '" aria-expanded="' + open + '" aria-controls="cg-subs-' + esc(m.id) + '" aria-label="' + (open ? 'Hide' : 'Show') + ' subcategories of ' + esc(m.name) + '">' + I_DOWN + '</button>' +
+          '</div>' +
+        '</div>' +
+        (open ? subsHtml(m) : '') +
+      '</article>';
+    }).join('');
+  }
+
+  function subsHtml(m) {
+    var subs = subsOf(m.id), service = m.kind === 'service';
+    return '<div class="cg-subs" id="cg-subs-' + esc(m.id) + '">' +
+      '<p class="cg-subs-note">Subcategories, in the order shown on the ' + esc(m.name) + ' page</p>' +
+      '<div class="cg-grid">' + subs.map(function (s, j) {
+        var pc = S.countBySub[s.id] || 0;
+        return '<div class="cg-sub" data-sub="' + esc(s.id) + '" data-parent="' + esc(m.id) + '">' +
+          '<div class="cg-sub-img">' + pic(s, 'cg-sub-pic') +
+            '<button type="button" class="cg-grab" draggable="true" data-drag-sub="' + esc(s.id) + '" aria-label="Drag to reorder ' + esc(s.name) + '" title="Drag to reorder">' + I_GRIP + '</button>' +
+            '<span class="cg-num">' + (j + 1) + '</span></div>' +
+          '<div class="cg-sub-body"><b>' + esc(s.name) + '</b>' +
+            '<small>' + (service && !pc ? 'Request type' : plural(pc, 'product')) + (s.image_url ? '' : ' · <span class="cg-miss">no photo</span>') + '</small>' +
+            '<div class="cg-tools">' +
+              '<button type="button" class="cg-icon sm" data-move-sub="' + esc(s.id) + '" data-dir="-1" aria-label="Move ' + esc(s.name) + ' earlier"' + (j === 0 ? ' disabled' : '') + '>' + I_LEFT + '</button>' +
+              '<button type="button" class="cg-icon sm" data-move-sub="' + esc(s.id) + '" data-dir="1" aria-label="Move ' + esc(s.name) + ' later"' + (j === subs.length - 1 ? ' disabled' : '') + '>' + I_RIGHT + '</button>' +
+              '<button type="button" class="cg-edit" data-edit-sub="' + esc(s.id) + '">Edit</button>' +
+            '</div></div></div>';
+      }).join('') +
+      '<button type="button" class="cg-add" data-add-sub="' + esc(m.id) + '"><span>+</span>Add subcategory</button>' +
+      '</div></div>';
+  }
+
+  function previewHtml() {
+    var shop = S.mains.filter(function (m) { return m.kind !== 'service'; });
+    var svc = S.mains.filter(function (m) { return m.kind === 'service'; });
+    var sel = S.byId[previewId];
+    var tiles = sel ? subsOf(sel.id).slice(0, 4) : [];
+    return '<div><div class="cg-p-hello">Good afternoon 👋</div><div class="cg-p-loc">📍 Lekki, Lagos</div></div>' +
+      '<div class="cg-p-search">Search cakes, drinks, groceries…</div>' +
+      (shop.length ? '<div class="cg-p-circles">' + shop.map(function (m) {
+        return '<div class="cg-p-circle' + (m.id === flashId ? ' flash' : '') + '"><span class="cg-p-ring" style="border-color:' + colorOf(m) + '">' + pic(m, 'cg-p-img') + '</span><b>' + esc(m.name) + '</b></div>';
+      }).join('') + '</div>' : '') +
+      (sel ? '<div class="cg-p-h">' + esc(sel.name) + ' page</div>' +
+        (tiles.length ? '<div class="cg-p-tiles">' + tiles.map(function (s) {
+          return '<div class="cg-p-tile">' + pic(s, 'cg-p-tile-img') + '<b>' + esc(s.name) + '</b></div>';
+        }).join('') + '</div>' : '<p class="cg-p-none">No subcategories yet</p>') : '') +
+      (svc.length ? '<div class="cg-p-banner"><span>CATERING &amp; EVENTS</span><b>Planning something special?</b><div>' +
+        svc.map(function (m) { return '<i>' + esc(m.name) + ' →</i>'; }).join('') + '</div></div>' : '');
+  }
+
+  function refreshPreview() {
+    var pv = root && root.querySelector('.cg-pv');
+    if (pv) pv.innerHTML = previewHtml();
   }
 
   function onImgError(e) {
@@ -173,454 +237,446 @@
     if (!img || img.tagName !== 'IMG' || !img.hasAttribute('data-cid') || !S) return;
     var c = S.byId[img.getAttribute('data-cid')];
     if (!c) return;
-    var parent = c.parent_id ? S.byId[c.parent_id] : null;
-    var color = validHex(c.color) || (parent && validHex(parent.color)) || DEFAULT_COLOR;
     var tmp = document.createElement('div');
-    tmp.innerHTML = phHtml(c, color, img.hasAttribute('data-small'));
+    tmp.innerHTML = placeholder(c, img.getAttribute('data-cls') || '', colorOf(c));
     img.replaceWith(tmp.firstChild);
   }
+
+  /* ---------------- Clicks ---------------- */
 
   function onClick(e) {
     var b = e.target.closest('button');
     if (!b || !root || !root.contains(b) || b.disabled) return;
     var v;
+    if ((v = b.getAttribute('data-filter'))) { filter = v; renderAll(); return; }
     if ((v = b.getAttribute('data-toggle'))) {
       expanded[v] = !expanded[v];
-      b.setAttribute('aria-expanded', String(!!expanded[v]));
-      var list = root.querySelector('#cx-subs-' + CSS.escape(v));
-      if (list) list.hidden = !expanded[v];
+      if (expanded[v]) previewId = v;
+      renderAll();
+      var t = root.querySelector('[data-toggle="' + CSS.escape(v) + '"]'); if (t) t.focus();
       return;
     }
-    if (b.getAttribute('data-act') === 'add-main') return openMainForm(null);
-    if ((v = b.getAttribute('data-edit'))) return S.byId[v] && openMainForm(S.byId[v]);
-    if ((v = b.getAttribute('data-del'))) return S.byId[v] && deleteMain(S.byId[v]);
-    if ((v = b.getAttribute('data-add-sub'))) return S.byId[v] && openSubForm(null, S.byId[v]);
-    if ((v = b.getAttribute('data-edit-sub'))) return S.byId[v] && openSubForm(S.byId[v], S.byId[S.byId[v].parent_id]);
-    if ((v = b.getAttribute('data-del-sub'))) return S.byId[v] && deleteSub(S.byId[v]);
-    if ((v = b.getAttribute('data-move-main'))) return move(S.mains, v, Number(b.getAttribute('data-dir')), b);
-    if ((v = b.getAttribute('data-move-sub'))) { var c = S.byId[v]; return c && move(subsOf(c.parent_id), v, Number(b.getAttribute('data-dir')), b); }
+    if (b.getAttribute('data-act') === 'add-main') return openEditor('main', null, null);
+    if ((v = b.getAttribute('data-edit'))) return S.byId[v] && openEditor('main', S.byId[v], null);
+    if ((v = b.getAttribute('data-add-sub'))) return S.byId[v] && openEditor('sub', null, S.byId[v]);
+    if ((v = b.getAttribute('data-edit-sub'))) return S.byId[v] && openEditor('sub', S.byId[v], S.byId[S.byId[v].parent_id]);
+    if ((v = b.getAttribute('data-move-main'))) return moveBy(S.mains, v, Number(b.getAttribute('data-dir')), '[data-move-main="');
+    if ((v = b.getAttribute('data-move-sub'))) { var c = S.byId[v]; return c && moveBy(subsOf(c.parent_id), v, Number(b.getAttribute('data-dir')), '[data-move-sub="'); }
   }
 
   /* ---------------- Reordering ---------------- */
 
-  async function move(siblings, id, dir, btn) {
-    if (moving) return;
-    var idx = siblings.findIndex(function (c) { return c.id === id; });
-    var j = idx + dir;
-    if (idx < 0 || j < 0 || j >= siblings.length) return;
-    var a = siblings[idx], b = siblings[j];
-    var updates;
-    if (a.sort_order !== b.sort_order && a.sort_order != null && b.sort_order != null) {
-      updates = [[a.id, b.sort_order], [b.id, a.sort_order]];
-    } else {
-      // Duplicate / missing sort orders: renumber this group 1..n in the new order.
-      var arr = siblings.slice();
-      arr[idx] = b; arr[j] = a;
-      updates = arr.map(function (c, k) { return [c.id, k + 1]; }).filter(function (u) { return S.byId[u[0]].sort_order !== u[1]; });
-    }
-    moving = true;
-    if (btn) btn.setAttribute('aria-busy', 'true');
-    try {
-      var results = await Promise.all(updates.map(function (u) {
-        return Admin.sb.from('categories').update({ sort_order: u[1] }).eq('id', u[0]);
-      }));
-      var failed = results.filter(function (r) { return r.error; });
-      results.forEach(function (r, k) { if (!r.error) S.byId[updates[k][0]].sort_order = updates[k][1]; });
-      if (failed.length) Admin.toast('Couldn’t reorder: ' + errMsg(failed[0].error), 'error');
-      reindex();
-      renderAll();
-      // keep keyboard focus on the moved item's same button
-      var sel = (a.parent_id ? '[data-move-sub="' : '[data-move-main="') + CSS.escape(a.id) + '"][data-dir="' + dir + '"]';
-      var nb = root && root.querySelector(sel);
-      if (nb && !nb.disabled) nb.focus();
-      else if (root) { var other = root.querySelector(sel.replace('data-dir="' + dir + '"', 'data-dir="' + (-dir) + '"')); if (other) other.focus(); }
-    } catch (e) {
-      Admin.toast('Couldn’t reorder: ' + errMsg(e), 'error');
-    } finally {
-      moving = false;
-    }
-  }
-
-  /* ---------------- Form helpers ---------------- */
-
-  function setBusy(m, label, busy) {
-    if (!m || !m.el) return;
-    Array.prototype.forEach.call(m.el.querySelectorAll('button'), function (b) {
-      var txt = b.getAttribute('data-cx-label') || b.textContent.trim();
-      if (txt === label) {
-        if (!b.hasAttribute('data-cx-label')) b.setAttribute('data-cx-label', txt);
-        b.disabled = busy;
-        b.setAttribute('aria-busy', String(busy));
-        b.textContent = busy ? 'Saving…' : txt;
-      }
+  function moveBy(siblings, id, dir, sel) {
+    var from = siblings.findIndex(function (c) { return c.id === id; });
+    var to = from + dir;
+    if (from < 0 || to < 0 || to >= siblings.length) return;
+    var order = siblings.slice();
+    order.splice(to, 0, order.splice(from, 1)[0]);
+    saveOrder(order, id).then(function () {
+      var nb = root && root.querySelector(sel + CSS.escape(id) + '"][data-dir="' + dir + '"]');
+      if (!nb || nb.disabled) nb = root && root.querySelector(sel + CSS.escape(id) + '"][data-dir="' + (-dir) + '"]');
+      if (nb) nb.focus();
     });
   }
 
-  function fieldError(form, name, msg) {
-    var ctl = form.querySelector('[name="' + name + '"]');
-    var err = form.querySelector('[data-err="' + name + '"]');
-    if (err) err.textContent = msg || '';
-    if (ctl) {
-      ctl.classList.toggle('cx-invalid', !!msg);
-      if (msg) ctl.setAttribute('aria-invalid', 'true'); else ctl.removeAttribute('aria-invalid');
+  /** Optimistically apply the new order, then save it (sort_order = 1..n). */
+  async function saveOrder(order, movedId) {
+    if (saving) return;
+    var before = order.map(function (c) { return [c, c.sort_order]; });
+    order.forEach(function (c, k) { c.sort_order = k + 1; });
+    var moved = S.byId[movedId];
+    if (moved && !moved.parent_id) { flashId = movedId; setTimeout(function () { flashId = null; refreshPreview(); }, 900); }
+    if (moved && moved.parent_id) previewId = moved.parent_id;
+    reindex();
+    renderAll();
+
+    saving = true;
+    try {
+      var ids = order.map(function (c) { return c.id; });
+      var res = await Admin.sb.rpc('admin_reorder_categories', { p_ids: ids });
+      if (res.error && /admin_reorder_categories|PGRST202|function/i.test(res.error.message + ' ' + res.error.code)) {
+        // Database not updated yet (schema.sql not re-run): save row by row instead.
+        var results = await Promise.all(order.map(function (c) {
+          return Admin.sb.from('categories').update({ sort_order: c.sort_order }).eq('id', c.id);
+        }));
+        res = results.find(function (r) { return r.error; }) || { error: null };
+      }
+      if (res.error) throw res.error;
+      var pos = order.findIndex(function (c) { return c.id === movedId; }) + 1;
+      Admin.toast(moved ? 'Order saved. ' + moved.name + ' is now #' + pos : 'Order saved', 'success', { duration: 2200 });
+    } catch (e) {
+      before.forEach(function (p) { p[0].sort_order = p[1]; });
+      reindex();
+      renderAll();
+      Admin.toast('Couldn’t save the new order: ' + errMsg(e), 'error');
+    } finally {
+      saving = false;
     }
   }
 
-  function photoField(currentUrl, folder) {
-    var wrap = document.createElement('div');
-    wrap.className = 'cx-photo';
-    var uid = 'cxc' + Math.random().toString(36).slice(2, 8);
-    wrap.innerHTML =
-      '<div class="cx-photo-prev" aria-live="polite"></div>' +
-      '<div class="cx-drop">' +
-      '<span class="cx-drop-desk">Drag a photo here, or</span><span class="cx-drop-touch">Tap here to choose a photo</span>' +
-      '<div class="cx-drop-btns">' +
-      '<label class="btn btn-ghost btn-sm" for="' + uid + '" tabindex="0" role="button">Choose photo</label>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-remove>Remove photo</button>' +
-      '</div>' +
-      '<input class="cx-file" type="file" id="' + uid + '" accept="image/jpeg,image/png,image/webp" aria-label="Choose photo">' +
-      '<span class="cx-help">JPEG, PNG or WebP, up to 5 MB.</span>' +
-      '<span class="cx-err" data-photo-err></span>' +
-      '</div>';
-    var prev = wrap.querySelector('.cx-photo-prev');
-    var drop = wrap.querySelector('.cx-drop');
-    var input = wrap.querySelector('input[type=file]');
-    var pick = wrap.querySelector('label[for="' + uid + '"]');
-    var removeBtn = wrap.querySelector('[data-remove]');
-    var errEl = wrap.querySelector('[data-photo-err]');
-    var state = { file: null, removed: false, objUrl: null };
+  function clearMarks() {
+    Array.prototype.forEach.call(root.querySelectorAll('.drop-before,.drop-after,.drop-target,.dragging'), function (x) {
+      x.classList.remove('drop-before', 'drop-after', 'drop-target', 'dragging');
+    });
+  }
 
-    function show() {
-      var src = state.objUrl || (!state.removed ? currentUrl : null);
-      prev.innerHTML = src ? '<img src="' + esc(src) + '" alt="Photo preview">' : '<span>No photo</span>';
-      removeBtn.hidden = !src;
+  function onDragStart(e) {
+    var hm = e.target.closest && e.target.closest('[data-drag-main]');
+    var hs = e.target.closest && e.target.closest('[data-drag-sub]');
+    if (saving || (!hm && !hs)) return;
+    if (hs) {
+      drag = { type: 'sub', id: hs.getAttribute('data-drag-sub') };
+      var card = hs.closest('.cg-sub'); card.classList.add('dragging');
+      try { e.dataTransfer.setDragImage(card, 40, 40); } catch (_) {}
+    } else {
+      drag = { type: 'main', id: hm.getAttribute('data-drag-main') };
+      var art = hm.closest('.cg-cat'); art.classList.add('dragging');
+      try { e.dataTransfer.setDragImage(art, 30, 30); } catch (_) {}
     }
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', drag.id); } catch (_) {}
+  }
+  function onDragOver(e) {
+    if (!drag) return;
+    if (drag.type === 'main') {
+      var art = e.target.closest('.cg-cat');
+      if (!art || art.getAttribute('data-id') === drag.id) return;
+      e.preventDefault();
+      Array.prototype.forEach.call(root.querySelectorAll('.drop-before,.drop-after'), function (x) { x.classList.remove('drop-before', 'drop-after'); });
+      var r = art.getBoundingClientRect();
+      art.classList.add(e.clientY < r.top + r.height / 2 ? 'drop-before' : 'drop-after');
+    } else {
+      var card = e.target.closest('.cg-sub'), dragged = S.byId[drag.id];
+      if (!card || !dragged || card.getAttribute('data-parent') !== dragged.parent_id || card.getAttribute('data-sub') === drag.id) return;
+      e.preventDefault();
+      Array.prototype.forEach.call(root.querySelectorAll('.drop-target'), function (x) { x.classList.remove('drop-target'); });
+      card.classList.add('drop-target');
+    }
+  }
+  function onDrop(e) {
+    if (!drag) return;
+    e.preventDefault();
+    var d = drag; drag = null;
+    if (d.type === 'main') {
+      var art = e.target.closest('.cg-cat');
+      if (art && art.getAttribute('data-id') !== d.id) {
+        var before = art.classList.contains('drop-before');
+        var order = S.mains.filter(function (m) { return m.id !== d.id; });
+        var at = order.findIndex(function (m) { return m.id === art.getAttribute('data-id'); }) + (before ? 0 : 1);
+        order.splice(at, 0, S.byId[d.id]);
+        clearMarks();
+        saveOrder(order, d.id);
+        return;
+      }
+    } else {
+      var card = e.target.closest('.cg-sub'), dragged = S.byId[d.id];
+      if (card && dragged && card.getAttribute('data-parent') === dragged.parent_id && card.getAttribute('data-sub') !== d.id) {
+        var subs = subsOf(dragged.parent_id).slice();
+        var from = subs.indexOf(dragged), to = subs.findIndex(function (s) { return s.id === card.getAttribute('data-sub'); });
+        subs.splice(to, 0, subs.splice(from, 1)[0]);
+        clearMarks();
+        saveOrder(subs, d.id);
+        return;
+      }
+    }
+    clearMarks();
+  }
+  function onDragEnd() { drag = null; if (root) clearMarks(); }
+
+  /* ---------------- Editor (side panel) ---------------- */
+
+  function openEditor(level, item, parent) {
+    var isMain = level === 'main';
+    var editing = !!item;
+    if (!isMain && !parent) { Admin.toast('Parent category not found. Reload the page.', 'error'); return; }
+    var pc = editing ? productCount(item) : 0;
+    var draft = {
+      name: editing ? item.name : '',
+      description: editing ? (item.description || '') : '',
+      color: isMain ? ((editing && validHex(item.color)) || DEFAULT_COLOR) : null,
+      kind: isMain ? (editing ? (item.kind || 'products') : 'products') : (parent.kind || 'products'),
+      delivery_note: editing ? (item.delivery_note || '') : '',
+      emoji: editing ? item.emoji : null,
+      file: null, objUrl: null, removed: false
+    };
+    var currentUrl = editing ? item.image_url : null;
+    var uid = 'cg' + Math.random().toString(36).slice(2, 8);
+
+    var form = document.createElement('form');
+    form.className = 'cg-form';
+    form.noValidate = true;
+    form.innerHTML =
+      (isMain ? '' : '<p class="cg-in">Inside <b>' + esc(parent.name) + '</b></p>') +
+      '<div class="field"><span class="cg-lbl" id="' + uid + '-pl">Photo</span>' +
+        '<div class="cg-up" role="group" aria-labelledby="' + uid + '-pl">' +
+          '<div class="cg-up-prev" data-prev></div>' +
+          '<div class="cg-drop" data-drop>' +
+            '<span>' + (isMain ? 'Drag a photo here or choose one. Square photos look best in the circle.' : 'Drag a photo here or choose one. Products without their own photo show this one.') + '</span>' +
+            '<div class="cg-drop-btns">' +
+              '<label class="btn btn-ghost btn-sm" for="' + uid + '-file" tabindex="0" role="button">Choose photo</label>' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-remove>Remove</button>' +
+            '</div>' +
+            '<input type="file" id="' + uid + '-file" class="cg-file" accept="image/jpeg,image/png,image/webp">' +
+            '<span class="cg-help">JPEG, PNG or WebP, up to 5 MB.</span>' +
+            '<span class="cg-err" data-photo-err role="alert"></span>' +
+          '</div>' +
+        '</div></div>' +
+      '<div class="field"><label for="' + uid + '-name">Name <span class="cg-req" aria-hidden="true">*</span></label>' +
+        '<input id="' + uid + '-name" name="name" class="input" maxlength="80" autocomplete="off" autofocus value="' + esc(draft.name) + '">' +
+        '<span class="cg-err" data-err="name" role="alert"></span></div>' +
+      (isMain ?
+        '<div class="field"><span class="cg-lbl" id="' + uid + '-kl">What customers do here</span>' +
+          '<div class="cg-seg" role="radiogroup" aria-labelledby="' + uid + '-kl">' +
+            '<button type="button" role="radio" data-kind="products">Shop<small>Browse and add to cart</small></button>' +
+            '<button type="button" role="radio" data-kind="service">Service<small>Send a request for a quote</small></button>' +
+          '</div>' +
+          '<div class="cg-warn" data-kind-warn hidden role="status"></div></div>' +
+        '<div class="field"><span class="cg-lbl" id="' + uid + '-cl">Ring colour</span>' +
+          '<div class="cg-swatches" role="radiogroup" aria-labelledby="' + uid + '-cl" data-swatches></div>' +
+          '<span class="cg-err" data-err="color" role="alert"></span></div>'
+        : '') +
+      '<div class="field"><label for="' + uid + '-desc">Short description <span class="cg-opt">(optional)</span></label>' +
+        '<textarea id="' + uid + '-desc" name="description" class="textarea" rows="2" maxlength="500">' + esc(draft.description) + '</textarea></div>' +
+      (isMain ?
+        '<div class="field" data-note-field><label for="' + uid + '-note">Delivery note <span class="cg-opt">(optional)</span></label>' +
+          '<input id="' + uid + '-note" name="delivery_note" class="input" maxlength="120" autocomplete="off" placeholder="e.g. Standard next-day delivery" value="' + esc(draft.delivery_note) + '"></div>'
+        : '') +
+      '<div class="field"><span class="cg-lbl">How it looks in the app</span><div class="cg-mini" data-mini></div></div>' +
+      '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
+
+    var $ = function (s) { return form.querySelector(s); };
+    var input = $('.cg-file'), drop = $('[data-drop]'), errEl = $('[data-photo-err]');
+
+    function photoSrc() { return draft.objUrl || (!draft.removed ? currentUrl : null); }
+    function ring() { return isMain ? draft.color : colorOf(parent); }
+    function face(cls) {
+      var src = photoSrc(), color = ring();
+      return src ? '<img class="' + cls + '" src="' + esc(src) + '" alt="">'
+        : '<span class="' + cls + ' cg-ph" style="background:' + tint(color) + ';color:' + color + '">' + esc(draft.emoji || initial(draft.name)) + '</span>';
+    }
+    function paint(keepSwatches) {
+      var color = ring();
+      var name = esc(draft.name.trim() || (isMain ? 'Category name' : 'Subcategory name'));
+      $('[data-prev]').style.borderColor = color;
+      $('[data-prev]').innerHTML = face('cg-up-img');
+      $('[data-remove]').hidden = !photoSrc();
+      if (isMain && keepSwatches) {
+        // The native colour picker is open: only update the selection, don't rebuild it.
+        Array.prototype.forEach.call(form.querySelectorAll('[data-color]'), function (b) { b.classList.remove('on'); b.setAttribute('aria-checked', 'false'); });
+        form.querySelector('.cg-sw-custom').classList.add('on');
+      } else if (isMain) {
+        $('[data-swatches]').innerHTML = SWATCHES.map(function (c) {
+          var on = c === draft.color;
+          return '<button type="button" role="radio" class="cg-sw' + (on ? ' on' : '') + '" aria-checked="' + on + '" aria-label="Colour ' + c + '" data-color="' + c + '" style="background:' + c + '"></button>';
+        }).join('') +
+          '<label class="cg-sw cg-sw-custom' + (SWATCHES.indexOf(draft.color) === -1 ? ' on' : '') + '" title="Pick any colour">' +
+          '<input type="color" value="' + esc(draft.color.toLowerCase()) + '" aria-label="Pick any colour" data-custom></label>';
+      }
+      if (isMain) {
+        Array.prototype.forEach.call(form.querySelectorAll('[data-kind]'), function (b) {
+          var on = b.getAttribute('data-kind') === draft.kind;
+          b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on));
+        });
+        var warn = $('[data-kind-warn]');
+        var toService = draft.kind === 'service' && (!editing || item.kind !== 'service');
+        warn.hidden = !(toService && editing);
+        if (!warn.hidden) warn.textContent = pc > 0
+          ? 'This category has ' + plural(pc, 'product') + '. As a service, customers send a request instead of buying, so they won’t be able to shop these here.'
+          : 'Its subcategories will also become request types.';
+      }
+      $('[data-mini]').innerHTML = isMain
+        ? '<div class="cg-mini-item"><small>' + (draft.kind === 'service' ? 'Catering & Events banner' : 'Home circle') + '</small>' +
+            (draft.kind === 'service'
+              ? '<span class="cg-mini-btn">' + name + ' →</span>'
+              : '<div class="cg-p-circle"><span class="cg-p-ring big" style="border-color:' + color + '">' + face('cg-p-img') + '</span><b>' + name + '</b></div>') +
+          '</div><p class="cg-mini-note">' + (draft.kind === 'service'
+            ? 'Services appear as a button in the dark Catering & Events banner at the bottom of Home.'
+            : 'Appears in the row of circles near the top of Home. Use the arrows or drag to set its position.') + '</p>'
+        : '<div class="cg-mini-item"><small>Tile on the ' + esc(parent.name) + ' page</small><div class="cg-p-tile big">' + face('cg-p-tile-img') + '<b>' + name + '</b></div></div>';
+    }
+
     function take(file) {
       errEl.textContent = '';
       if (!file) return;
       if (IMG_TYPES.indexOf(file.type) === -1) { errEl.textContent = 'Please choose a JPEG, PNG or WebP image.'; return; }
       if (file.size > MAX_BYTES) { errEl.textContent = 'That image is larger than 5 MB.'; return; }
-      if (state.objUrl) URL.revokeObjectURL(state.objUrl);
-      state.file = file; state.removed = false; state.objUrl = URL.createObjectURL(file);
-      show();
+      if (draft.objUrl) URL.revokeObjectURL(draft.objUrl);
+      draft.file = file; draft.removed = false; draft.objUrl = URL.createObjectURL(file);
+      paint();
     }
+    function dispose() { if (draft.objUrl) URL.revokeObjectURL(draft.objUrl); }
+
     input.addEventListener('change', function () { take(input.files && input.files[0]); input.value = ''; });
-    pick.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
-    removeBtn.addEventListener('click', function () {
-      if (state.objUrl) URL.revokeObjectURL(state.objUrl);
-      state.file = null; state.objUrl = null; state.removed = true; errEl.textContent = '';
-      show();
+    form.querySelector('label[for="' + uid + '-file"]').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
     });
-    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('cx-over'); }); });
-    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('cx-over'); }); });
-    drop.addEventListener('drop', function (e) { var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; take(f); });
-    // Tap / click anywhere on the zone opens the picker (phones can't drag files in).
-    drop.addEventListener('click', function (e) { if (e.target.closest('label, button, input')) return; input.click(); });
-    show();
-
-    return {
-      el: wrap,
-      resolve: async function () {
-        if (state.file) return await Admin.uploadImage(state.file, folder);
-        if (state.removed) return null;
-        return currentUrl || null;
-      },
-      dispose: function () { if (state.objUrl) URL.revokeObjectURL(state.objUrl); }
-    };
-  }
-
-  function blocked(title, message, withProductsLink) {
-    var actions = [];
-    if (withProductsLink) actions.push({ label: 'Open Products', variant: 'ghost', onClick: function (close) { close(); Admin.navigate('products'); } });
-    actions.push({ label: 'OK', variant: 'primary', onClick: function (close) { close(); } });
-    Admin.modal({ title: title, body: '<p>' + esc(message) + '</p>', actions: actions });
-  }
-
-  /* ---------------- Main category form ---------------- */
-
-  function openMainForm(c) {
-    var editing = !!c;
-    var pc = editing ? productCount(c) : 0;
-    var color = (editing && validHex(c.color)) || DEFAULT_COLOR;
-    var form = document.createElement('form');
-    form.className = 'cx-form';
-    form.noValidate = true;
-    form.innerHTML =
-      '<div class="field"><label for="mc-name">Name <span class="cx-req" aria-hidden="true">*</span></label>' +
-      '<input id="mc-name" name="name" class="input" required maxlength="80" autocomplete="off" value="' + esc(editing ? c.name : '') + '">' +
-      '<span class="cx-err" data-err="name" role="alert"></span></div>' +
-      '<div class="field"><label for="mc-emoji">Emoji</label>' +
-      '<input id="mc-emoji" name="emoji" class="input" maxlength="16" autocomplete="off" placeholder="e.g. 🎂" value="' + esc(editing ? c.emoji : '') + '">' +
-      '<span class="cx-help">Shown when the photo is missing.</span></div>' +
-      '<div class="field cx-full"><label for="mc-desc">Description</label>' +
-      '<textarea id="mc-desc" name="description" class="textarea" rows="2" maxlength="500">' + esc(editing ? c.description : '') + '</textarea></div>' +
-      '<div class="field"><label for="mc-hex">Card colour</label>' +
-      '<div class="cx-color"><input type="color" id="mc-color" value="' + esc(color.toLowerCase()) + '" aria-label="Pick card colour">' +
-      '<input id="mc-hex" name="color" class="input" maxlength="7" autocomplete="off" placeholder="#RRGGBB" value="' + esc(editing ? (c.color || '') : DEFAULT_COLOR) + '"></div>' +
-      '<span class="cx-err" data-err="color" role="alert"></span></div>' +
-      '<div class="field"><label for="mc-kind">Kind</label>' +
-      '<select id="mc-kind" name="kind" class="select">' +
-      '<option value="products"' + (!editing || c.kind !== 'service' ? ' selected' : '') + '>Products (shop)</option>' +
-      '<option value="service"' + (editing && c.kind === 'service' ? ' selected' : '') + '>Service (requests)</option></select></div>' +
-      '<div class="cx-warn cx-full" data-kind-warn hidden role="status"></div>' +
-      '<div class="field cx-full"><label for="mc-note">Delivery note</label>' +
-      '<input id="mc-note" name="delivery_note" class="input" maxlength="120" autocomplete="off" placeholder="e.g. Standard next-day delivery" value="' + esc(editing ? c.delivery_note : '') + '"></div>' +
-      '<div class="field cx-full"><span id="mc-photo-label" style="font-weight:700">Photo</span><div data-photo></div></div>' +
-      '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
-
-    var photo = photoField(editing ? c.image_url : null, 'categories');
-    photo.el.setAttribute('role', 'group');
-    photo.el.setAttribute('aria-labelledby', 'mc-photo-label');
-    form.querySelector('[data-photo]').appendChild(photo.el);
-
-    var picker = form.querySelector('#mc-color');
-    var hex = form.querySelector('#mc-hex');
-    picker.addEventListener('input', function () { hex.value = picker.value.toUpperCase(); fieldError(form, 'color', ''); });
-    hex.addEventListener('input', function () { var h = validHex(hex.value); if (h) picker.value = h.toLowerCase(); });
-
-    var kindSel = form.querySelector('#mc-kind');
-    var warn = form.querySelector('[data-kind-warn]');
-    function updateWarn() {
-      var toService = kindSel.value === 'service' && (!editing || c.kind !== 'service');
-      if (toService && pc > 0) {
-        warn.hidden = false;
-        warn.textContent = 'This category has ' + plural(pc, 'product') + '. Service categories take requests instead of selling products, so customers won’t be able to shop them here. Consider moving the products to another category first.';
-      } else if (toService && editing) {
-        warn.hidden = false;
-        warn.textContent = 'Its subcategories will also become service subcategories (customers send a request instead of ordering).';
-      } else warn.hidden = true;
+    $('[data-remove]').addEventListener('click', function () {
+      if (draft.objUrl) URL.revokeObjectURL(draft.objUrl);
+      draft.file = null; draft.objUrl = null; draft.removed = true; errEl.textContent = '';
+      paint();
+    });
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+    drop.addEventListener('drop', function (e) { take(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
+    drop.addEventListener('click', function (e) { if (!e.target.closest('label, button, input')) input.click(); });
+    $('[name="name"]').addEventListener('input', function () { draft.name = this.value; fieldError('name', ''); paint(); });
+    $('[name="description"]').addEventListener('input', function () { draft.description = this.value; });
+    if (isMain) {
+      $('[name="delivery_note"]').addEventListener('input', function () { draft.delivery_note = this.value; });
+      form.addEventListener('click', function (e) {
+        var sw = e.target.closest('[data-color]');
+        if (sw) { draft.color = sw.getAttribute('data-color'); paint(); return; }
+        var k = e.target.closest('[data-kind]');
+        if (k) { draft.kind = k.getAttribute('data-kind'); paint(); }
+      });
+      form.addEventListener('input', function (e) {
+        if (e.target.hasAttribute('data-custom')) { draft.color = validHex(e.target.value) || DEFAULT_COLOR; paint(true); }
+      });
     }
-    kindSel.addEventListener('change', updateWarn);
-    updateWarn();
+    function fieldError(name, msg) {
+      var ctl = form.querySelector('[name="' + name + '"]'), err = form.querySelector('[data-err="' + name + '"]');
+      if (err) err.textContent = msg || '';
+      if (ctl) { ctl.classList.toggle('cg-invalid', !!msg); if (msg) ctl.setAttribute('aria-invalid', 'true'); else ctl.removeAttribute('aria-invalid'); }
+    }
+    paint();
 
-    var saving = false, m;
-    var SAVE = editing ? 'Save changes' : 'Add category';
-
+    var busy = false, m;
     async function save() {
-      if (saving) return;
-      ['name', 'color'].forEach(function (n) { fieldError(form, n, ''); });
-      var f = form.elements;
-      var name = f.name.value.trim().replace(/\s+/g, ' ');
-      var colorRaw = f.color.value.trim();
-      if (colorRaw && colorRaw[0] !== '#') colorRaw = '#' + colorRaw;
-      var kind = f.kind.value === 'service' ? 'service' : 'products';
-      var bad = null;
-      if (!name) { fieldError(form, 'name', 'Enter a name.'); bad = bad || 'name'; }
-      else if (S.mains.some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== c.id); })) { fieldError(form, 'name', 'A main category with this name already exists.'); bad = bad || 'name'; }
-      if (colorRaw && !validHex(colorRaw)) { fieldError(form, 'color', 'Use a hex colour like #FE8C00.'); bad = bad || 'color'; }
-      if (bad) { form.querySelector('[name="' + bad + '"]').focus(); return; }
-
-      var kindChanged = editing && kind !== (c.kind || 'products');
-      if (kindChanged && kind === 'service' && pc > 0) {
-        var ok = await Admin.confirm('“' + c.name + '” has ' + plural(pc, 'product') + '. Switch it to a service category anyway? Customers won’t be able to buy them from this category.', { danger: true, confirmLabel: 'Switch to service' });
+      if (busy) return;
+      var name = draft.name.trim().replace(/\s+/g, ' ');
+      var siblings = isMain ? S.mains : subsOf(parent.id);
+      if (!name) { fieldError('name', 'Enter a name.'); $('[name="name"]').focus(); return; }
+      if (siblings.some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== item.id); })) {
+        fieldError('name', isMain ? 'A category with this name already exists.' : '“' + parent.name + '” already has a subcategory with this name.');
+        $('[name="name"]').focus(); return;
+      }
+      var kindChanged = isMain && editing && draft.kind !== (item.kind || 'products');
+      if (kindChanged && draft.kind === 'service' && pc > 0) {
+        var ok = await Admin.confirm('“' + item.name + '” has ' + plural(pc, 'product') + '. Switch it to a service anyway? Customers won’t be able to buy them from this category.', { danger: true, confirmLabel: 'Switch to service' });
         if (!ok) return;
       }
 
-      saving = true; setBusy(m, SAVE, true);
+      busy = true;
+      var saveBtn = m.el.querySelector('.modal-actions .btn-primary');
+      Admin.setLoading(saveBtn, true, 'Saving…');
       try {
         var imageUrl;
-        try { imageUrl = await photo.resolve(); }
-        catch (e) { Admin.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
-        var payload = {
-          name: name,
-          description: f.description.value.trim() || null,
-          emoji: f.emoji.value.trim() || null,
-          color: colorRaw ? validHex(colorRaw).toUpperCase() : null,
-          delivery_note: f.delivery_note.value.trim() || null,
-          kind: kind,
-          image_url: imageUrl
-        };
+        try {
+          imageUrl = draft.file ? await Admin.uploadImage(draft.file, 'categories') : (draft.removed ? null : (currentUrl || null));
+        } catch (e) { Admin.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
+
+        var payload = { name: name, description: draft.description.trim() || null, image_url: imageUrl };
+        if (isMain) {
+          payload.color = draft.color;
+          payload.kind = draft.kind;
+          payload.delivery_note = draft.delivery_note.trim() || null;
+        }
         if (!editing) {
-          payload.parent_id = null;
-          payload.sort_order = S.mains.reduce(function (mx, x) { return Math.max(mx, x.sort_order || 0); }, 0) + 1;
+          payload.parent_id = isMain ? null : parent.id;
+          if (!isMain) payload.kind = parent.kind || 'products';
+          payload.sort_order = siblings.reduce(function (mx, x) { return Math.max(mx, x.sort_order || 0); }, 0) + 1;
         }
         var res = editing
-          ? await Admin.sb.from('categories').update(payload).eq('id', c.id).select(COLS).single()
+          ? await Admin.sb.from('categories').update(payload).eq('id', item.id).select(COLS).single()
           : await Admin.sb.from('categories').insert(payload).select(COLS).single();
         if (res.error) {
-          if (res.error.code === '23505') { fieldError(form, 'name', 'A main category with this name already exists.'); Admin.toast('That name is already taken.', 'error'); }
-          else Admin.toast('Couldn’t save the category: ' + errMsg(res.error), 'error');
+          if (res.error.code === '23505') fieldError('name', 'That name is already taken here.');
+          else Admin.toast('Couldn’t save: ' + errMsg(res.error), 'error');
           return;
         }
-        var saved = res.data;
-        var subErr = null;
+        var saved = res.data, subErr = null;
         if (editing) {
-          Object.assign(S.byId[c.id], saved);
-          if (kindChanged && subsOf(c.id).length) {
-            var u = await Admin.sb.from('categories').update({ kind: kind }).eq('parent_id', c.id);
-            if (u.error) subErr = u.error;
-            else subsOf(c.id).forEach(function (s) { s.kind = kind; });
+          Object.assign(S.byId[item.id], saved);
+          if (kindChanged && subsOf(item.id).length) {
+            var u = await Admin.sb.from('categories').update({ kind: draft.kind }).eq('parent_id', item.id);
+            if (u.error) subErr = u.error; else subsOf(item.id).forEach(function (s) { s.kind = draft.kind; });
           }
         } else {
           S.cats.push(saved);
+          if (isMain) { expanded[saved.id] = true; previewId = saved.id; }
+          else { expanded[parent.id] = true; previewId = parent.id; }
         }
         reindex();
-        photo.dispose();
+        dispose();
         m.close();
         if (subErr) Admin.toast('Saved, but its subcategories couldn’t be updated: ' + errMsg(subErr), 'error');
         else Admin.toast(editing ? 'Saved “' + saved.name + '”' : 'Added “' + saved.name + '”', 'success');
         renderAll();
       } catch (e) {
-        Admin.toast('Couldn’t save the category: ' + errMsg(e), 'error');
+        Admin.toast('Couldn’t save: ' + errMsg(e), 'error');
       } finally {
-        saving = false; setBusy(m, SAVE, false);
+        busy = false;
+        if (m.isOpen()) Admin.setLoading(saveBtn, false);
       }
     }
-
     form.addEventListener('submit', function (e) { e.preventDefault(); save(); });
+
+    var actions = [];
+    if (editing) actions.push({ label: 'Delete', variant: 'danger', onClick: function (close) { tryDelete(item, close); } });
+    actions.push({ label: 'Cancel', variant: 'ghost', onClick: function (close) { dispose(); close(); } });
+    actions.push({ label: editing ? 'Save changes' : (isMain ? 'Create category' : 'Add subcategory'), variant: 'primary', onClick: function () { save(); } });
     m = Admin.modal({
-      title: editing ? 'Edit main category' : 'New main category',
+      title: editing ? (isMain ? 'Edit category' : 'Edit subcategory') : (isMain ? 'New category' : 'New subcategory'),
       body: form,
-      wide: true,
-      actions: [
-        { label: 'Cancel', variant: 'ghost', onClick: function (close) { photo.dispose(); close(); } },
-        { label: SAVE, variant: 'primary', onClick: function () { save(); } }
-      ]
+      className: 'cg-drawer',
+      actions: actions,
+      onClose: dispose
     });
-    setTimeout(function () { var n = form.querySelector('#mc-name'); if (n) n.focus(); }, 30);
   }
 
-  async function deleteMain(c) {
-    var subs = subsOf(c.id).length;
-    if (subs) {
-      blocked('Can’t delete “' + c.name + '” yet', 'It still has ' + plural(subs, 'subcategory', 'subcategories') + '. Delete its subcategories first (and move or delete their products).', false);
-      return;
+  async function tryDelete(c, closeEditor) {
+    if (!c.parent_id) {
+      var subs = subsOf(c.id).length;
+      if (subs) { blocked('Can’t delete “' + c.name + '” yet', 'It still has ' + plural(subs, 'subcategory', 'subcategories') + '. Delete or move them first.', false); return; }
+    } else {
+      var kids = subsOf(c.id).length;   // e.g. Catering › Events has the event types under it
+      if (kids) { blocked('Can’t delete “' + c.name + '” yet', 'It has ' + plural(kids, 'option') + ' under it (' + subsOf(c.id).map(function (k) { return k.name; }).join(', ') + ').', false); return; }
+      var pc = S.countBySub[c.id] || 0;
+      if (pc) { blocked('Can’t delete “' + c.name + '” yet', 'Move or delete its ' + plural(pc, 'product') + ' first. You can do that in the Products section.', true); return; }
     }
-    var ok = await Admin.confirm('Delete the main category “' + c.name + '”? It will disappear from the app’s Home screen. This can’t be undone.', { danger: true, confirmLabel: 'Delete category' });
+    var ok = await Admin.confirm('Delete “' + c.name + '”? ' + (c.parent_id ? '' : 'It will disappear from the app’s Home screen. ') + 'This can’t be undone.',
+      { danger: true, confirmLabel: c.parent_id ? 'Delete subcategory' : 'Delete category' });
     if (!ok) return;
     var res = await Admin.sb.from('categories').delete().eq('id', c.id);
     if (res.error) { Admin.toast('Couldn’t delete: ' + errMsg(res.error), 'error'); return; }
     S.cats = S.cats.filter(function (x) { return x.id !== c.id; });
     delete expanded[c.id];
     reindex();
+    closeEditor();
     Admin.toast('Deleted “' + c.name + '”', 'success');
     renderAll();
   }
 
-  /* ---------------- Subcategory form ---------------- */
-
-  function openSubForm(s, parent) {
-    if (!parent) { Admin.toast('Parent category not found. Reload the page.', 'error'); return; }
-    var editing = !!s;
-    var form = document.createElement('form');
-    form.className = 'cx-form';
-    form.noValidate = true;
-    form.innerHTML =
-      '<p class="cx-help cx-full" style="margin:0">Main category: <b>' + esc((parent.emoji ? parent.emoji + ' ' : '') + parent.name) + '</b></p>' +
-      '<div class="field"><label for="sc-name">Name <span class="cx-req" aria-hidden="true">*</span></label>' +
-      '<input id="sc-name" name="name" class="input" required maxlength="80" autocomplete="off" value="' + esc(editing ? s.name : '') + '">' +
-      '<span class="cx-err" data-err="name" role="alert"></span></div>' +
-      '<div class="field"><label for="sc-emoji">Emoji</label>' +
-      '<input id="sc-emoji" name="emoji" class="input" maxlength="16" autocomplete="off" value="' + esc(editing ? s.emoji : '') + '">' +
-      '<span class="cx-help">Shown when the photo is missing.</span></div>' +
-      '<div class="field cx-full"><label for="sc-desc">Description</label>' +
-      '<textarea id="sc-desc" name="description" class="textarea" rows="2" maxlength="500">' + esc(editing ? s.description : '') + '</textarea></div>' +
-      '<div class="field cx-full"><span id="sc-photo-label" style="font-weight:700">Photo</span><div data-photo></div>' +
-      (parent.kind !== 'service' ? '<span class="cx-help">Products without their own photo show this photo in the app.</span>' : '') + '</div>' +
-      '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
-
-    var photo = photoField(editing ? s.image_url : null, 'categories');
-    photo.el.setAttribute('role', 'group');
-    photo.el.setAttribute('aria-labelledby', 'sc-photo-label');
-    form.querySelector('[data-photo]').appendChild(photo.el);
-
-    var saving = false, m;
-    var SAVE = editing ? 'Save changes' : 'Add subcategory';
-    async function save() {
-      if (saving) return;
-      fieldError(form, 'name', '');
-      var f = form.elements;
-      var name = f.name.value.trim().replace(/\s+/g, ' ');
-      if (!name) { fieldError(form, 'name', 'Enter a name.'); f.name.focus(); return; }
-      if (subsOf(parent.id).some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== s.id); })) {
-        fieldError(form, 'name', '“' + parent.name + '” already has a subcategory with this name.'); f.name.focus(); return;
-      }
-      saving = true; setBusy(m, SAVE, true);
-      try {
-        var imageUrl;
-        try { imageUrl = await photo.resolve(); }
-        catch (e) { Admin.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
-        var payload = {
-          name: name,
-          description: f.description.value.trim() || null,
-          emoji: f.emoji.value.trim() || null,
-          image_url: imageUrl
-        };
-        if (!editing) {
-          payload.parent_id = parent.id;
-          payload.kind = parent.kind || 'products';
-          payload.sort_order = subsOf(parent.id).reduce(function (mx, x) { return Math.max(mx, x.sort_order || 0); }, 0) + 1;
-        }
-        var res = editing
-          ? await Admin.sb.from('categories').update(payload).eq('id', s.id).select(COLS).single()
-          : await Admin.sb.from('categories').insert(payload).select(COLS).single();
-        if (res.error) {
-          if (res.error.code === '23505') { fieldError(form, 'name', '“' + parent.name + '” already has a subcategory with this name.'); Admin.toast('That name is already taken in this category.', 'error'); }
-          else Admin.toast('Couldn’t save the subcategory: ' + errMsg(res.error), 'error');
-          return;
-        }
-        if (editing) Object.assign(S.byId[s.id], res.data);
-        else { S.cats.push(res.data); expanded[parent.id] = true; }
-        reindex();
-        photo.dispose();
-        m.close();
-        Admin.toast(editing ? 'Saved “' + res.data.name + '”' : 'Added “' + res.data.name + '”', 'success');
-        renderAll();
-      } catch (e) {
-        Admin.toast('Couldn’t save the subcategory: ' + errMsg(e), 'error');
-      } finally {
-        saving = false; setBusy(m, SAVE, false);
-      }
-    }
-    form.addEventListener('submit', function (e) { e.preventDefault(); save(); });
-    m = Admin.modal({
-      title: editing ? 'Edit subcategory' : 'New subcategory',
-      body: form,
-      wide: true,
-      actions: [
-        { label: 'Cancel', variant: 'ghost', onClick: function (close) { photo.dispose(); close(); } },
-        { label: SAVE, variant: 'primary', onClick: function () { save(); } }
-      ]
-    });
-    setTimeout(function () { var n = form.querySelector('#sc-name'); if (n) n.focus(); }, 30);
-  }
-
-  async function deleteSub(s) {
-    var pc = S.countBySub[s.id] || 0;
-    if (pc) {
-      blocked('Can’t delete “' + s.name + '” yet', 'Move or delete its ' + plural(pc, 'product') + ' first. You can do that in the Products section.', true);
-      return;
-    }
-    var ok = await Admin.confirm('Delete the subcategory “' + s.name + '”? This can’t be undone.', { danger: true, confirmLabel: 'Delete subcategory' });
-    if (!ok) return;
-    var res = await Admin.sb.from('categories').delete().eq('id', s.id);
-    if (res.error) { Admin.toast('Couldn’t delete: ' + errMsg(res.error), 'error'); return; }
-    S.cats = S.cats.filter(function (x) { return x.id !== s.id; });
-    reindex();
-    Admin.toast('Deleted “' + s.name + '”', 'success');
-    renderAll();
+  function blocked(title, message, withProductsLink) {
+    var actions = [];
+    if (withProductsLink) actions.push({ label: 'Open Products', variant: 'ghost', onClick: function (close) { close(); Admin.closeAllModals(); Admin.navigate('products'); } });
+    actions.push({ label: 'OK', variant: 'primary', onClick: function (close) { close(); } });
+    Admin.modal({ title: title, body: '<p>' + esc(message) + '</p>', className: 'modal-confirm', actions: actions });
   }
 
   /* ---------------- Register ---------------- */
 
   async function mount(el) {
     var wrap = document.createElement('div');
-    wrap.className = 'cx-categories';
+    wrap.className = 'cg-page';
     el.innerHTML = '';
     el.appendChild(wrap);
     root = wrap;
     wrap.innerHTML = skeleton();
     wrap.addEventListener('click', onClick);
     wrap.addEventListener('error', onImgError, true);
+    wrap.addEventListener('dragstart', onDragStart);
+    wrap.addEventListener('dragover', onDragOver);
+    wrap.addEventListener('drop', onDrop);
+    wrap.addEventListener('dragend', onDragEnd);
     try {
       await load();
     } catch (e) {
       if (root !== wrap) return;
       wrap.innerHTML = '<div class="page-head"><div><h1>Categories</h1></div></div>' +
-        '<div class="empty"><p><b>Couldn’t load categories</b></p><p>' + esc(errMsg(e)) + '</p>' +
-        '<button type="button" class="btn btn-primary" data-cx-retry>Try again</button></div>';
-      Admin.toast('Couldn’t load categories: ' + errMsg(e), 'error');
-      var retry = wrap.querySelector('[data-cx-retry]');
+        '<div class="card cg-empty"><p><b>Couldn’t load categories</b></p><p>' + esc(errMsg(e)) + '</p>' +
+        '<button type="button" class="btn btn-primary" data-cg-retry>Try again</button></div>';
+      var retry = wrap.querySelector('[data-cg-retry]');
       if (retry) retry.addEventListener('click', function () { mount(el); });
       return;
     }

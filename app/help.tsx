@@ -26,7 +26,7 @@ const FAQS: { q: string; a: string }[] = [
     },
     {
         q: 'How can I pay?',
-        a: 'Online with Paystack — card, bank transfer or USSD. Your order is confirmed once Paystack confirms the payment.',
+        a: 'Pay everything online with Paystack (card, bank transfer or USSD), or choose Pay on delivery: you pay the delivery fee online first, then pay for your items to the rider in cash or by transfer. Your order is confirmed once Paystack confirms the online payment.',
     },
     {
         q: 'I closed the payment page — what now?',
@@ -34,7 +34,7 @@ const FAQS: { q: string; a: string }[] = [
     },
     {
         q: 'How much is delivery?',
-        a: 'A flat ₦1,500 delivery fee per order.',
+        a: '₦2,000 per order, or ₦5,000 if your order has anything from Groceries & Essentials or The Local Market.',
     },
     {
         q: 'When will The Local Market items arrive?',
@@ -42,7 +42,11 @@ const FAQS: { q: string; a: string }[] = [
     },
     {
         q: 'How do I book catering or an event?',
-        a: 'Open Catering or Events & Celebrations on Home, choose your event type and send a request with your date, guests, budget and location. Our team will contact you with a quote. Track it in Profile → Catering & event requests.',
+        a: 'Open Catering on Home and choose Corporate Catering, Food Stands or Events (then your type of event). Send a request with your date, guests, budget and location, and our team will contact you with a quote. Track it in Profile → Catering & event requests.',
+    },
+    {
+        q: 'Can I pick up my order?',
+        a: 'No. We deliver every order to your door. Set your address in Profile → Delivery address.',
     },
     {
         q: 'Can I cancel an order?',

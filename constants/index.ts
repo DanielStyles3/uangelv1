@@ -41,9 +41,17 @@ import salad from "@/assets/images/salad.png";
 import success from "@/assets/images/success.png";
 import tomatoes from "@/assets/images/tomatoes.png";
 
-// Flat delivery fee in naira. The server charges public.delivery_fee() in
-// supabase/schema.sql, so keep the two in sync.
-export const DELIVERY_FEE = 1500;
+// Delivery fee per order, in naira: ₦2,000, or ₦5,000 when the order has anything from
+// these main categories. The server decides the real fee (public.delivery_fee_for() in
+// supabase/schema.sql); these are for display only, so keep the two in sync.
+export const DELIVERY_FEE = 2000;
+export const DELIVERY_FEE_MARKET = 5000;
+export const MARKET_CATEGORIES = ["Groceries & Essentials", "The Local Market"];
+export const DELIVERY_FEE_NOTE = "₦2,000, or ₦5,000 for orders with groceries or Local Market items";
+
+/** Delivery fee for a product page, from its main category's name. */
+export const deliveryFeeForCategory = (mainCategoryName?: string | null) =>
+    mainCategoryName && MARKET_CATEGORIES.includes(mainCategoryName) ? DELIVERY_FEE_MARKET : DELIVERY_FEE;
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {
     awaiting_payment: "Awaiting payment",

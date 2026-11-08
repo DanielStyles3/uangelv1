@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Our story — U Angel Foods</title>
-  <meta name="description" content="Welcome to U Angel Foods — An Initiative of ECCLESIA NATION. To build a sustainable food ecosystem that uplifts communities—where every meal purchased helps provide nourishment, dignity, and hope to the less privileged.">
-  <meta name="theme-color" content="#FD652A">
+  <meta name="description" content="Welcome to U Angel Foods — An Initiative of Ecclesia Nation. To build a sustainable food ecosystem that uplifts communities—where every meal purchased helps provide nourishment, dignity, and hope to the less privileged.">
+  <meta name="theme-color" content="#FFFFFF">
   <meta name="robots" content="index, follow">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="U Angel Foods">
   <meta property="og:title" content="Our story — U Angel Foods">
-  <meta property="og:description" content="Welcome to U Angel Foods — An Initiative of ECCLESIA NATION. Our slogan - U Are An Angel">
+  <meta property="og:description" content="Welcome to U Angel Foods — An Initiative of Ecclesia Nation. Our slogan - U Are An Angel">
   <meta property="og:image" content="assets/app-icon.png">
   <meta property="og:image:alt" content="U Angel Foods logo on orange">
   <meta property="og:locale" content="en_NG">
@@ -22,161 +22,105 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
-  <link rel="stylesheet" href="css/about.css">
 
   <script>
     (function () {
-      var d = document.documentElement;
-      d.classList.add('js', 'skip-intro', 'page-about');
-      var reduced = false;
-      try { reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-      if (reduced) d.classList.add('reduced');
-      var xbarOff = false;
-      try { xbarOff = sessionStorage.getItem('ua-xbar-dismissed') === '1'; } catch (e) {}
-      if (!xbarOff && Date.now() < Date.UTC(2026, 11, 15, 22, 59)) d.classList.add('has-xbar');
+      var d = document.documentElement, off = false;
+      try { off = sessionStorage.getItem('ua-xbar-dismissed') === '1'; } catch (e) {}
+      if (!off && Date.now() < Date.UTC(2026, 11, 15, 22, 59)) d.classList.add('has-xbar');
     })();
   </script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
 
-  <!-- cursor follower (desktop only, decorative) -->
-  <div class="cursor" aria-hidden="true"><span class="cursor-dot"></span><span class="cursor-ring"></span></div>
-
-  <!-- ============ NAV ============ -->
-  <header class="nav" id="nav">
-    <!-- Christmas campaign announcement (links back to the campaign on the home page) -->
-    <div class="xbar" id="xbar" role="region" aria-label="Christmas campaign announcement">
-      <div class="xbar-inner container">
-        <p class="xbar-text">
-          <span class="xbar-tree" aria-hidden="true">🎄</span>
-          <span class="xbar-long">Christmas campaign: help us reach <b>10,000 pre-orders</b> by 15 December — every order feeds someone in need</span>
-          <span class="xbar-short"><b>10,000 pre-orders</b> by 15 Dec — every order feeds someone in need</span>
-        </p>
-        <a class="xbar-link" href="index.html#christmas">Pre-order<span class="xbar-now"> now</span> <span aria-hidden="true">→</span></a>
-        <button class="xbar-close" id="xbar-close" type="button" aria-label="Dismiss Christmas announcement">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-        </button>
-      </div>
+  <!-- ============ CHRISTMAS STRIP (links to the campaign on the home page) ============ -->
+  <div class="xbar" id="xbar" role="region" aria-label="Christmas campaign announcement">
+    <div class="xbar-inner container">
+      <p class="xbar-text">
+        <span aria-hidden="true">🎄</span>
+        <span class="xbar-long">Christmas campaign: help us reach <b>10,000 pre-orders</b> by 15 December. Every order feeds someone in need.</span>
+        <span class="xbar-short"><b>10,000 pre-orders</b> by 15 Dec. Every order feeds someone in need.</span>
+      </p>
+      <a class="xbar-link" href="index.html#christmas">Pre-order →</a>
+      <button class="xbar-close" id="xbar-close" type="button" aria-label="Dismiss Christmas announcement">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      </button>
     </div>
+  </div>
+
+  <!-- ============ HEADER ============ -->
+  <header class="nav" id="nav">
     <div class="nav-inner container">
       <a class="brand" href="index.html" aria-label="U Angel Foods — home">
-        <span class="brand-mark"><img src="assets/icon-180.png" alt="" width="180" height="180"></span>
-        <span class="brand-name">U Angel <b>Foods</b></span>
+        <img src="assets/icon-180.png" alt="" width="180" height="180">
+        <span>U Angel <b>Foods</b></span>
       </a>
       <nav class="nav-links" aria-label="Primary">
+        <a href="index.html#purpose">Our purpose</a>
+        <a href="index.html#christmas" class="nav-xmas" data-xmas-link>Christmas</a>
         <a href="index.html#shop">Shop</a>
-        <a href="index.html#catering">Catering</a>
-        <a href="index.html#events">Events</a>
-        <a href="index.html#market">Market</a>
-        <a href="index.html#how">How it works</a>
-        <a href="index.html#mission">Our mission</a>
+        <a href="index.html#letter">Our letter</a>
         <a href="about.html" aria-current="page">Our story</a>
       </nav>
-      <a class="btn btn-nav magnetic" href="index.html#app">Get the app</a>
+      <a class="btn btn-orange btn-nav" href="index.html#get">Get the app</a>
       <button class="burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
-        <span></span><span></span><span></span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
       </button>
+    </div>
+    <div class="mobile-menu container" id="mobile-menu">
+      <nav aria-label="Mobile">
+        <a href="index.html#purpose">Our purpose</a>
+        <a href="index.html#christmas" class="nav-xmas" data-xmas-link>Christmas</a>
+        <a href="index.html#shop">Shop</a>
+        <a href="index.html#letter">Our letter</a>
+        <a href="about.html" aria-current="page">Our story</a>
+        <a href="index.html#get" class="btn btn-orange">Get the app</a>
+      </nav>
     </div>
   </header>
 
-  <div class="mobile-menu" id="mobile-menu" aria-hidden="true" data-lenis-prevent>
-    <nav aria-label="Mobile">
-      <a href="index.html#shop"><span>01</span>Shop</a>
-      <a href="index.html#catering"><span>02</span>Catering</a>
-      <a href="index.html#events"><span>03</span>Events</a>
-      <a href="index.html#market"><span>04</span>Market</a>
-      <a href="index.html#how"><span>05</span>How it works</a>
-      <a href="index.html#mission"><span>06</span>Our mission</a>
-      <a href="about.html" aria-current="page"><span>07</span>Our story</a>
-      <a href="index.html#app" class="mm-cta"><span>→</span>Get the app</a>
-    </nav>
-  </div>
-
   <main id="main">
     <!-- ============ HERO ============ -->
-    <section class="hero story-hero" id="top" aria-labelledby="hero-title">
-      <div class="hero-bg" aria-hidden="true">
-        <span class="blob blob-1"></span>
-        <span class="blob blob-2"></span>
-        <span class="blob blob-3"></span>
-        <span class="blob blob-4"></span>
-        <span class="grain"></span>
-        <span class="halo halo-1"></span>
-        <span class="halo halo-2"></span>
+    <section class="story-hero" id="top" aria-labelledby="hero-title">
+      <div class="container">
+        <img src="assets/icon-180.png" alt="U Angel Foods logo" width="180" height="180" fetchpriority="high">
+        <p class="eyebrow">U Angel Foods</p>
+        <h1 id="hero-title" style="margin-top:10px">Welcome to <span>U Angel Foods</span></h1>
+        <p>An Initiative of <b>Ecclesia Nation</b></p>
+        <p class="slogan">U Are An Angel</p>
       </div>
-
-      <div class="hero-inner container">
-        <div class="hero-copy">
-          <p class="eyebrow hero-eyebrow">U ANGEL FOODS</p>
-          <h1 class="hero-title story-title" id="hero-title" data-split>Welcome to <span class="accent">U Angel Foods</span></h1>
-          <p class="hero-sub story-sub">An Initiative of <b>ECCLESIA NATION</b></p>
-        </div>
-
-        <div class="story-badge">
-          <div class="badge-logo">
-            <span class="badge-glow" aria-hidden="true"></span>
-            <img src="assets/uangel-logo-white.png" alt="U Angel Foods logo" width="1024" height="1024" fetchpriority="high">
-          </div>
-          <p class="slogan-big" data-words>U Are An <em>Angel</em></p>
-          <svg class="slogan-swash" viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M6 30 C 90 6, 200 6, 394 22" pathLength="1"/>
-          </svg>
-        </div>
-      </div>
-
-      <a class="scroll-cue" href="#vision" aria-label="Scroll to our vision">
-        <span class="scroll-cue-line" aria-hidden="true"></span>
-        <span>Scroll</span>
-      </a>
     </section>
 
     <!-- ============ VISION & MISSION ============ -->
-    <section class="vm section" id="vision" aria-label="Our vision and mission">
+    <section class="section" id="vision" aria-label="Our vision and mission">
       <div class="container vm-grid">
-        <article class="vm-card vm-vision" aria-labelledby="vision-title" data-reveal>
-          <span class="vm-bg-num" aria-hidden="true">01</span>
-          <span class="vm-icon" aria-hidden="true">
-            <svg class="draw-icon" viewBox="0 0 48 48"><path d="M4 24c5-9 12-14 20-14s15 5 20 14c-5 9-12 14-20 14S9 33 4 24z" pathLength="1"/><circle cx="24" cy="24" r="7" pathLength="1"/><path d="M24 4v3M24 41v3" pathLength="1"/></svg>
-          </span>
-          <h2 class="vm-title" id="vision-title">OUR VISION</h2>
-          <p class="vm-text">To build a sustainable food ecosystem that uplifts communities—where every meal purchased helps provide nourishment, dignity, and hope to the less privileged.</p>
+        <article class="vm-card" style="--c:#FD652A" aria-labelledby="vision-title">
+          <span class="num">01</span>
+          <h2 id="vision-title">OUR VISION</h2>
+          <p>To build a sustainable food ecosystem that uplifts communities—where every meal purchased helps provide nourishment, dignity, and hope to the less privileged.</p>
         </article>
-        <article class="vm-card vm-mission" id="mission-statement" aria-labelledby="mission-title" data-reveal>
-          <span class="vm-bg-num" aria-hidden="true">02</span>
-          <span class="vm-icon" aria-hidden="true">
-            <svg class="draw-icon" viewBox="0 0 48 48"><circle cx="24" cy="24" r="18" pathLength="1"/><circle cx="24" cy="24" r="10" pathLength="1"/><circle cx="24" cy="24" r="2.5" pathLength="1"/><path d="M24 24 40 8M34 8h6v6" pathLength="1"/></svg>
-          </span>
-          <h2 class="vm-title" id="mission-title">OUR MISSION</h2>
-          <p class="vm-text">To serve high-quality food and beverages to the public while using the proceeds to support soup kitchens and social outreach programs that feed and care for those in need—without relying on donations, but through excellence in business.</p>
+        <article class="vm-card" style="--c:#181C2E" id="mission-statement" aria-labelledby="mission-title">
+          <span class="num">02</span>
+          <h2 id="mission-title">OUR MISSION</h2>
+          <p>To serve high-quality food and beverages to the public while using the proceeds to fund our outreach programs that feed and care for those in need, without relying on donations, but through excellence in business.</p>
         </article>
       </div>
     </section>
 
     <!-- ============ ABOUT US ============ -->
-    <section class="about-us section" id="about" aria-labelledby="about-title">
+    <section class="section" id="about" aria-labelledby="about-title">
       <div class="container">
         <div class="about-grid">
-          <div class="about-copy">
-            <span class="sec-num" aria-hidden="true">03</span>
-            <h2 class="cap-title" id="about-title" data-split>ABOUT US</h2>
-            <p class="about-lead" data-reveal>U Angel Foods Ltd is a social enterprise founded by ECCLESIA NATION. We serve society through two primary channels:</p>
+          <div>
+            <p class="eyebrow">03</p>
+            <h2 class="cap-title" id="about-title">ABOUT US</h2>
+            <p class="about-lead">U Angel Foods is a social enterprise founded by Ecclesia Nation. We serve society through two primary channels:</p>
             <ul class="channels">
-              <li class="channel" data-reveal>
-                <span class="channel-icon" aria-hidden="true">
-                  <svg class="draw-icon" viewBox="0 0 48 48"><path d="M8 20l3-10h26l3 10" pathLength="1"/><path d="M8 20c0 3 2.4 5 5.3 5s5.4-2 5.4-5c0 3 2.4 5 5.3 5s5.3-2 5.3-5c0 3 2.4 5 5.4 5S40 23 40 20" pathLength="1"/><path d="M11 25v14h26V25" pathLength="1"/><path d="M20 39v-8h8v8" pathLength="1"/></svg>
-                </span>
-                <p>Food Outlets offering a wide range of tasty, healthy, affordable food.</p>
-              </li>
-              <li class="channel" data-reveal>
-                <span class="channel-icon" aria-hidden="true">
-                  <svg class="draw-icon" viewBox="0 0 48 48"><rect x="7" y="6" width="17" height="31" rx="3.5" pathLength="1"/><path d="M13 31h5" pathLength="1"/><path d="M26 20h15l-2 20H28z" pathLength="1"/><path d="M30 20v-3a3.5 3.5 0 0 1 7 0v3" pathLength="1"/></svg>
-                </span>
-                <p>Some products will not only be available on our application but also distributed through supermarkets and stores.</p>
-              </li>
+              <li class="channel"><span aria-hidden="true">🏪</span><p>Food Outlets offering a wide range of tasty, healthy, affordable food.</p></li>
+              <li class="channel"><span aria-hidden="true">🛍️</span><p>Some products will not only be available on our application but also distributed through supermarkets and stores.</p></li>
             </ul>
           </div>
-
           <div class="story-photos">
             <figure class="sp sp-1"><img src="assets/photos/cake.jpg" alt="An orange U Angel Foods birthday cake" width="1199" height="1280" loading="lazy" decoding="async"></figure>
             <figure class="sp sp-2"><img src="assets/photos/drinks.jpg" alt="Three U Angel branded fruit-infused drink cans in front of a plant" width="960" height="1016" loading="lazy" decoding="async"></figure>
@@ -184,247 +128,188 @@
           </div>
         </div>
 
-        <div class="different" data-reveal>
-          <span class="different-mark" aria-hidden="true">
-            <svg viewBox="0 0 48 48"><path d="M24 41s-15-8.6-15-20a8.5 8.5 0 0 1 15-5.5A8.5 8.5 0 0 1 39 21c0 11.4-15 20-15 20z"/></svg>
-          </span>
-          <p><strong class="different-q">What makes us different?</strong> Every item you purchase contributes directly to feeding the less privileged through our Soup Kitchens, which are strategically set up to serve individuals who have been identified and verified to need support.</p>
+        <div class="different">
+          <span aria-hidden="true">💚</span>
+          <p><strong>What makes us different?</strong> Every item you purchase contributes directly to feeding the less privileged.</p>
         </div>
-
-        <p class="slogan-line" data-reveal><span class="slogan-label">Our slogan -</span> <strong>U Are An Angel</strong></p>
+        <p class="slogan-line">Our slogan - <strong>U Are An Angel</strong></p>
       </div>
     </section>
 
     <!-- ============ SOCIAL IMPACT MODEL ============ -->
-    <section class="impact section" id="impact" aria-labelledby="impact-title">
+    <section class="section" id="impact" aria-labelledby="impact-title">
       <div class="container">
         <div class="section-head center">
-          <span class="sec-num" aria-hidden="true">04</span>
-          <h2 class="cap-title" id="impact-title" data-split>OUR SOCIAL IMPACT MODEL</h2>
-          <p class="section-lead center-lead" data-reveal>We are committed to solving real problems—not with handouts, but with a sustainable, empowering approach. Here’s how it works:</p>
+          <p class="eyebrow">04</p>
+          <h2 class="cap-title" id="impact-title">OUR SOCIAL IMPACT MODEL</h2>
+          <p class="section-lead">We are committed to solving real problems—not with handouts, but with a sustainable, empowering approach. Here’s how it works:</p>
         </div>
-        <div class="impact-wrap">
-          <span class="impact-track" aria-hidden="true"><span class="impact-fill"></span></span>
-          <ol class="impact-steps">
-            <li class="impact-step"><span class="impact-num" aria-hidden="true">01</span><p>Every purchase helps fund soup kitchens.</p></li>
-            <li class="impact-step"><span class="impact-num" aria-hidden="true">02</span><p>We personally get to know individuals in need, understand their stories, and provide meal passes to access daily support.</p></li>
-            <li class="impact-step"><span class="impact-num" aria-hidden="true">03</span><p>We will employ and empower locals—from our food outlets to our future farms—creating a cycle of community-driven impact.</p></li>
-          </ol>
-        </div>
+        <ol class="impact-steps">
+          <li>Every purchase helps fund our outreach programs. The profit from what you buy supports this initiative.</li>
+          <li>We get to know individuals in need, understand their stories, and provide for them.</li>
+          <li>We will employ and empower locals—from our food outlets to our future farms—creating a cycle of community-driven impact.</li>
+        </ol>
       </div>
     </section>
 
     <!-- ============ SUSTAINABILITY PLAN ============ -->
-    <section class="sustain" id="sustainability" aria-labelledby="sustain-title">
-      <div class="statement-pin">
-        <div class="container statement-inner">
-          <span class="sec-num sec-num-light" aria-hidden="true">05</span>
-          <h2 class="cap-title sustain-title" id="sustain-title">OUR SUSTAINABILITY PLAN</h2>
-          <p class="statement" data-statement>
-            <span class="st-line">WE DON'T WANT TO BUILD A CAMPAIGN.</span>
-            <span class="st-line st-accent">WE WANT TO BUILD A SYSTEM.</span>
-          </p>
+    <section class="section" id="sustainability" aria-labelledby="sustain-title">
+      <div class="container">
+        <div class="statement">
+          <p class="eyebrow">05</p>
+          <h2 class="cap-title" id="sustain-title" style="color:#fff;margin-top:6px">OUR SUSTAINABILITY PLAN</h2>
+          <p>WE DON'T WANT TO BUILD A CAMPAIGN. <span>WE WANT TO BUILD A SYSTEM.</span></p>
         </div>
-      </div>
-      <div class="container pillars-wrap">
-        <p class="pillars-lead" data-reveal>U Angel Foods is built on the foundation of:</p>
+        <p class="pillars-lead">U Angel Foods is built on the foundation of:</p>
         <ul class="pillars">
-          <li class="pillar"><span class="pillar-num" aria-hidden="true">01</span><h3>Sustainable Business Growth</h3><p><span class="dash">–</span> Expanding food outlets and retail distribution</p></li>
-          <li class="pillar"><span class="pillar-num" aria-hidden="true">02</span><h3>Continuous Social Outreach</h3><p><span class="dash">–</span> Feeding and supporting verified individuals in need</p></li>
-          <li class="pillar"><span class="pillar-num" aria-hidden="true">03</span><h3>Job Creation</h3><p><span class="dash">–</span> Empowering communities through meaningful employment</p></li>
-          <li class="pillar"><span class="pillar-num" aria-hidden="true">04</span><h3>Backward Integration</h3><p><span class="dash">–</span> Farming for supply chain control and cost efficiency</p></li>
+          <li class="pillar" style="--c:#FD652A"><h3>Sustainable Business Growth</h3><p>Expanding food outlets and retail distribution</p></li>
+          <li class="pillar" style="--c:#166534"><h3>Continuous Social Outreach</h3><p>Feeding and supporting verified individuals in need</p></li>
+          <li class="pillar" style="--c:#0F5B78"><h3>Job Creation</h3><p>Empowering communities through meaningful employment</p></li>
+          <li class="pillar" style="--c:#7A4419"><h3>Backward Integration</h3><p>Farming for supply chain control and cost efficiency</p></li>
         </ul>
       </div>
     </section>
 
     <!-- ============ BACKWARD INTEGRATION ============ -->
-    <section class="farm section" id="farming" aria-labelledby="farm-title">
+    <section class="section" id="farming" aria-labelledby="farm-title">
       <div class="container">
         <div class="section-head">
-          <span class="sec-num" aria-hidden="true">06</span>
-          <h2 class="section-title farm-title" id="farm-title" data-split>Backward Integration: <span class="hl-wrap">Farming for the Future</span></h2>
-          <p class="section-lead" data-reveal>To reduce reliance on external supply, to ensure cost control, to ensure quality control, and sustainability, we plan to invest in agriculture by:</p>
+          <p class="eyebrow">06</p>
+          <h2 class="section-title" id="farm-title">Backward Integration: <span class="hl">Farming for the Future</span></h2>
+          <p class="section-lead">To reduce reliance on external supply, to ensure cost control, to ensure quality control, and sustainability, we plan to invest in agriculture by:</p>
         </div>
         <ul class="farm-grid">
-          <li class="farm-card">
-            <span class="farm-icon" aria-hidden="true">
-              <svg class="draw-icon" viewBox="0 0 48 48"><path d="M13 15 6 11M35 15l7-4" pathLength="1"/><path d="M15 14h18c2.2 0 4 1.8 4 4v7c0 7.2-5.8 13-13 13s-13-5.8-13-13v-7c0-2.2 1.8-4 4-4z" pathLength="1"/><ellipse cx="24" cy="31" rx="7.5" ry="5" pathLength="1"/><path d="M21 31h.01M27 31h.01M18 21h.01M30 21h.01" pathLength="1"/></svg>
-            </span>
-            <p>Growing our own livestock</p>
-          </li>
-          <li class="farm-card">
-            <span class="farm-icon" aria-hidden="true">
-              <svg class="draw-icon" viewBox="0 0 48 48"><path d="M24 17c-3-3-10-3-12 3-2 6 1 15 6 18 2 1 4 1 6 0 2 1 4 1 6 0 5-3 8-12 6-18-2-6-9-6-12-3z" pathLength="1"/><path d="M24 17c0-4 2-7 5-9" pathLength="1"/><path d="M26 12c3-1.5 6-.5 7.5 1.5-3 1.5-6 .5-7.5-1.5z" pathLength="1"/></svg>
-            </span>
-            <p>Growing our own fruits, vegetables, and grains</p>
-          </li>
-          <li class="farm-card">
-            <span class="farm-icon" aria-hidden="true">
-              <svg class="draw-icon" viewBox="0 0 48 48"><path d="M19 5h10v7l4 6v22a2 2 0 0 1-2 2H17a2 2 0 0 1-2-2V18l4-6z" pathLength="1"/><path d="M19 12h10" pathLength="1"/><path d="M15 25c3 2 6 2 9 0s6-2 9 0" pathLength="1"/></svg>
-            </span>
-            <p>Establishing dairy operations for yogurt and other products</p>
-          </li>
-          <li class="farm-card">
-            <span class="farm-icon" aria-hidden="true">
-              <svg class="draw-icon" viewBox="0 0 48 48"><circle cx="17" cy="16" r="5.5" pathLength="1"/><path d="M7 39c0-6.5 4.5-11 10-11s10 4.5 10 11" pathLength="1"/><circle cx="33" cy="18" r="4.5" pathLength="1"/><path d="M29 28.5c1.2-.9 2.6-1.5 4-1.5 4.4 0 8 3.6 8 9.5" pathLength="1"/></svg>
-            </span>
-            <p>Creating employment and empowering rural communities</p>
-          </li>
+          <li class="farm-card"><span aria-hidden="true">🐄</span>Growing our own livestock</li>
+          <li class="farm-card"><span aria-hidden="true">🌽</span>Growing our own fruits, vegetables, and grains</li>
+          <li class="farm-card"><span aria-hidden="true">🥛</span>Establishing dairy operations for yogurt and other products</li>
+          <li class="farm-card"><span aria-hidden="true">👩🏾‍🌾</span>Creating employment and empowering rural communities</li>
         </ul>
-
-        <div class="fork-card" data-reveal>
-          <svg class="fork-route" viewBox="0 0 600 90" aria-hidden="true">
-            <path class="fork-bg" d="M40 60 C 140 10, 220 85, 300 45 S 460 10, 560 40"/>
-            <path class="fork-line" d="M40 60 C 140 10, 220 85, 300 45 S 460 10, 560 40" pathLength="1"/>
-            <g transform="translate(40 60)"><circle r="24"/><text y="9" text-anchor="middle">🌱</text></g>
-            <g transform="translate(560 40)"><circle class="fork-end" r="24"/><text y="9" text-anchor="middle">🍴</text></g>
-          </svg>
-          <p class="fork-text">This strategy ensures that we keep production costs low, maintain quality standards, and stay in full control of the supply chain—<span class="fork-hl">from farm to fork.</span></p>
-        </div>
+        <p class="fork">🌱 → 🍴 This strategy ensures that we keep production costs low, maintain quality standards, and stay in full control of the supply chain—<b>from farm to fork.</b></p>
       </div>
     </section>
 
     <!-- ============ BENEFITS TO SOCIETY ============ -->
-    <section class="benefits section" id="benefits" aria-labelledby="benefits-title">
+    <section class="section" id="benefits" aria-labelledby="benefits-title">
       <div class="container">
         <div class="section-head center">
-          <span class="sec-num" aria-hidden="true">07</span>
-          <h2 class="cap-title" id="benefits-title" data-split>BENEFITS TO SOCIETY</h2>
+          <p class="eyebrow">07</p>
+          <h2 class="cap-title" id="benefits-title">BENEFITS TO SOCIETY</h2>
         </div>
         <ul class="benefit-grid">
-          <li class="benefit"><span class="benefit-emoji" aria-hidden="true">🍲</span><p>Nutritious meals for the less privileged through soup kitchens</p></li>
-          <li class="benefit"><span class="benefit-emoji" aria-hidden="true">🤝</span><p>Empowered communities through jobs and local partnerships</p></li>
-          <li class="benefit"><span class="benefit-emoji" aria-hidden="true">💛</span><p>Restored dignity via a personalized approach to social care</p></li>
-          <li class="benefit"><span class="benefit-emoji" aria-hidden="true">🍽️</span><p>Affordable, high-quality food for the general public</p></li>
-          <li class="benefit"><span class="benefit-emoji" aria-hidden="true">🔁</span><p>A replicable model for community transformation without dependence on donations.</p></li>
-          <li class="benefit"><span class="benefit-emoji" aria-hidden="true">⛪</span><p>Supporting ministries and strengthening The Body of CHRIST</p></li>
+          <li class="benefit"><span aria-hidden="true">🍲</span><p>Nutritious meals for the less privileged through our outreach programs</p></li>
+          <li class="benefit"><span aria-hidden="true">🤝</span><p>Empowered communities through jobs and local partnerships</p></li>
+          <li class="benefit"><span aria-hidden="true">💛</span><p>Restored dignity via a personalized approach to social care</p></li>
+          <li class="benefit"><span aria-hidden="true">🍽️</span><p>Affordable, high-quality food for the general public</p></li>
+          <li class="benefit"><span aria-hidden="true">🔁</span><p>A replicable model for community transformation without dependence on donations.</p></li>
+          <li class="benefit"><span aria-hidden="true">⛪</span><p>Supporting ministries and strengthening The Body of CHRIST</p></li>
         </ul>
       </div>
     </section>
 
     <!-- ============ OUR LEGACY ============ -->
-    <section class="legacy" id="legacy" aria-labelledby="legacy-title">
-      <div class="legacy-glow" aria-hidden="true"></div>
-      <div class="container legacy-inner">
-        <span class="sec-num sec-num-light" aria-hidden="true">08</span>
-        <h2 class="cap-title" id="legacy-title" data-split>OUR LEGACY</h2>
-        <p class="legacy-lead" data-reveal>One day, we want to look back and know that this name represented millions—perhaps billions—of moments where someone's dignity was restored.</p>
-        <ul class="legacy-lines">
-          <li>A child receiving food.</li>
-          <li>A family receiving support.</li>
-          <li>A person discovering human compassion.</li>
-          <li>A customer choosing to return because of the pleasant experience we invoke</li>
-          <li>A business creating employment.</li>
-          <li>A community choosing generosity.</li>
-        </ul>
+    <section class="section" id="legacy" aria-labelledby="legacy-title">
+      <div class="container">
+        <div class="legacy">
+          <p class="eyebrow" style="color:#fff;opacity:.85">08</p>
+          <h2 class="cap-title" id="legacy-title">OUR LEGACY</h2>
+          <p class="legacy-lead">One day, we want to look back and know that this name represented millions—perhaps billions—of moments where someone's dignity was restored.</p>
+          <ul class="legacy-lines">
+            <li>A child receiving food.</li>
+            <li>A family receiving support.</li>
+            <li>A person discovering human compassion.</li>
+            <li>A customer choosing to return because of the pleasant experience we invoke</li>
+            <li>A business creating employment.</li>
+            <li>A community choosing generosity.</li>
+          </ul>
+        </div>
       </div>
     </section>
 
     <!-- ============ THE NAME: LONG-FORM STORY ============ -->
-    <section class="story" id="story" aria-label="The story of our name">
-      <div class="story-col">
-
-        <section class="chapter" aria-labelledby="ch-1">
-          <span class="chapter-num" aria-hidden="true">I</span>
-          <h2 class="chapter-title" id="ch-1" data-split>HONOURING OUR FATHER</h2>
-          <p class="chapter-lead" data-reveal>At U Angel Foods Ltd, our name carries a story of honour, gratitude, and spiritual heritage.</p>
-          <p data-reveal>The name U ANGEL FOODS LIMITED was inspired by THE HOLY SPIRIT and given in honour of our spiritual father, the highly esteemed Prophet Uebert Angel—a bondservant servant of GOD whose life, ministry, and commitment to the advancement of the Kingdom of GOD have inspired countless people around the world.</p>
-          <p data-reveal>We recognise Prophet Uebert Angel, The Ra'ah as a prophet of our time and the "Major Prophet" of this last dispensation, and it is our privilege to have a brand whose name serves as a lasting expression of our honour and appreciation for his life and ministry.</p>
-        </section>
-
-        <div class="chapter-rule" aria-hidden="true"><span></span><i>✦</i><span></span></div>
-
-        <section class="chapter" aria-labelledby="ch-2">
-          <span class="chapter-num" aria-hidden="true">II</span>
-          <h2 class="chapter-title" id="ch-2" data-split>A LIFE OF KINGDOM IMPACT</h2>
-          <p class="chapter-lead" data-reveal>Prophet Uebert Angel has dedicated his life to preaching the Gospel of our LORD JESUS, teaching the WORD of GOD, raising believers, and demonstrating the compassion of CHRIST to people across nations.</p>
-          <p data-reveal>His ministry has consistently emphasised not only the preaching of the Gospel but also the practical expression of GOD'S love—reaching people in their places of need, restoring dignity, and demonstrating that the Kingdom of GOD must bring tangible transformation to humanity.</p>
-          <p data-reveal>Together with his beloved wife, Prophetess Bebe Angel, he has demonstrated a profound commitment to humanitarian work and to feeding and supporting less-privileged people around the world.</p>
-          <p class="chapter-emph" data-reveal>It is this expression of the Gospel—faith accompanied by love, compassion, action, and responsibility—that deeply resonates with the vision behind U Angel Foods Ltd.</p>
-        </section>
-
-        <div class="chapter-rule" aria-hidden="true"><span></span><i>✦</i><span></span></div>
-
-        <section class="chapter" aria-labelledby="ch-3">
-          <span class="chapter-num" aria-hidden="true">III</span>
-          <h2 class="chapter-title" id="ch-3" data-split>WHY WE BEAR THE NAME “U ANGEL”</h2>
-          <p class="chapter-lead" data-reveal>U Angel Foods Ltd is more than a food company. <strong class="em">Our name is a tribute.</strong> It is our way of saying that we honour a man whom we esteem greatly for his service to GOD and his commitment to the advancement of GOD'S Kingdom. The name reminds us that what we build must carry a purpose greater than ourselves.</p>
-          <p data-reveal>Every meal we prepare, every customer we serve, every person we employ, and every life we are able to touch is an opportunity to demonstrate the love of CHRIST in a practical way.</p>
-          <p data-reveal>We therefore chose the name U ANGEL FOODS LIMITED because we desire the legacy associated with that name to continually remind us of service, generosity, compassion, excellence, and Kingdom impact.</p>
-        </section>
-
-        <div class="chapter-rule" aria-hidden="true"><span></span><i>✦</i><span></span></div>
-
-        <section class="chapter" aria-labelledby="ch-4">
-          <span class="chapter-num" aria-hidden="true">IV</span>
-          <h2 class="chapter-title" id="ch-4" data-split>FOOD WITH A PURPOSE</h2>
-          <p class="chapter-lead" data-reveal>The vision of U Angel Foods Ltd is rooted in a simple conviction:</p>
-          <blockquote class="pull">
-            <span class="pull-mark" aria-hidden="true">&ldquo;</span>
-            <p data-split>Business can become a vehicle for Kingdom impact.</p>
-          </blockquote>
-          <p data-reveal>Rather than building a company solely for profit, we desire to build a sustainable social enterprise whose success creates opportunities to feed the hungry, support evangelism, create employment, and establish sustainable systems for helping people in need.</p>
-          <p data-reveal>Our aspiration is to demonstrate that compassion does not have to depend entirely upon occasional generosity. Sustainable businesses can be built to produce sustainable solutions.</p>
-          <p data-reveal>In this way, every person who patronises U Angel Foods Ltd becomes part of something greater than a transaction.</p>
-          <ul class="truths">
-            <li>A meal purchased can help provide a meal for someone who cannot afford one.</li>
-            <li>A successful business can create employment.</li>
-            <li>Profit can become a resource for humanitarian work.</li>
-            <li>And commerce can become an instrument through which the love of CHRIST reaches people in practical ways.</li>
-          </ul>
-        </section>
-
-        <div class="chapter-rule" aria-hidden="true"><span></span><i>✦</i><span></span></div>
-
-        <section class="chapter" aria-labelledby="ch-5">
-          <span class="chapter-num" aria-hidden="true">V</span>
-          <h2 class="chapter-title" id="ch-5" data-split>A NAME THAT HOLDS US ACCOUNTABLE</h2>
-          <p class="chapter-lead" data-reveal>Every time we say U Angel Foods, we are reminded that we have attached a name we deeply honour to a business with a serious responsibility.</p>
-          <p data-reveal>That means the name must represent more than commercial success.</p>
-          <p data-reveal>It must represent excellence, compassion, generosity, service, dignity, and Kingdom purpose. We want the name to challenge us to build differently.</p>
-          <ul class="commitments">
-            <li><span class="commit-tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1"/></svg></span>To serve with love.</li>
-            <li><span class="commit-tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1"/></svg></span>To treat every customer with dignity.</li>
-            <li><span class="commit-tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1"/></svg></span>To treat every employee with dignity.</li>
-            <li><span class="commit-tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" pathLength="1"/></svg></span>To handle every order and everyone we serve responsibly.</li>
-          </ul>
-          <p class="chapter-emph" data-reveal>And to remember that behind every social-impact statistic is a real human being created in the image of GOD.</p>
-        </section>
+    <section class="section" id="story" aria-label="The story of our name">
+      <div class="container">
+        <div class="chapters">
+          <section class="chapter" aria-labelledby="ch-1">
+            <span class="chapter-num">I</span>
+            <h2 id="ch-1">HONOURING OUR FATHER</h2>
+            <p class="chapter-lead">At U Angel Foods, our name carries a story of honour, gratitude, and spiritual heritage.</p>
+            <p>The name U Angel Foods was inspired by THE HOLY SPIRIT and given in honour of our spiritual father, the highly esteemed Prophet Uebert Angel—a bondservant servant of GOD whose life, ministry, and commitment to the advancement of the Kingdom of GOD have inspired countless people around the world.</p>
+            <p>We recognise Prophet Uebert Angel, The Ra'ah as a prophet of our time and the "Major Prophet" of this last dispensation, and it is our privilege to have a brand whose name serves as a lasting expression of our honour and appreciation for his life and ministry.</p>
+          </section>
+          <div class="chapter-rule" aria-hidden="true"></div>
+          <section class="chapter" aria-labelledby="ch-2">
+            <span class="chapter-num">II</span>
+            <h2 id="ch-2">A LIFE OF KINGDOM IMPACT</h2>
+            <p class="chapter-lead">Prophet Uebert Angel has dedicated his life to preaching the Gospel of our LORD JESUS, teaching the WORD of GOD, raising believers, and demonstrating the compassion of CHRIST to people across nations.</p>
+            <p>His ministry has consistently emphasised not only the preaching of the Gospel but also the practical expression of GOD'S love—reaching people in their places of need, restoring dignity, and demonstrating that the Kingdom of GOD must bring tangible transformation to humanity.</p>
+            <p>Together with his beloved wife, Prophetess Bebe Angel, he has demonstrated a profound commitment to humanitarian work and to feeding and supporting less-privileged people around the world.</p>
+            <p class="chapter-emph">It is this expression of the Gospel—faith accompanied by love, compassion, action, and responsibility—that deeply resonates with the vision behind U Angel Foods.</p>
+          </section>
+          <div class="chapter-rule" aria-hidden="true"></div>
+          <section class="chapter" aria-labelledby="ch-3">
+            <span class="chapter-num">III</span>
+            <h2 id="ch-3">WHY WE BEAR THE NAME “U ANGEL”</h2>
+            <p class="chapter-lead">U Angel Foods is more than a food company. <strong>Our name is a tribute.</strong> It is our way of saying that we honour a man whom we esteem greatly for his service to GOD and his commitment to the advancement of GOD'S Kingdom. The name reminds us that what we build must carry a purpose greater than ourselves.</p>
+            <p>Every meal we prepare, every customer we serve, every person we employ, and every life we are able to touch is an opportunity to demonstrate the love of CHRIST in a practical way.</p>
+            <p>We therefore chose the name U Angel Foods because we desire the legacy associated with that name to continually remind us of service, generosity, compassion, excellence, and Kingdom impact.</p>
+          </section>
+          <div class="chapter-rule" aria-hidden="true"></div>
+          <section class="chapter" aria-labelledby="ch-4">
+            <span class="chapter-num">IV</span>
+            <h2 id="ch-4">FOOD WITH A PURPOSE</h2>
+            <p class="chapter-lead">The vision of U Angel Foods is rooted in a simple conviction:</p>
+            <blockquote class="pull"><p>“Business can become a vehicle for Kingdom impact.”</p></blockquote>
+            <p>Rather than building a company solely for profit, we desire to build a sustainable social enterprise whose success creates opportunities to feed the hungry, support evangelism, create employment, and establish sustainable systems for helping people in need.</p>
+            <p>Our aspiration is to demonstrate that compassion does not have to depend entirely upon occasional generosity. Sustainable businesses can be built to produce sustainable solutions.</p>
+            <p>In this way, every person who patronises U Angel Foods becomes part of something greater than a transaction.</p>
+            <ul class="truths">
+              <li>A meal purchased can help provide a meal for someone who cannot afford one.</li>
+              <li>A successful business can create employment.</li>
+              <li>Profit can become a resource for humanitarian work.</li>
+              <li>And commerce can become an instrument through which the love of CHRIST reaches people in practical ways.</li>
+            </ul>
+          </section>
+          <div class="chapter-rule" aria-hidden="true"></div>
+          <section class="chapter" aria-labelledby="ch-5">
+            <span class="chapter-num">V</span>
+            <h2 id="ch-5">A NAME THAT HOLDS US ACCOUNTABLE</h2>
+            <p class="chapter-lead">Every time we say U Angel Foods, we are reminded that we have attached a name we deeply honour to a business with a serious responsibility.</p>
+            <p>That means the name must represent more than commercial success.</p>
+            <p>It must represent excellence, compassion, generosity, service, dignity, and Kingdom purpose. We want the name to challenge us to build differently.</p>
+            <ul class="commitments">
+              <li>To serve with love.</li>
+              <li>To treat every customer with dignity.</li>
+              <li>To treat every employee with dignity.</li>
+              <li>To handle every order and everyone we serve responsibly.</li>
+            </ul>
+            <p class="chapter-emph">And to remember that behind every social-impact statistic is a real human being created in the image of GOD.</p>
+          </section>
+        </div>
       </div>
     </section>
 
     <!-- ============ OUR HONOUR (finale) ============ -->
-    <section class="honour" id="honour" aria-labelledby="honour-title">
-      <div class="hero-bg" aria-hidden="true">
-        <span class="blob blob-1"></span>
-        <span class="blob blob-3"></span>
-        <span class="grain"></span>
-      </div>
-      <div class="honour-inner">
-        <span class="chapter-num chapter-num-dark" aria-hidden="true">VI</span>
-        <h2 class="chapter-title" id="honour-title" data-split>OUR HONOUR</h2>
-        <p class="honour-p" data-reveal>We honour Prophet Uebert Angel and Prophetess Bebe Angel for their commitment to the Gospel and their demonstrated concern for people who are less privileged.</p>
-        <p class="honour-p" data-reveal>We are grateful for the spiritual heritage and example that have inspired us to think beyond ourselves and to build with Kingdom purpose.</p>
-        <p class="honour-p honour-lead" data-reveal>May the name U ANGEL FOODS LIMITED always represent what we believe the Gospel should produce in us:</p>
-
-        <ul class="creed">
-          <li><span>Faith that serves.</span></li>
-          <li><span>Success that gives.</span></li>
-          <li><span>Business that creates.</span></li>
-          <li><span>Compassion that acts.</span></li>
-        </ul>
-        <p class="glory">And a life that brings glory to JESUS CHRIST.</p>
-
-        <div class="signature">
-          <img class="signature-logo" src="assets/uangel-logo-white.png" alt="" width="1024" height="1024" loading="lazy">
-          <span class="sig-rule" aria-hidden="true"></span>
-          <p class="sig-built">Built by ECCLESIA NATION</p>
-          <p class="sig-named">Named in honour of Prophet Uebert Angel.</p>
-          <span class="sig-rule" aria-hidden="true"></span>
-        </div>
-
-        <div class="honour-cta">
-          <a class="btn btn-dark btn-lg magnetic" href="index.html#shop">Support the mission — shop now <span class="btn-arrow" aria-hidden="true">→</span></a>
+    <section class="section" id="honour" aria-labelledby="honour-title">
+      <div class="container">
+        <div class="honour">
+          <span class="chapter-num">VI</span>
+          <h2 id="honour-title">OUR HONOUR</h2>
+          <p>We honour Prophet Uebert Angel and Prophetess Bebe Angel for their commitment to the Gospel and their demonstrated concern for people who are less privileged.</p>
+          <p>We are grateful for the spiritual heritage and example that have inspired us to think beyond ourselves and to build with Kingdom purpose.</p>
+          <p>May the name U Angel Foods always represent what we believe the Gospel should produce in us:</p>
+          <ul class="creed">
+            <li>Faith that serves.</li>
+            <li>Success that gives.</li>
+            <li>Business that creates.</li>
+            <li>Compassion that acts.</li>
+          </ul>
+          <p class="glory">And a life that brings glory to JESUS CHRIST.</p>
+          <div class="signature">
+            <img src="assets/uangel-logo-white.png" alt="" width="1024" height="1024" loading="lazy">
+            <p>Built by Ecclesia Nation</p>
+            <p>Named in honour of Prophet Uebert Angel.</p>
+          </div>
+          <a class="btn btn-orange btn-lg" href="index.html#shop" style="margin-top:10px">Support the mission — shop now →</a>
         </div>
       </div>
     </section>
@@ -434,18 +319,16 @@
   <footer class="footer">
     <div class="container footer-inner">
       <div class="footer-brand">
-        <img src="assets/uangel-logo-white.png" alt="U Angel Foods" width="1024" height="1024" loading="lazy">
-        <p>Cakes, drinks, health foods, market produce, groceries, catering and events — delivered with love across Lagos. Pay securely online with Paystack.</p>
+        <a class="brand" href="index.html"><img src="assets/icon-180.png" alt="" width="180" height="180"><span>U Angel <b>Foods</b></span></a>
+        <p>Cakes, drinks, health foods, market produce, groceries, catering and events, delivered with love across Lagos. Pay online with Paystack, or pay on delivery (the delivery fee is paid online first).</p>
       </div>
       <nav class="footer-col" aria-label="Footer">
         <h3>Explore</h3>
+        <a href="index.html#purpose">Our purpose</a>
         <a href="index.html#shop">Shop</a>
-        <a href="index.html#catering">Catering</a>
-        <a href="index.html#events">Events</a>
-        <a href="index.html#market">Market</a>
-        <a href="index.html#how">How it works</a>
-        <a href="index.html#mission">Our mission</a>
+        <a href="index.html#letter">Our letter</a>
         <a href="about.html" aria-current="page">Our story</a>
+        <a href="index.html#get">Get the app</a>
       </nav>
       <div class="footer-col">
         <h3>Say hello</h3>
@@ -461,10 +344,6 @@
     </div>
   </footer>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js" defer></script>
   <script src="js/main.js" defer></script>
-  <script src="js/about.js" defer></script>
 </body>
 </html>

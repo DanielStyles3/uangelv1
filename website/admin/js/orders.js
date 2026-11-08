@@ -22,9 +22,21 @@
     { id: 'cancelled', label: 'Cancelled' }
   ];
   var RANGES = { today: 0, '7d': -6, '30d': -29 };
-  var LIST_COLS = 'id, user_id, status, payment_status, payment_method, total, city, phone, created_at, order_items(count)';
+  var LIST_COLS = 'id, user_id, status, payment_status, payment_method, total, balance_due, balance_collected_at, city, phone, created_at, order_items(count)';
 
   var S; // per-render state
+
+  /* Pay on delivery: the delivery fee is paid on Paystack, the rider collects balance_due (the items). */
+  function isPod(o) { return o && o.payment_method === 'pay_on_delivery'; }
+  function needsCollecting(o) { return isPod(o) && !o.balance_collected_at && Number(o.balance_due) > 0 && o.status !== 'cancelled'; }
+  function podBadge(o) {
+    if (!isPod(o)) return '';
+    return o.balance_collected_at
+      ? A.badge('success', 'Pay on delivery · collected')
+      : A.badge('warn', 'Pay on delivery · collect ' + A.formatNaira(o.balance_due));
+  }
+  /* Orders that need an online payment before the kitchen starts. */
+  function paysOnline(o) { return o.payment_method === 'paystack' || isPod(o); }
 
   function itemCount(o) {
     if (Array.isArray(o.order_items) && o.order_items.length && o.order_items[0].count !== undefined) return Number(o.order_items[0].count) || 0;
@@ -46,7 +58,7 @@
         esc([p && p.email !== customerName(o) ? p.email : '', o.phone, o.city].filter(Boolean).join(' \u00B7 ')) + '</div></td>' +
       '<td class="num tc-items">' + n + '<span class="tc-only"> item' + (n === 1 ? '' : 's') + '</span></td>' +
       '<td class="num strong tc-total">' + esc(A.formatNaira(o.total)) + '</td>' +
-      '<td class="tc-badge">' + A.badge(o.payment_status) + '</td>' +
+      '<td class="tc-badge">' + A.badge(o.payment_status) + (isPod(o) ? '<div style="margin-top:4px">' + podBadge(o) + '</div>' : '') + '</td>' +
       '<td class="tc-badge">' + A.badge(o.status) + '</td></tr>';
   }
 
@@ -91,7 +103,9 @@
   }
 
   function syncUrl() {
+    if (!S) return;
     A.replaceParams({
+      view: 'list',
       status: S.status !== 'all' ? S.status : '',
       payment: S.payment,
       range: S.range !== 'all' ? S.range : '',
@@ -163,8 +177,9 @@
   }
 
   function updateRow(order) {
+    if (!S) return;
     var i = S.rows.findIndex(function (r) { return r.id === order.id; });
-    if (i >= 0) S.rows[i] = Object.assign({}, S.rows[i], { status: order.status, payment_status: order.payment_status });
+    if (i >= 0) S.rows[i] = Object.assign({}, S.rows[i], { status: order.status, payment_status: order.payment_status, balance_collected_at: order.balance_collected_at });
     var tr = S.el && S.el.querySelector('tr[data-id="' + order.id + '"]');
     if (tr && i >= 0) tr.outerHTML = rowHtml(S.rows[i]);
   }
@@ -174,12 +189,15 @@
   // ---------------------------------------------------------------------------
   function customizationsHtml(list) {
     if (!Array.isArray(list) || !list.length) return '';
-    var groups = { topping: [], side: [] };
+    var groups = { option: [], topping: [], side: [] };
     list.forEach(function (c) {
-      var k = c && c.type === 'side' ? 'side' : 'topping';
-      groups[k].push(esc(c && c.name) + (Number(c && c.price) ? ' (+' + esc(A.formatNaira(c.price)) + ')' : ''));
+      if (!c) return;
+      // Cake choices (size, flavour…) and typed answers (message on the cake) come first, one per line.
+      var k = c.type === 'option' || c.type === 'text' ? 'option' : c.type === 'side' ? 'side' : 'topping';
+      groups[k].push(esc(c.name) + (Number(c.price) ? ' (+' + esc(A.formatNaira(c.price)) + ')' : ''));
     });
     var out = [];
+    if (groups.option.length) out.push('<div class="meta" style="background:#FBE7EF;color:#7a2347;border-radius:10px;padding:8px 10px;margin:6px 0"><strong>Customised:</strong><br>' + groups.option.join('<br>') + '</div>');
     if (groups.topping.length) out.push('<div class="meta"><strong>Add-ons:</strong> ' + groups.topping.join(', ') + '</div>');
     if (groups.side.length) out.push('<div class="meta"><strong>Extras:</strong> ' + groups.side.join(', ') + '</div>');
     return out.join('');
@@ -206,7 +224,7 @@
     var phone = o.phone || (p && p.phone) || '';
     var email = p && p.email;
 
-    var head = '<div class="row" style="margin-bottom:14px">' + A.badge(o.status) + A.badge(o.payment_status) +
+    var head = '<div class="row" style="margin-bottom:14px">' + A.badge(o.status) + A.badge(o.payment_status) + podBadge(o) +
       '<span class="muted small">Placed ' + esc(A.formatDateTime(o.created_at)) + '</span></div>';
 
     var notices = '';
@@ -215,7 +233,11 @@
         (o.payment_status === 'paid' ? ' It was paid \u2014 make sure the refund was issued in the Paystack dashboard.' : '') + '</span></div>';
     } else if (o.status === 'awaiting_payment') {
       notices += '<div class="alert alert-warn" style="margin-bottom:14px">' + I.clock + '<span>Waiting for the customer to complete payment' +
-        (o.payment_method === 'paystack' ? ' on Paystack' : '') + '. Payment status is updated automatically.</span></div>';
+        (isPod(o) ? ' of the delivery fee on Paystack' : o.payment_method === 'paystack' ? ' on Paystack' : '') + '. Payment status is updated automatically.</span></div>';
+    } else if (needsCollecting(o) && o.payment_status === 'paid') {
+      notices += '<div class="alert alert-warn" style="margin-bottom:14px">' + I.clock + '<span>Pay on delivery: the delivery fee (' +
+        esc(A.formatNaira(o.online_amount != null ? o.online_amount : o.delivery_fee)) + ') was paid on Paystack. The rider must collect <strong>' +
+        esc(A.formatNaira(o.balance_due)) + '</strong> (cash or transfer) on delivery.</span></div>';
     }
 
     var actions = '';
@@ -258,14 +280,27 @@
       '<dt>Status</dt><dd>' + A.badge(o.payment_status) + '</dd>' +
       (o.paystack_reference ? '<dt>Reference</dt><dd class="mono" style="word-break:break-all">' + esc(o.paystack_reference) + '</dd>' : '') +
       (o.paid_at ? '<dt>Paid at</dt><dd>' + esc(A.formatDateTime(o.paid_at)) + '</dd>' : '') +
-      '</dl><p class="small muted" style="margin-top:10px">Payment status is set by Paystack and can\u2019t be changed here.</p>';
+      (isPod(o)
+        ? '<dt>Paid online</dt><dd>' + esc(A.formatNaira(o.online_amount != null ? o.online_amount : o.delivery_fee)) + ' (delivery fee)</dd>' +
+          '<dt>Collect on delivery</dt><dd>' + esc(A.formatNaira(o.balance_due)) +
+            (o.balance_collected_at ? ' \u00b7 collected ' + esc(A.formatDateTime(o.balance_collected_at)) : ' \u00b7 not collected yet') + '</dd>'
+        : '') +
+      '</dl><p class="small muted" style="margin-top:10px">Payment status is set by Paystack and can\u2019t be changed here.</p>' +
+      (needsCollecting(o) && o.payment_status === 'paid'
+        ? '<button type="button" class="btn btn-primary btn-sm" data-collect style="margin-top:10px">' + I.check + 'Mark balance collected (' + esc(A.formatNaira(o.balance_due)) + ')</button>'
+        : '');
 
     return head + notices + stepperHtml(o) + actions +
       '<div class="detail-grid">' +
         '<div class="panel"><h3>Items (' + items.length + ')</h3><div class="items">' + itemsHtml + '</div>' +
           '<div class="totals"><div><span>Subtotal</span><span>' + esc(A.formatNaira(o.subtotal)) + '</span></div>' +
           '<div><span>Delivery fee</span><span>' + esc(A.formatNaira(o.delivery_fee)) + '</span></div>' +
-          '<div class="grand"><span>Total</span><span>' + esc(A.formatNaira(o.total)) + '</span></div></div></div>' +
+          '<div class="grand"><span>Total</span><span>' + esc(A.formatNaira(o.total)) + '</span></div>' +
+          (isPod(o)
+            ? '<div><span>Paid online (delivery)</span><span>' + esc(A.formatNaira(o.online_amount != null ? o.online_amount : o.delivery_fee)) + '</span></div>' +
+              '<div><span>Rider collects</span><span>' + esc(A.formatNaira(o.balance_due)) + '</span></div>'
+            : '') +
+          '</div></div>' +
         '<div class="stack" style="gap:12px">' +
           '<div class="panel"><h3>Customer</h3>' + contact + '</div>' +
           '<div class="panel"><h3>Delivery</h3>' + delivery + '</div>' +
@@ -293,7 +328,7 @@
     var busy = false;
     function setBusy(on) {
       busy = on;
-      body.querySelectorAll('button[data-set], button[data-step], button[data-cancel]').forEach(function (b) {
+      body.querySelectorAll('button[data-set], button[data-step], button[data-cancel], button[data-collect]').forEach(function (b) {
         if (on) b.setAttribute('disabled', ''); else if (!b.hasAttribute('aria-current')) b.removeAttribute('disabled');
       });
     }
@@ -311,7 +346,7 @@
         if (!ok) return;
       } else if (newIdx >= 0 && curIdx >= 0 && newIdx < curIdx) {
         if (!await A.confirm('Move order #' + A.shortId(order.id) + ' back to \u201C' + stepLabel(status) + '\u201D?', { confirmLabel: 'Move back' })) return;
-      } else if (order.payment_status !== 'paid' && order.payment_method === 'paystack' &&
+      } else if (order.payment_status !== 'paid' && paysOnline(order) &&
                  (order.status === 'awaiting_payment' || order.status === 'pending')) {
         if (!await A.confirm('This order hasn\u2019t been paid on Paystack yet (payment: ' + A.statusLabel(order.payment_status) +
           '). Continue to \u201C' + stepLabel(status) + '\u201D anyway?', { confirmLabel: 'Continue anyway' })) return;
@@ -322,6 +357,7 @@
         await setStatus(order, status);
         A.toast('Order #' + A.shortId(order.id) + ' \u2192 ' + A.statusLabel(order.status));
         if (S) updateRow(order);
+        if (typeof m.onChanged === 'function') m.onChanged(order);
         A.refreshBadges();
         if (m.isOpen()) { body.innerHTML = detailHtml(order, profile); bindDetail(m, order, profile); }
       } catch (e) {
@@ -338,17 +374,39 @@
     });
     var c = body.querySelector('[data-cancel]');
     if (c) c.addEventListener('click', function () { change('cancelled', c); });
+    var bc = body.querySelector('[data-collect]');
+    if (bc) bc.addEventListener('click', async function () {
+      if (busy) return;
+      if (!await A.confirm('Has the rider collected ' + A.formatNaira(order.balance_due) + ' for order #' + A.shortId(order.id) + '?',
+        { title: 'Mark balance collected?', confirmLabel: 'Mark collected' })) return;
+      setBusy(true);
+      A.setLoading(bc, true, 'Saving…');
+      try {
+        order.balance_collected_at = A.unwrap(await A.sb.rpc('admin_mark_balance_collected', { p_order_id: order.id }));
+        A.toast('Order #' + A.shortId(order.id) + ': ' + A.formatNaira(order.balance_due) + ' collected');
+        if (S) updateRow(order);
+        if (typeof m.onChanged === 'function') m.onChanged(order);
+        A.refreshBadges();
+        if (m.isOpen()) { body.innerHTML = detailHtml(order, profile); bindDetail(m, order, profile); }
+      } catch (e) {
+        A.toast(A.errMessage(e), 'error');
+        A.setLoading(bc, false);
+        setBusy(false);
+      }
+    });
     var co = body.querySelector('[data-customer-orders]');
     if (co) co.addEventListener('click', function () { m.close(); A.navigate('orders', { customer: order.user_id }); });
   }
 
-  async function openOrder(id) {
+  /** Opens the order detail window. onChanged(order) runs after a status change (board refresh). */
+  async function openOrder(id, onChanged) {
     var m = A.modal({
       title: 'Order #' + A.shortId(id),
       wide: true,
       body: '<div aria-busy="true">' + A.skeletonBlocks(1, 'line') + A.skeletonBlocks(2, 'block') + '</div>',
       onClose: function () { if (S && S.el.isConnected && A.currentSection() === 'orders') syncUrl(); }
     });
+    m.onChanged = onChanged;
     try {
       var res = await A.sb.from('orders').select('*, order_items(*)').eq('id', id).maybeSingle();
       var order = A.unwrap(res);
@@ -376,8 +434,170 @@
     }).join('');
   }
 
+  function viewToggle(current) {
+    return '<div class="ob-views" role="group" aria-label="Orders view">' +
+      '<button type="button" data-view-mode="board" aria-pressed="' + (current === 'board') + '">' + I.grid + 'Board</button>' +
+      '<button type="button" data-view-mode="list" aria-pressed="' + (current === 'list') + '">' + I.filter + 'List</button></div>';
+  }
+  function bindToggle(el) {
+    el.querySelector('.ob-views').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-view-mode]');
+      if (b && b.getAttribute('aria-pressed') !== 'true') A.navigate('orders', { view: b.getAttribute('data-view-mode') });
+    });
+  }
+
+  /* Board by default; the list opens with ?view=list or when a filter/search is in the link. */
   async function render(el, params) {
     params = params || A.getParams();
+    var view = params.get('view');
+    if (view !== 'board' && view !== 'list') {
+      view = ['status', 'payment', 'range', 'customer', 'q'].some(function (k) { return params.get(k); }) ? 'list' : 'board';
+    }
+    if (view === 'board') { S = null; return renderBoard(el, params); }
+    return renderList(el, params);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Board: one column per status, one button to move an order to the next step
+  // ---------------------------------------------------------------------------
+  var BOARD = [
+    { id: 'awaiting_payment', label: 'Awaiting payment', hint: 'Not paid yet (last 2 days)', tone: 'amber', next: null },
+    { id: 'pending', label: 'New (paid)', hint: 'Confirm to start', tone: 'orange', next: 'confirmed', nextLabel: 'Confirm' },
+    { id: 'confirmed', label: 'Confirmed', hint: 'Start preparing', tone: 'teal', next: 'preparing', nextLabel: 'Start preparing' },
+    { id: 'preparing', label: 'Preparing', hint: 'Being packed', tone: 'blue', next: 'on_the_way', nextLabel: 'Send out' },
+    { id: 'on_the_way', label: 'On the way', hint: 'With the rider', tone: 'purple', next: 'delivered', nextLabel: 'Delivered' },
+    { id: 'delivered', label: 'Delivered', hint: 'Orders from today and yesterday', tone: 'green', next: null }
+  ];
+  var LATE_MIN = { pending: 30, confirmed: 60, preparing: 90, on_the_way: 120 };
+
+  function waited(o) { return Math.max(0, Math.round((Date.now() - new Date(o.paid_at || o.created_at).getTime()) / 60000)); }
+  function waitText(m) { return m < 1 ? 'just now' : m < 60 ? m + ' min' : m < 1440 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : Math.floor(m / 1440) + 'd'; }
+
+  async function renderBoard(el, params) {
+    var B = { el: el, rows: [], profiles: new Map(), q: '', busy: {}, seq: 0 };
+    el.innerHTML =
+      '<div class="page-head"><div><h1>Orders</h1><p>Move each order along as it happens. Customers see the new status in the app.</p></div>' +
+        '<div class="actions">' + viewToggle('board') + '<button type="button" class="btn btn-ghost btn-sm" data-reload>' + I.refresh + 'Refresh</button></div></div>' +
+      '<div class="toolbar"><label class="search"><span class="sr-only">Search orders on the board</span>' + I.search +
+        '<input class="input" type="search" data-board-search placeholder="Order #, customer, phone or area" autocomplete="off"></label>' +
+        '<span class="ob-live">Live · updates automatically</span></div>' +
+      '<div class="ob-scroll"><div class="ob-board" data-board>' +
+        BOARD.map(function (c) { return '<section class="ob-col"><div class="ob-col-h"><span class="ob-dot ' + c.tone + '"></span><span>' + esc(c.label) + '</span></div>' + A.skeletonBlocks(2, 'ob-sk') + '</section>'; }).join('') +
+      '</div></div>';
+    bindToggle(el);
+
+    var boardEl = el.querySelector('[data-board]');
+    async function load() {
+      var seq = ++B.seq;
+      try {
+        var cols = 'id, user_id, status, payment_status, payment_method, total, balance_due, balance_collected_at, city, delivery_address, phone, created_at, paid_at, order_items(name, quantity)';
+        var since48 = new Date(Date.now() - 2 * 86400000).toISOString();
+        var res = await Promise.all([
+          A.sb.from('orders').select(cols).in('status', ['pending', 'confirmed', 'preparing', 'on_the_way']).order('created_at', { ascending: true }).limit(500),
+          A.sb.from('orders').select(cols).eq('status', 'awaiting_payment').gte('created_at', since48).order('created_at', { ascending: false }).limit(100),
+          A.sb.from('orders').select(cols).eq('status', 'delivered').gte('created_at', A.startOfLagosDay(-1).toISOString()).order('created_at', { ascending: false }).limit(200)
+        ]);
+        if (seq !== B.seq) return;
+        var delivered = (A.unwrap(res[2]) || []).slice(0, 60);
+        B.rows = (A.unwrap(res[0]) || []).concat(A.unwrap(res[1]) || [], delivered);
+        var map = await A.fetchProfiles(B.rows.map(function (r) { return r.user_id; })).catch(function () { return new Map(); });
+        map.forEach(function (v, k) { B.profiles.set(k, v); });
+        if (seq !== B.seq) return;
+        draw();
+      } catch (e) {
+        if (seq !== B.seq) return;
+        boardEl.innerHTML = '';
+        boardEl.appendChild(A.errorState(A.errMessage(e), load));
+      }
+    }
+
+    function nameOf(o) { var p = B.profiles.get(o.user_id); return (p && (p.name || p.email)) || 'Customer'; }
+    function itemsText(o) {
+      var list = Array.isArray(o.order_items) ? o.order_items : [];
+      var txt = list.slice(0, 3).map(function (i) { return (Number(i.quantity) || 1) + '× ' + String(i.name || '').split(' – ')[0]; }).join(', ');
+      return txt + (list.length > 3 ? ' +' + (list.length - 3) + ' more' : '');
+    }
+    function matches(o) {
+      if (!B.q) return true;
+      var p = B.profiles.get(o.user_id) || {};
+      return [A.shortId(o.id), o.id, nameOf(o), p.email, o.phone, o.city, o.delivery_address].join(' ').toLowerCase().indexOf(B.q) !== -1;
+    }
+    function card(o, col) {
+      var mins = waited(o);
+      var late = LATE_MIN[o.status] && mins > LATE_MIN[o.status];
+      var age = col.id === 'delivered' ? A.formatTime(o.created_at) : col.id === 'awaiting_payment' ? 'Started ' + waitText(minsAgo(o.created_at)) + ' ago' : waitText(mins) + (late ? ' · late' : '');
+      var paid = o.payment_status === 'paid';
+      var btn = col.next
+        ? '<button type="button" class="ob-next ' + (col.next === 'delivered' ? 'green' : '') + '" data-advance="' + esc(o.id) + '"' + (B.busy[o.id] ? ' disabled' : '') + '>' + esc(B.busy[o.id] ? 'Saving…' : col.nextLabel + ' →') + '</button>'
+        : col.id === 'delivered' ? '<span class="ob-chip done">Done</span>' : '<span class="ob-chip wait">Waiting</span>';
+      return '<article class="ob-card' + (late ? ' late' : '') + '" tabindex="0" data-open="' + esc(o.id) + '" aria-label="Order ' + esc(A.shortId(o.id)) + ', ' + esc(nameOf(o)) + '">' +
+        '<div class="ob-top"><span class="ob-id">#' + esc(A.shortId(o.id)) + '</span><span class="ob-age">' + esc(age) + '</span></div>' +
+        '<div><div class="ob-who">' + esc(nameOf(o)) + '</div><div class="ob-where">' + esc([o.city, o.phone].filter(Boolean).join(' · ')) + '</div></div>' +
+        '<div class="ob-items">' + esc(itemsText(o)) + '</div>' +
+        (isPod(o) ? '<div>' + podBadge(o) + '</div>' : '') +
+        '<div class="ob-bot"><span><span class="ob-total">' + esc(A.formatNaira(o.total)) + '</span> <span class="ob-chip ' + (paid ? 'paid">Paid' : 'unpaid">Unpaid') + '</span></span>' + btn + '</div></article>';
+    }
+    function minsAgo(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000)); }
+
+    function draw() {
+      boardEl.innerHTML = BOARD.map(function (col) {
+        var list = B.rows.filter(function (o) { return o.status === col.id && matches(o); });
+        if (col.id !== 'awaiting_payment' && col.id !== 'delivered') list.sort(function (a, b) { return waited(b) - waited(a); });
+        return '<section class="ob-col" aria-label="' + esc(col.label) + ', ' + list.length + ' orders">' +
+          '<div class="ob-col-h"><span class="ob-dot ' + col.tone + '"></span><span>' + esc(col.label) + '<small>' + esc(col.hint) + '</small></span><span class="ob-n">' + list.length + '</span></div>' +
+          (list.length ? list.map(function (o) { return card(o, col); }).join('') : '<p class="ob-empty">' + (B.q ? 'No matches' : 'Nothing here') + '</p>') +
+        '</section>';
+      }).join('');
+    }
+
+    async function advance(id) {
+      var o = B.rows.find(function (r) { return r.id === id; });
+      if (!o || B.busy[id]) return;
+      var col = BOARD.find(function (c) { return c.id === o.status; });
+      if (!col || !col.next) return;
+      if (o.payment_status !== 'paid' && paysOnline(o)) {
+        if (!await A.confirm('Order #' + A.shortId(o.id) + ' hasn’t been paid on Paystack yet. Move it to “' + stepLabel(col.next) + '” anyway?', { confirmLabel: 'Move anyway' })) return;
+      }
+      B.busy[id] = true; draw();
+      try {
+        await setStatus(o, col.next);
+        A.toast('#' + A.shortId(o.id) + ' → ' + A.statusLabel(o.status) + '. The customer can see it in the app.');
+        A.refreshBadges();
+      } catch (e) {
+        A.toast(A.errMessage(e), 'error');
+      } finally {
+        delete B.busy[id];
+        if (el.isConnected) draw();
+      }
+    }
+
+    boardEl.addEventListener('click', function (e) {
+      var a = e.target.closest('[data-advance]');
+      if (a) { e.stopPropagation(); if (!a.disabled) advance(a.getAttribute('data-advance')); return; }
+      var c = e.target.closest('[data-open]');
+      if (c) openOrder(c.getAttribute('data-open'), function () { load(); });
+    });
+    boardEl.addEventListener('keydown', function (e) {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-open]')) { e.preventDefault(); openOrder(e.target.getAttribute('data-open'), function () { load(); }); }
+    });
+    el.querySelector('[data-board-search]').addEventListener('input', A.debounce(function (e) { B.q = e.target.value.trim().toLowerCase(); draw(); }, 150));
+    el.querySelector('[data-reload]').addEventListener('click', load);
+
+    // Live updates + keep the "waiting" times fresh.
+    var reloadSoon = A.debounce(load, 800);
+    var onLive = function (e) {
+      if (!el.isConnected) { window.removeEventListener('admin:realtime', onLive); return; }
+      if ((e.detail || {}).table === 'orders') reloadSoon();
+    };
+    window.addEventListener('admin:realtime', onLive);
+    var tick = setInterval(function () { if (!el.isConnected) { clearInterval(tick); return; } if (!document.hidden) draw(); }, 60000);
+
+    var orderParam = params.get('order');
+    if (orderParam) openOrder(orderParam, function () { load(); });
+    await load();
+  }
+
+  async function renderList(el, params) {
     var status = params.get('status') || 'all';
     if (!STATUS_CHIPS.some(function (c) { return c.id === status; })) status = 'all';
     var payment = params.get('payment') || '';
@@ -392,7 +612,7 @@
 
     el.innerHTML =
       '<div class="page-head"><div><h1>Orders</h1><p>Track, fulfil and update customer orders.</p></div>' +
-      '<div class="actions"><button type="button" class="btn btn-ghost btn-sm" data-reload>' + I.refresh + 'Refresh</button></div></div>' +
+      '<div class="actions">' + viewToggle('list') + '<button type="button" class="btn btn-ghost btn-sm" data-reload>' + I.refresh + 'Refresh</button></div></div>' +
       '<div class="toolbar">' +
         '<label class="search"><span class="sr-only">Search orders</span>' + I.search +
           '<input class="input" type="search" data-search placeholder="Order #, customer, phone or city" value="' + esc(S.q) + '" autocomplete="off"></label>' +
@@ -414,6 +634,7 @@
           '<button type="button" class="btn btn-ghost btn-sm" data-more hidden>Load more</button></div>' +
       '</div>';
 
+    bindToggle(el);
     var search = el.querySelector('[data-search]');
     var paySel = el.querySelector('[data-payment]');
     var rangeSel = el.querySelector('[data-range]');

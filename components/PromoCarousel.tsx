@@ -14,6 +14,12 @@ export interface PromoSlide {
     image: ImageSourcePropType;
     color: string;
     onPress: () => void;
+    /** Optional styling for special slides (e.g. the Christmas pre-order: gold button). */
+    ctaBackground?: string;
+    ctaTextColor?: string;
+    eyebrowColor?: string;
+    /** Optional progress bar under the title, e.g. { fraction: 0.24, label: '2,431 so far · 37 days left' }. */
+    progress?: { fraction: number; label: string };
 }
 
 /** Auto-advancing promo banners (photo + bold copy) with pill-style page dots. */
@@ -21,6 +27,12 @@ const PromoCarousel = ({ slides }: { slides: PromoSlide[] }) => {
     const listRef = useRef<FlatList<PromoSlide>>(null);
     const [index, setIndex] = useState(0);
     const [paused, setPaused] = useState(false);
+
+    // The banner list can change (admin promotions load after the built-in ones): start over.
+    useEffect(() => {
+        setIndex(0);
+        listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }, [slides.length]);
 
     useEffect(() => {
         if (paused || slides.length < 2) return;
@@ -51,11 +63,19 @@ const PromoCarousel = ({ slides }: { slides: PromoSlide[] }) => {
                 renderItem={({ item }) => (
                     <Pressable onPress={item.onPress} style={[styles.slide, { backgroundColor: item.color }]} accessibilityRole="button" accessibilityLabel={item.title}>
                         <View style={styles.copy}>
-                            <Text style={styles.eyebrow}>{item.eyebrow}</Text>
-                            <Text style={styles.title} numberOfLines={3}>{item.title}</Text>
-                            <View style={styles.cta}>
-                                <Text style={[styles.ctaText, { color: item.color }]}>{item.cta}</Text>
-                                <Ionicons name="arrow-forward" size={14} color={item.color} />
+                            <Text style={[styles.eyebrow, item.eyebrowColor ? { color: item.eyebrowColor } : null]}>{item.eyebrow}</Text>
+                            <Text style={styles.title} numberOfLines={item.progress ? 2 : 3}>{item.title}</Text>
+                            {item.progress && (
+                                <View style={{ gap: 3 }}>
+                                    <View style={styles.bar}>
+                                        <View style={[styles.barFill, { width: `${Math.max(2, Math.min(100, item.progress.fraction * 100))}%` }]} />
+                                    </View>
+                                    <Text style={styles.barLabel} numberOfLines={1}>{item.progress.label}</Text>
+                                </View>
+                            )}
+                            <View style={[styles.cta, item.ctaBackground ? { backgroundColor: item.ctaBackground } : null]}>
+                                <Text style={[styles.ctaText, { color: item.ctaTextColor ?? item.color }]}>{item.cta}</Text>
+                                <Ionicons name="arrow-forward" size={14} color={item.ctaTextColor ?? item.color} />
                             </View>
                         </View>
                         <View style={styles.photoWrap}>
@@ -77,6 +97,9 @@ const PromoCarousel = ({ slides }: { slides: PromoSlide[] }) => {
 };
 
 const styles = StyleSheet.create({
+    bar: { height: 6, width: "92%", borderRadius: 3, backgroundColor: "rgba(255,255,255,0.25)", overflow: "hidden" },
+    barFill: { height: "100%", borderRadius: 3, backgroundColor: "#F5B301" },
+    barLabel: { color: "rgba(255,255,255,0.92)", fontFamily: "Quicksand-Bold", fontSize: 10.5 },
     slide: {
         width: SLIDE_W,
         height: 170,

@@ -145,7 +145,7 @@ const Profile = () => {
                                 <Text style={styles.memberText}>Member since {memberSince}</Text>
                             </View>
                         </View>
-                        <TouchableOpacity style={styles.editBtn} onPress={() => router.push('/edit-profile')} accessibilityLabel="Edit profile">
+                        <TouchableOpacity style={styles.editBtn} onPress={() => router.push('/edit-profile')} accessibilityLabel="Edit personal details">
                             <Ionicons name="create-outline" size={20} color="#fff" />
                         </TouchableOpacity>
                     </View>
@@ -158,7 +158,7 @@ const Profile = () => {
 
                 <Section title="Account">
                     <Row icon="person-outline" label="Personal details" detail={phone ? `${user.name} · ${phone}` : 'Add your phone number'} onPress={() => router.push('/edit-profile')} />
-                    <Row icon="location-outline" label="Delivery address" detail={address || 'Add your delivery address'} onPress={() => router.push('/edit-profile')} />
+                    <Row icon="location-outline" label="Delivery address" detail={address || 'Add your delivery address'} onPress={() => router.push('/delivery-address')} />
                     <Row icon="lock-closed-outline" label="Change password" onPress={() => router.push('/change-password')} last />
                 </Section>
 

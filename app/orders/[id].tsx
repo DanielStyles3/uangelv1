@@ -153,6 +153,11 @@ export default function OrderDetails() {
     const items = order.order_items ?? [];
     const itemCount = items.reduce((s, i) => s + i.quantity, 0);
     const shortId = order.id.slice(0, 8).toUpperCase();
+    // Pay on delivery: only the delivery fee goes through Paystack; the rider collects the rest.
+    const isPod = order.payment_method === 'pay_on_delivery';
+    const onlineAmount = Number(order.online_amount ?? order.total);
+    const balanceDue = Number(order.balance_due ?? 0);
+    const balanceCollected = !!order.balance_collected_at;
 
     const orderAgain = () => {
         let added = 0;
@@ -164,7 +169,8 @@ export default function OrderDetails() {
                 name: item.name,
                 price: Number(item.unit_price) - extras,
                 image_url: item.image_url,
-                customizations: item.customizations.map((c) => ({ id: c.id, name: c.name, price: Number(c.price), type: c.type })),
+                // Keeps cake choices too (size, flavour) and typed answers (the message on the cake).
+                customizations: item.customizations.map((c) => ({ id: c.id, name: c.name, price: Number(c.price), type: c.type, ...(c.text ? { text: c.text } : {}) })),
             }, item.quantity);
             added++;
         }
@@ -181,7 +187,9 @@ export default function OrderDetails() {
             '',
             `Subtotal ${formatNaira(order.subtotal)}`,
             `Delivery ${formatNaira(order.delivery_fee)}`,
-            `Total ${formatNaira(order.total)} (${isPaid ? 'Paid with Paystack' : 'Not paid'})`,
+            `Total ${formatNaira(order.total)} (${isPod
+                ? `${isPaid ? 'Paid' : 'To pay'} online ${formatNaira(onlineAmount)} · ${balanceCollected ? 'Paid' : 'Pay'} ${formatNaira(balanceDue)} to the rider on delivery`
+                : isPaid ? 'Paid with Paystack' : 'Not paid'})`,
             order.paystack_reference ? `Ref: ${order.paystack_reference}` : '',
         ].filter((l) => l !== null);
         Share.share({ message: lines.join('\n') }).catch(() => {});
@@ -246,7 +254,7 @@ export default function OrderDetails() {
                     <Animated.View entering={FadeInDown.delay(120)} style={{ gap: 10 }}>
                         <TouchableOpacity style={styles.primaryBtn} onPress={() => openPayment(order.id)} activeOpacity={0.85}>
                             <Ionicons name="lock-closed" size={16} color="#fff" />
-                            <Text style={styles.primaryBtnText}>Pay {formatNaira(order.total)} now</Text>
+                            <Text style={styles.primaryBtnText}>Pay {formatNaira(onlineAmount)}{isPod ? ' delivery' : ''} now</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.ghostBtn} onPress={confirmCancel} disabled={isCancelling} activeOpacity={0.7}>
                             {isCancelling ? <ActivityIndicator color="#F14141" /> : <Text style={styles.ghostBtnText}>Cancel order</Text>}
@@ -297,12 +305,28 @@ export default function OrderDetails() {
                         <Row label="Delivery fee" value={formatNaira(order.delivery_fee)} />
                         <View style={styles.dashed} />
                         <Row label="Total" value={formatNaira(order.total)} bold />
+                        {isPod && (
+                            <>
+                                <Row label={isPaid ? 'Paid online (delivery)' : 'Pay online now (delivery)'} value={formatNaira(onlineAmount)} />
+                                <Row
+                                    label={balanceCollected ? 'Paid to the rider' : 'Pay the rider on delivery'}
+                                    value={formatNaira(balanceDue)}
+                                    valueColor={balanceCollected ? '#2F9B65' : '#C2410C'}
+                                />
+                            </>
+                        )}
                     </View>
                     <View style={[styles.payPill, { backgroundColor: isPaid ? '#E9F7EF' : '#FFF1E6' }]}>
                         <Ionicons name={isPaid ? 'shield-checkmark' : 'time-outline'} size={16} color={isPaid ? '#2F9B65' : '#C2410C'} />
                         <Text style={[styles.payPillText, { color: isPaid ? '#2F9B65' : '#C2410C' }]}>
-                            {order.payment_method === 'paystack' ? 'Paystack' : order.payment_method === 'cash' ? 'Cash on delivery' : 'Bank transfer'}
-                            {' · '}{isPaid ? 'Paid' : order.payment_status === 'refunded' ? 'Refunded' : 'Not paid'}
+                            {isPod
+                                ? (isPaid
+                                    ? `Paid online ${formatNaira(onlineAmount)} · ${balanceCollected ? `Paid ${formatNaira(balanceDue)} on delivery` : `Pay ${formatNaira(balanceDue)} to the rider on delivery`}`
+                                    : `Pay on delivery · ${order.payment_status === 'refunded' ? 'Refunded' : 'Delivery fee not paid'}`)
+                                : <>
+                                    {order.payment_method === 'paystack' ? 'Paystack' : order.payment_method === 'cash' ? 'Cash on delivery' : 'Bank transfer'}
+                                    {' · '}{isPaid ? 'Paid' : order.payment_status === 'refunded' ? 'Refunded' : 'Not paid'}
+                                </>}
                         </Text>
                     </View>
                     {order.paystack_reference && <Text style={styles.ref}>Ref: {order.paystack_reference}</Text>}
@@ -407,7 +431,7 @@ const styles = StyleSheet.create({
     shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     shareText: { fontFamily: 'Quicksand-Bold', fontSize: 13, color: '#FE8C00' },
     payPill: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, marginTop: 16 },
-    payPillText: { fontFamily: 'Quicksand-Bold', fontSize: 12.5 },
+    payPillText: { fontFamily: 'Quicksand-Bold', fontSize: 12.5, flexShrink: 1 },
     ref: { fontFamily: 'Quicksand-Medium', fontSize: 11.5, color: '#A3A3AD', marginTop: 8 },
 
     infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },

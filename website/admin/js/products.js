@@ -1,35 +1,29 @@
-/* U Angel Foods admin: Products section (products + add-ons & extras). Uses only the window.Admin contract. */
+/* U Angel Foods admin: Products section.
+ * Photo grid with search, category → subcategory filters, quick filters (sold out, missing photo,
+ * best sellers), an in-stock switch on every card, a side-panel editor (category first, then its
+ * subcategories) with an app preview, and an Add-ons tab. Styles: css/manage.css (pp-) and the
+ * shared editor styles in css/categories.css (cg-). Uses only the window.Admin contract. */
 (function () {
   'use strict';
   if (!window.Admin || typeof window.Admin.registerSection !== 'function') return;
-  var Admin = window.Admin;
+  var A = window.Admin;
+  var I = A.icons;
 
-  var PAGE_SIZE = 60;
   var IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   var MAX_BYTES = 5 * 1024 * 1024;
-  var TYPE_LABEL = { topping: 'Add-on', side: 'Extra' };
+  var PAGE = 48;
+  var MENU_COLS = 'id,name,description,image_url,emoji,price,rating,calories,protein,is_available,category_id,created_at';
 
-  var ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>';
-  var I_GRID = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>';
-  var I_LIST = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>';
-  var I_INFO = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>';
-  var I_PLUS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="vertical-align:-3px;margin-right:4px"><path d="M12 5v14M5 12h14"/></svg>';
+  var S = null, root = null;
+  var ui = { tab: 'products', q: '', main: '', sub: '', chip: '', sort: 'name', limit: PAGE };
 
-  // Persisted UI state across visits to the section
-  var ui = { tab: 'products', q: '', main: '', sub: '', photo: '', sort: 'name', view: 'grid', limit: PAGE_SIZE };
-  var S = null; // loaded data
-  var root = null;
-
-  function esc(s) { return Admin.escapeHtml(s == null ? '' : String(s)); }
-  function naira(n) { return Admin.formatNaira(Number(n) || 0); }
+  function esc(s) { return A.escapeHtml(s == null ? '' : String(s)); }
+  function naira(n) { return A.formatNaira(Number(n) || 0); }
   function norm(s) { return String(s || '').trim().toLowerCase(); }
-  function validHex(c) { return typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c.trim()) ? c.trim() : null; }
-  function initial(name) { var t = String(name || '').trim(); return t ? Array.from(t)[0].toUpperCase() : '?'; }
   function errMsg(e) { return (e && (e.message || e.error_description)) || 'Something went wrong'; }
-  function sortCats(a, b) {
-    var x = a.sort_order == null ? 1e9 : a.sort_order, y = b.sort_order == null ? 1e9 : b.sort_order;
-    return x - y || String(a.name).localeCompare(String(b.name));
-  }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  function sortCats(a, b) { return (a.sort_order == null ? 1e9 : a.sort_order) - (b.sort_order == null ? 1e9 : b.sort_order) || String(a.name).localeCompare(String(b.name)); }
+  function missingColumn(e) { return /is_available/.test(errMsg(e)); }
 
   async function fetchAll(make) {
     var out = [], from = 0, step = 1000;
@@ -44,696 +38,763 @@
   }
 
   async function load() {
-    var sb = Admin.sb;
+    var sb = A.sb;
+    var since = A.startOfLagosDay(-29).toISOString();
+    var menuQuery = function (cols) { return fetchAll(function () { return sb.from('menu').select(cols).order('name'); }); };
     var r = await Promise.all([
-      fetchAll(function () { return sb.from('categories').select('id,name,parent_id,emoji,color,image_url,sort_order,kind').order('sort_order', { ascending: true }).order('name'); }),
-      fetchAll(function () { return sb.from('menu').select('id,name,description,image_url,emoji,price,rating,calories,protein,category_id,created_at').order('name'); }),
+      fetchAll(function () { return sb.from('categories').select('id,name,parent_id,color,image_url,sort_order,kind').order('sort_order', { ascending: true }).order('name'); }),
+      // Works before schema.sql adds is_available (then everything counts as in stock).
+      menuQuery(MENU_COLS).catch(function (e) { if (missingColumn(e)) return menuQuery(MENU_COLS.replace(',is_available', '')); throw e; }),
       fetchAll(function () { return sb.from('customizations').select('id,name,price,type').order('name'); }),
-      fetchAll(function () { return sb.from('menu_customizations').select('menu_id,customization_id').order('menu_id'); })
+      fetchAll(function () { return sb.from('menu_customizations').select('menu_id,customization_id').order('menu_id'); }),
+      // Customer options per product (cakes). Missing table (schema.sql not run yet) = none.
+      fetchAll(function () { return sb.from('option_groups').select('id,menu_id,name,required').order('sort_order'); }).catch(function () { return []; }),
+      fetchAll(function () {
+        return sb.from('order_items').select('menu_id,quantity,orders!inner(payment_status,paid_at)')
+          .eq('orders.payment_status', 'paid').gte('orders.paid_at', since).order('id');
+      }).catch(function () { return []; })
     ]);
-    var cats = r[0], byId = {};
-    cats.forEach(function (c) { byId[c.id] = c; });
-    var mains = cats.filter(function (c) { return !c.parent_id; }).sort(sortCats);
-    var subsBy = {};
+    var cats = r[0], catById = {}, subsBy = {};
+    cats.forEach(function (c) { catById[c.id] = c; });
     cats.forEach(function (c) { if (c.parent_id) (subsBy[c.parent_id] = subsBy[c.parent_id] || []).push(c); });
     Object.keys(subsBy).forEach(function (k) { subsBy[k].sort(sortCats); });
-    S = { cats: cats, catById: byId, mains: mains, subsBy: subsBy, products: r[1], customs: r[2], links: r[3] };
+    var sold = {};
+    r[5].forEach(function (it) { if (it.menu_id) sold[it.menu_id] = (sold[it.menu_id] || 0) + (Number(it.quantity) || 0); });
+    S = {
+      cats: cats, catById: catById, subsBy: subsBy,
+      mains: cats.filter(function (c) { return !c.parent_id && c.kind !== 'service'; }).sort(sortCats),
+      products: r[1].map(function (p) { if (p.is_available === undefined) p.is_available = true; return p; }),
+      customs: r[2], links: r[3], sold: sold, optGroups: r[4] || []
+    };
   }
 
-  function isServiceMain(m) { return m && m.kind === 'service'; }
-  function productMains() { return S.mains.filter(function (m) { return !isServiceMain(m); }); }
-  function mainOf(sub) { return sub && sub.parent_id ? S.catById[sub.parent_id] : null; }
-  function catPath(p) {
-    var sub = S.catById[p.category_id];
-    if (!sub) return 'No category';
-    var m = mainOf(sub);
-    return m ? sub.name + ' › ' + m.name : sub.name;
-  }
-  function linksFor(menuId) {
-    return S.links.filter(function (l) { return l.menu_id === menuId; }).map(function (l) { return l.customization_id; });
-  }
-  function catColor(p) {
-    var sub = S.catById[p.category_id];
-    var m = mainOf(sub);
-    return validHex((m && m.color) || (sub && sub.color)) || '#FE8C00';
-  }
-  function placeholder(p, small) {
-    return '<div class="cx-ph' + (small ? ' cx-ph-sm cx-thumb-ph' : '') + '" style="background:' + catColor(p) + '" aria-hidden="true">' + esc(initial(p.name)) + '</div>';
+  function subOf(p) { return S.catById[p.category_id] || null; }
+  function mainOf(p) { var s = subOf(p); return s ? (s.parent_id ? S.catById[s.parent_id] : s) : null; }
+  function colorOf(p) { var m = mainOf(p); return (m && m.color) || '#FE8C00'; }
+  function photoOf(p) { var s = subOf(p); return p.image_url || (s && s.image_url) || null; }
+  function linksFor(id) { return S.links.filter(function (l) { return l.menu_id === id; }).map(function (l) { return l.customization_id; }); }
+  function bestIds() {
+    return Object.keys(S.sold).sort(function (a, b) { return S.sold[b] - S.sold[a]; }).slice(0, 10);
   }
 
-  /* ---------------- Rendering ---------------- */
-
-  function skeleton() {
-    var cards = '';
-    for (var i = 0; i < 8; i++) cards += '<div class="skeleton cx-skel-card"></div>';
-    return '<div class="page-head"><div><h1>Products</h1><p class="cx-sub">Loading catalogue…</p></div></div>' +
-      '<div class="cx-pgrid" aria-busy="true" aria-label="Loading products">' + cards + '</div>';
-  }
-
-  function headHtml() {
-    var noPhoto = S.products.filter(function (p) { return !p.image_url; }).length;
-    var tops = S.customs.filter(function (c) { return c.type === 'topping'; }).length;
-    return '<div class="page-head">' +
-      '<div><h1>Products</h1><p class="cx-sub">' + S.products.length + ' product' + (S.products.length === 1 ? '' : 's') +
-      ' · ' + noPhoto + ' without photo · ' + tops + ' add-on' + (tops === 1 ? '' : 's') + ', ' + (S.customs.length - tops) + ' extra' + (S.customs.length - tops === 1 ? '' : 's') + '</p></div>' +
-      '<div class="cx-head-actions">' +
-      (ui.tab === 'products'
-        ? '<button type="button" class="btn btn-primary" data-act="add-product">' + I_PLUS + 'Add product</button>'
-        : '<button type="button" class="btn btn-primary" data-act="add-custom">' + I_PLUS + 'Add add-on / extra</button>') +
-      '</div></div>' +
-      '<div class="cx-tabs" role="tablist" aria-label="Products sections">' +
-      '<button type="button" class="cx-tab" role="tab" id="cx-tab-products" aria-controls="cx-panel" aria-selected="' + (ui.tab === 'products') + '" data-tab="products">Products<span class="cx-count">' + S.products.length + '</span></button>' +
-      '<button type="button" class="cx-tab" role="tab" id="cx-tab-custom" aria-controls="cx-panel" aria-selected="' + (ui.tab === 'custom') + '" data-tab="custom">Add-ons &amp; extras<span class="cx-count">' + S.customs.length + '</span></button>' +
-      '</div>';
-  }
+  /* ---------------- Page ---------------- */
 
   function renderAll() {
     if (!root) return;
-    root.innerHTML = headHtml() + '<div id="cx-panel" role="tabpanel" aria-labelledby="' + (ui.tab === 'products' ? 'cx-tab-products' : 'cx-tab-custom') + '"></div>';
-    var panel = root.querySelector('#cx-panel');
-    if (ui.tab === 'products') renderProductsPanel(panel); else renderCustomPanel(panel);
+    var off = S.products.filter(function (p) { return p.is_available === false; }).length;
+    var nophoto = S.products.filter(function (p) { return !p.image_url; }).length;
+    root.innerHTML =
+      '<div class="page-head pp-head"><div><h1>Products</h1><p class="pp-sub">' + plural(S.products.length, 'product') + ' · ' + plural(S.customs.length, 'add-on') + '</p></div>' +
+        '<div class="actions">' +
+          (ui.tab === 'products'
+            ? '<button type="button" class="btn btn-primary" data-new>' + I.plus + 'New product</button>'
+            : '<button type="button" class="btn btn-primary" data-new-addon>' + I.plus + 'New add-on</button>') +
+        '</div></div>' +
+      '<div class="pp-tabs" role="tablist">' +
+        '<button type="button" role="tab" aria-selected="' + (ui.tab === 'products') + '" data-tab="products">Products</button>' +
+        '<button type="button" role="tab" aria-selected="' + (ui.tab === 'addons') + '" data-tab="addons">Add-ons &amp; extras</button></div>' +
+      (ui.tab === 'products'
+        ? '<div class="toolbar pp-toolbar">' +
+            '<label class="search"><span class="sr-only">Search products</span>' + I.search + '<input class="input" type="search" data-q placeholder="Search products" value="' + esc(ui.q) + '" autocomplete="off"></label>' +
+            '<select class="select" data-main aria-label="Category"><option value="">All categories</option>' +
+              S.mains.map(function (m) { return '<option value="' + esc(m.id) + '"' + (ui.main === m.id ? ' selected' : '') + '>' + esc(m.name) + '</option>'; }).join('') + '</select>' +
+            '<select class="select" data-sub aria-label="Subcategory"' + (ui.main ? '' : ' disabled') + '><option value="">' + (ui.main ? 'All subcategories' : 'Pick a category first') + '</option>' +
+              (ui.main ? (S.subsBy[ui.main] || []).map(function (s) { return '<option value="' + esc(s.id) + '"' + (ui.sub === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') : '') + '</select>' +
+            '<select class="select" data-sort aria-label="Sort">' +
+              [['name', 'Name A–Z'], ['sold', 'Best selling (30 days)'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['newest', 'Newest first']].map(function (o) {
+                return '<option value="' + o[0] + '"' + (ui.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+              }).join('') + '</select></div>' +
+          '<div class="pp-chips" role="group" aria-label="Quick filters">' +
+            chip('', 'All', S.products.length) + chip('off', 'Sold out', off, true) + chip('nophoto', 'Missing photo', nophoto, true) + chip('best', 'Best sellers', bestIds().length) +
+          '</div><div data-results></div>'
+        : '<div data-addons></div>');
+    if (ui.tab === 'products') renderResults(); else renderAddons();
   }
-
-  function mainOptions(sel) {
-    return '<option value="">All categories</option>' + productMains().map(function (m) {
-      return '<option value="' + esc(m.id) + '"' + (sel === m.id ? ' selected' : '') + '>' + esc((m.emoji ? m.emoji + ' ' : '') + m.name) + '</option>';
-    }).join('');
-  }
-  function subOptions(mainId, sel) {
-    var html = '<option value="">All subcategories</option>';
-    var mains = mainId ? productMains().filter(function (m) { return m.id === mainId; }) : productMains();
-    mains.forEach(function (m) {
-      var subs = S.subsBy[m.id] || [];
-      if (!subs.length) return;
-      var opts = subs.map(function (s) { return '<option value="' + esc(s.id) + '"' + (sel === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('');
-      html += mainId ? opts : '<optgroup label="' + esc(m.name) + '">' + opts + '</optgroup>';
-    });
-    return html;
-  }
-
-  function renderProductsPanel(panel) {
-    // drop stale filters (e.g. category deleted)
-    if (ui.main && (!S.catById[ui.main] || isServiceMain(S.catById[ui.main]))) ui.main = '';
-    if (ui.sub && (!S.catById[ui.sub] || (ui.main && S.catById[ui.sub].parent_id !== ui.main))) ui.sub = '';
-
-    panel.innerHTML =
-      '<div class="toolbar cx-toolbar">' +
-      '<label class="cx-sr" for="cx-q">Search products by name</label>' +
-      '<input id="cx-q" class="input cx-search" type="search" placeholder="Search by name…" value="' + esc(ui.q) + '" autocomplete="off">' +
-      '<label class="cx-sr" for="cx-main">Main category</label>' +
-      '<select id="cx-main" class="select">' + mainOptions(ui.main) + '</select>' +
-      '<label class="cx-sr" for="cx-subf">Subcategory</label>' +
-      '<select id="cx-subf" class="select">' + subOptions(ui.main, ui.sub) + '</select>' +
-      '<label class="cx-sr" for="cx-photo">Photo filter</label>' +
-      '<select id="cx-photo" class="select">' +
-      '<option value="">Any photo</option><option value="yes"' + (ui.photo === 'yes' ? ' selected' : '') + '>Has photo</option><option value="no"' + (ui.photo === 'no' ? ' selected' : '') + '>No photo</option></select>' +
-      '<label class="cx-sr" for="cx-sort">Sort by</label>' +
-      '<select id="cx-sort" class="select">' +
-      [['name', 'Name A–Z'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['newest', 'Newest first']].map(function (o) {
-        return '<option value="' + o[0] + '"' + (ui.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
-      }).join('') + '</select>' +
-      '<div class="cx-view" role="group" aria-label="View">' +
-      '<button type="button" data-view="grid" aria-pressed="' + (ui.view === 'grid') + '" aria-label="Grid view" title="Grid view">' + I_GRID + '</button>' +
-      '<button type="button" data-view="table" aria-pressed="' + (ui.view === 'table') + '" aria-label="Table view" title="Table view">' + I_LIST + '</button>' +
-      '</div></div>' +
-      '<p class="cx-hint">' + I_INFO + '<span>Products without their own photo show their subcategory’s photo in the app. Here they show a coloured placeholder with the product initial.</span></p>' +
-      '<div id="cx-results" aria-live="polite"></div>';
-
-    var q = panel.querySelector('#cx-q');
-    q.addEventListener('input', Admin.debounce(function () { ui.q = q.value; ui.limit = PAGE_SIZE; renderResults(); }, 200));
-    panel.querySelector('#cx-main').addEventListener('change', function (e) {
-      ui.main = e.target.value; ui.sub = ''; ui.limit = PAGE_SIZE;
-      panel.querySelector('#cx-subf').innerHTML = subOptions(ui.main, '');
-      renderResults();
-    });
-    panel.querySelector('#cx-subf').addEventListener('change', function (e) { ui.sub = e.target.value; ui.limit = PAGE_SIZE; renderResults(); });
-    panel.querySelector('#cx-photo').addEventListener('change', function (e) { ui.photo = e.target.value; ui.limit = PAGE_SIZE; renderResults(); });
-    panel.querySelector('#cx-sort').addEventListener('change', function (e) { ui.sort = e.target.value; renderResults(); });
-    Array.prototype.forEach.call(panel.querySelectorAll('[data-view]'), function (b) {
-      b.addEventListener('click', function () {
-        ui.view = b.getAttribute('data-view');
-        Array.prototype.forEach.call(panel.querySelectorAll('[data-view]'), function (x) { x.setAttribute('aria-pressed', String(x === b)); });
-        renderResults();
-      });
-    });
-    renderResults();
+  function chip(id, label, n, warn) {
+    return '<button type="button" class="pp-chip' + (warn ? ' warn' : '') + (ui.chip === id ? ' on' : '') + '" data-chip="' + id + '" aria-pressed="' + (ui.chip === id) + '">' + esc(label) + ' <b>' + n + '</b></button>';
   }
 
   function filtered() {
-    var q = norm(ui.q);
+    var q = norm(ui.q), best = ui.chip === 'best' ? bestIds() : null;
     var list = S.products.filter(function (p) {
-      if (q && norm(p.name).indexOf(q) === -1) return false;
-      if (ui.photo === 'yes' && !p.image_url) return false;
-      if (ui.photo === 'no' && p.image_url) return false;
-      if (ui.sub) return p.category_id === ui.sub;
-      if (ui.main) { var s = S.catById[p.category_id]; return !!s && s.parent_id === ui.main; }
+      if (q && norm(p.name).indexOf(q) === -1 && norm(p.description).indexOf(q) === -1) return false;
+      if (ui.sub && p.category_id !== ui.sub) return false;
+      if (ui.main && !ui.sub) { var m = mainOf(p); if (!m || m.id !== ui.main) return false; }
+      if (ui.chip === 'off' && p.is_available !== false) return false;
+      if (ui.chip === 'nophoto' && p.image_url) return false;
+      if (best && best.indexOf(p.id) === -1) return false;
       return true;
     });
-    var cmp = {
+    var by = {
       name: function (a, b) { return String(a.name).localeCompare(String(b.name)); },
-      price_asc: function (a, b) { return (Number(a.price) || 0) - (Number(b.price) || 0) || String(a.name).localeCompare(String(b.name)); },
-      price_desc: function (a, b) { return (Number(b.price) || 0) - (Number(a.price) || 0) || String(a.name).localeCompare(String(b.name)); },
+      sold: function (a, b) { return (S.sold[b.id] || 0) - (S.sold[a.id] || 0) || String(a.name).localeCompare(String(b.name)); },
+      price_asc: function (a, b) { return (Number(a.price) || 0) - (Number(b.price) || 0); },
+      price_desc: function (a, b) { return (Number(b.price) || 0) - (Number(a.price) || 0); },
       newest: function (a, b) { return String(b.created_at || '').localeCompare(String(a.created_at || '')); }
-    }[ui.sort] || function () { return 0; };
-    return list.sort(cmp);
-  }
-
-  function ratingHtml(p) {
-    if (p.rating == null) return '<span class="cx-rating cx-muted">No rating</span>';
-    return '<span class="cx-rating" aria-label="Rating ' + esc(Number(p.rating).toFixed(1)) + ' out of 5"><b aria-hidden="true">★</b> ' + esc(Number(p.rating).toFixed(1)) + '</span>';
+    }[ui.chip === 'best' ? 'sold' : ui.sort];
+    return list.sort(by);
   }
 
   function renderResults() {
-    var box = root && root.querySelector('#cx-results');
-    if (!box) return;
-    var list = filtered();
-    if (!S.products.length) {
-      box.innerHTML = '<div class="empty"><p><b>No products yet</b></p><p>Add your first product to start selling in the app.</p><button type="button" class="btn btn-primary" data-act="add-product">' + I_PLUS + 'Add product</button></div>';
-      return;
-    }
+    var box = root.querySelector('[data-results]');
+    var list = filtered(), shown = list.slice(0, ui.limit);
     if (!list.length) {
-      box.innerHTML = '<div class="empty"><p><b>No products match these filters</b></p><button type="button" class="btn btn-ghost" data-act="clear-filters">Clear filters</button></div>';
+      box.innerHTML = A.emptyState(S.products.length ? 'No products match' : 'No products yet',
+        S.products.length ? 'Try a different search or clear the filters.' : 'Add your first product with “New product”.', I.box);
       return;
     }
-    var shown = list.slice(0, ui.limit);
-    var html;
-    if (ui.view === 'table') {
-      html = '<div class="table-wrap"><table class="table"><thead><tr>' +
-        '<th scope="col"><span class="cx-sr">Photo</span></th><th scope="col">Name</th><th scope="col">Category</th><th scope="col" class="cx-right">Price</th><th scope="col">Rating</th><th scope="col">Add-ons</th><th scope="col"><span class="cx-sr">Actions</span></th>' +
-        '</tr></thead><tbody>' + shown.map(function (p) {
-          var n = linksFor(p.id).length;
-          return '<tr>' +
-            '<td>' + (p.image_url ? '<img class="thumb" src="' + esc(p.image_url) + '" alt="" loading="lazy" data-pid="' + esc(p.id) + '" data-small="1">' : placeholder(p, true)) + '</td>' +
-            '<td class="cx-cell-name">' + esc(p.name) + '</td>' +
-            '<td>' + esc(catPath(p)) + '</td>' +
-            '<td class="cx-right cx-nowrap">' + esc(naira(p.price)) + '</td>' +
-            '<td>' + ratingHtml(p) + '</td>' +
-            '<td>' + (n ? n : '<span class="cx-muted">—</span>') + '</td>' +
-            '<td><div class="cx-actions">' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(p.id) + '" aria-label="Edit ' + esc(p.name) + '">Edit</button>' +
-            '<button type="button" class="btn btn-danger btn-sm" data-del="' + esc(p.id) + '" aria-label="Delete ' + esc(p.name) + '">Delete</button>' +
-            '</div></td></tr>';
-        }).join('') + '</tbody></table></div>';
-    } else {
-      html = '<div class="cx-pgrid">' + shown.map(function (p) {
-        return '<article class="card cx-pcard">' +
-          '<div class="cx-pmedia">' + (p.image_url
-            ? '<img src="' + esc(p.image_url) + '" alt="" loading="lazy" data-pid="' + esc(p.id) + '">'
-            : placeholder(p) + '<span class="cx-nophoto">No photo</span>') + '</div>' +
-          '<div class="cx-pbody">' +
-          '<button type="button" class="cx-pname" data-edit="' + esc(p.id) + '">' + esc(p.name) + '</button>' +
-          '<div class="cx-ppath" title="' + esc(catPath(p)) + '">' + esc(catPath(p)) + '</div>' +
-          '<div class="cx-pmeta"><span class="cx-price">' + esc(naira(p.price)) + '</span>' + ratingHtml(p) + '</div>' +
-          '</div>' +
-          '<div class="cx-pactions">' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(p.id) + '" aria-label="Edit ' + esc(p.name) + '">Edit</button>' +
-          '<button type="button" class="btn btn-danger btn-sm" data-del="' + esc(p.id) + '" aria-label="Delete ' + esc(p.name) + '">Delete</button>' +
-          '</div></article>';
-      }).join('') + '</div>';
-    }
-    html += '<div class="cx-more"><span class="cx-muted">Showing ' + shown.length + ' of ' + list.length + (list.length !== S.products.length ? ' matching (' + S.products.length + ' total)' : '') + '</span>' +
-      (list.length > shown.length ? '<button type="button" class="btn btn-ghost" data-act="more">Load more</button>' : '') + '</div>';
-    box.innerHTML = html;
+    box.innerHTML = '<div class="pp-grid">' + shown.map(cardHtml).join('') +
+      (!ui.chip && !ui.q ? '<button type="button" class="pp-new" data-new><span>+</span>New product</button>' : '') + '</div>' +
+      (shown.length < list.length ? '<div class="pp-more"><span>Showing ' + shown.length + ' of ' + list.length + '</span><button type="button" class="btn btn-ghost btn-sm" data-more>Show more</button></div>' : '');
   }
 
-  // Broken image -> placeholder
+  function cardHtml(p) {
+    var sub = subOf(p), main = mainOf(p), photo = photoOf(p), on = p.is_available !== false, n = S.sold[p.id] || 0;
+    var tag = !on ? '<span class="pp-tag out">Sold out</span>' : !p.image_url ? '<span class="pp-tag warn" title="Showing the subcategory photo">No own photo</span>' : '';
+    return '<article class="pp-card' + (on ? '' : ' off') + '">' +
+      '<button type="button" class="pp-img" data-edit="' + esc(p.id) + '" aria-label="Edit ' + esc(p.name) + '" style="background:' + esc(colorOf(p)) + '1a">' +
+        (photo ? '<img src="' + esc(photo) + '" alt="" loading="lazy"' + (p.image_url ? '' : ' class="fallback"') + ' data-pid="' + esc(p.id) + '">' : '<span class="pp-noimg">' + esc((p.name || '?').charAt(0)) + '</span>') +
+        '<span class="pp-badges">' + (p.rating ? '<span class="pp-tag">★ ' + Number(p.rating).toFixed(1) + '</span>' : '<span></span>') + tag + '</span></button>' +
+      '<div class="pp-body"><b>' + esc(p.name) + '</b>' +
+        '<small>' + esc(main ? main.name : 'No category') + (sub && sub.parent_id ? ' › ' + esc(sub.name) : '') + '</small>' +
+        '<div class="pp-row"><span class="pp-price">' + esc(naira(p.price)) + '</span><span class="pp-sold">' + n + ' sold · 30d</span></div>' +
+        '<div class="pp-row"><button type="button" class="pp-switch" role="switch" aria-checked="' + on + '" data-stock="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' in stock"><i></i>' + (on ? 'In stock' : 'Sold out') + '</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(p.id) + '">Edit</button></div></div></article>';
+  }
+
   function onImgError(e) {
     var img = e.target;
     if (!img || img.tagName !== 'IMG' || !img.hasAttribute('data-pid')) return;
-    var p = S && S.products.find(function (x) { return x.id === img.getAttribute('data-pid'); });
-    if (!p) return;
-    var wrap = document.createElement('div');
-    wrap.innerHTML = placeholder(p, img.hasAttribute('data-small'));
-    img.replaceWith(wrap.firstChild);
+    var span = document.createElement('span'); span.className = 'pp-noimg'; span.textContent = '•';
+    img.replaceWith(span);
   }
 
-  function onRootClick(e) {
-    var t = e.target.closest('button');
-    if (!t || !root.contains(t)) return;
-    if (t.hasAttribute('data-tab')) {
-      var tab = t.getAttribute('data-tab');
-      if (tab !== ui.tab) { ui.tab = tab; renderAll(); var f = root.querySelector('[data-tab="' + tab + '"]'); if (f) f.focus(); }
+  async function toggleStock(p, btn) {
+    var next = p.is_available === false;
+    btn.disabled = true;
+    var res = await A.sb.from('menu').update({ is_available: next }).eq('id', p.id).select('id,is_available').single();
+    btn.disabled = false;
+    if (res.error) {
+      A.toast(missingColumn(res.error) ? 'Run the updated supabase/schema.sql first to turn on “Sold out”.' : 'Couldn’t update: ' + errMsg(res.error), 'error');
       return;
     }
-    if (t.hasAttribute('data-edit')) { var p = S.products.find(function (x) { return x.id === t.getAttribute('data-edit'); }); if (p) openProductForm(p); return; }
-    if (t.hasAttribute('data-del')) { var d = S.products.find(function (x) { return x.id === t.getAttribute('data-del'); }); if (d) deleteProduct(d); return; }
-    if (t.hasAttribute('data-cedit')) { var c = S.customs.find(function (x) { return x.id === t.getAttribute('data-cedit'); }); if (c) openCustomForm(c); return; }
-    if (t.hasAttribute('data-cdel')) { var cd = S.customs.find(function (x) { return x.id === t.getAttribute('data-cdel'); }); if (cd) deleteCustom(cd); return; }
-    var act = t.getAttribute('data-act');
-    if (act === 'add-product') openProductForm(null);
-    else if (act === 'add-custom') openCustomForm(null);
-    else if (act === 'more') { ui.limit += PAGE_SIZE; renderResults(); }
-    else if (act === 'clear-filters') { ui.q = ''; ui.main = ''; ui.sub = ''; ui.photo = ''; ui.limit = PAGE_SIZE; renderAll(); }
+    p.is_available = res.data.is_available;
+    A.toast(next ? p.name + ' is back in stock' : p.name + ' now shows as sold out in the app', 'success');
+    renderAll();
   }
 
-  function onTabKey(e) {
+  /* ---------------- Clicks ---------------- */
+
+  function onClick(e) {
+    var b = e.target.closest('button');
+    if (!b || !root.contains(b) || b.disabled) return;
+    var v;
+    if ((v = b.getAttribute('data-tab'))) { ui.tab = v; renderAll(); return; }
+    if (b.hasAttribute('data-new')) return openProduct(null);
+    if (b.hasAttribute('data-new-addon')) return openAddon(null);
+    if ((v = b.getAttribute('data-edit'))) { var p = S.products.find(function (x) { return x.id === v; }); if (p) openProduct(p); return; }
+    if ((v = b.getAttribute('data-stock'))) { var ps = S.products.find(function (x) { return x.id === v; }); if (ps) toggleStock(ps, b); return; }
+    if (b.hasAttribute('data-chip')) { ui.chip = b.getAttribute('data-chip'); ui.limit = PAGE; renderAll(); return; }
+    if (b.hasAttribute('data-more')) { ui.limit += PAGE; renderResults(); return; }
+    if ((v = b.getAttribute('data-aedit'))) { var c = S.customs.find(function (x) { return x.id === v; }); if (c) openAddon(c); return; }
+    if ((v = b.getAttribute('data-adel'))) { var cd = S.customs.find(function (x) { return x.id === v; }); if (cd) deleteAddon(cd); return; }
+  }
+  function onInput(e) {
+    if (e.target.matches('[data-q]')) { ui.q = e.target.value; ui.limit = PAGE; renderResultsSoon(); }
+  }
+  var renderResultsSoon = A.debounce(function () { if (root && root.querySelector('[data-results]')) renderResults(); }, 150);
+  function onChange(e) {
     var t = e.target;
-    if (!t.classList || !t.classList.contains('cx-tab') || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
-    var tab = ui.tab === 'products' ? 'custom' : 'products';
-    ui.tab = tab; renderAll();
-    var f = root.querySelector('[data-tab="' + tab + '"]'); if (f) f.focus();
-    e.preventDefault();
+    if (t.matches('[data-main]')) { ui.main = t.value; ui.sub = ''; ui.limit = PAGE; renderAll(); var m = root.querySelector('[data-main]'); if (m) m.focus(); }
+    else if (t.matches('[data-sub]')) { ui.sub = t.value; ui.limit = PAGE; renderResults(); }
+    else if (t.matches('[data-sort]')) { ui.sort = t.value; renderResults(); }
   }
 
-  /* ---------------- Shared form helpers ---------------- */
+  /* ---------------- Product editor ---------------- */
 
-  function setBusy(m, label, busy, busyLabel) {
-    if (!m || !m.el) return;
-    Array.prototype.forEach.call(m.el.querySelectorAll('button'), function (b) {
-      var txt = b.getAttribute('data-cx-label') || b.textContent.trim();
-      if (txt === label) {
-        if (!b.hasAttribute('data-cx-label')) b.setAttribute('data-cx-label', txt);
-        b.disabled = busy;
-        b.setAttribute('aria-busy', String(busy));
-        b.textContent = busy ? (busyLabel || 'Saving…') : txt;
-      }
-    });
-  }
+  function openProduct(p) {
+    var editing = !!p;
+    var startSub = editing ? subOf(p) : null;
+    var draft = {
+      name: editing ? p.name : '',
+      price: editing ? String(Number(p.price) || '') : '',
+      main: startSub ? (startSub.parent_id || startSub.id) : (ui.main || ''),
+      sub: startSub && startSub.parent_id ? startSub.id : (!editing && ui.sub ? ui.sub : ''),
+      description: editing ? (p.description || '') : '',
+      on: editing ? p.is_available !== false : true,
+      rating: editing && p.rating != null ? String(p.rating) : '',
+      calories: editing && p.calories != null ? String(p.calories) : '',
+      protein: editing && p.protein != null ? String(p.protein) : '',
+      addons: editing ? linksFor(p.id) : [],
+      file: null, objUrl: null, removed: false
+    };
+    var currentUrl = editing ? p.image_url : null;
+    var uid = 'pp' + Math.random().toString(36).slice(2, 8);
+    var form = document.createElement('form');
+    form.className = 'cg-form';
+    form.noValidate = true;
 
-  function fieldError(form, name, msg) {
-    var ctl = form.querySelector('[name="' + name + '"]');
-    var err = form.querySelector('[data-err="' + name + '"]');
-    if (err) err.textContent = msg || '';
-    if (ctl) {
-      ctl.classList.toggle('cx-invalid', !!msg);
-      if (msg) ctl.setAttribute('aria-invalid', 'true'); else ctl.removeAttribute('aria-invalid');
+    function mainOptions() {
+      return '<option value="">Choose a category</option>' + S.mains.map(function (m) {
+        return '<option value="' + esc(m.id) + '"' + (draft.main === m.id ? ' selected' : '') + '>' + esc(m.name) + '</option>';
+      }).join('');
     }
-  }
+    function subOptions() {
+      if (!draft.main) return '<option value="">Choose a category first</option>';
+      var subs = S.subsBy[draft.main] || [];
+      if (!subs.length) return '<option value="">This category has no subcategories yet</option>';
+      return '<option value="">Choose a subcategory</option>' + subs.map(function (s) {
+        return '<option value="' + esc(s.id) + '"' + (draft.sub === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>';
+      }).join('');
+    }
+    function addonChips(type) {
+      var list = S.customs.filter(function (c) { return c.type === type; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+      if (!list.length) return '<span class="cg-help">None yet.</span>';
+      return list.map(function (c) {
+        var on = draft.addons.indexOf(c.id) !== -1;
+        return '<button type="button" class="pp-addon" aria-pressed="' + on + '" data-addon="' + esc(c.id) + '">' + esc(c.name) + ' <small>' + (Number(c.price) ? '+' + esc(naira(c.price)) : 'free') + '</small></button>';
+      }).join('');
+    }
 
-  function photoField(currentUrl, folder) {
-    var wrap = document.createElement('div');
-    wrap.className = 'cx-photo';
-    var uid = 'cxf' + Math.random().toString(36).slice(2, 8);
-    wrap.innerHTML =
-      '<div class="cx-photo-prev" aria-live="polite"></div>' +
-      '<div class="cx-drop">' +
-      '<span class="cx-drop-desk">Drag a photo here, or</span><span class="cx-drop-touch">Tap here to choose a photo</span>' +
-      '<div class="cx-drop-btns">' +
-      '<label class="btn btn-ghost btn-sm" for="' + uid + '" tabindex="0" role="button">Choose photo</label>' +
-      '<button type="button" class="btn btn-ghost btn-sm" data-remove>Remove photo</button>' +
+    form.innerHTML =
+      '<div class="field"><span class="cg-lbl" id="' + uid + '-pl">Photo</span>' +
+        '<div class="pp-up" role="group" aria-labelledby="' + uid + '-pl"><div class="pp-up-prev" data-prev></div>' +
+          '<div class="cg-drop" data-drop><span>Drag a photo here or choose one. A clear photo on a plain background sells best.</span>' +
+            '<div class="cg-drop-btns"><label class="btn btn-ghost btn-sm" for="' + uid + '-file" tabindex="0" role="button">Choose photo</label>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-remove>Remove</button></div>' +
+            '<input type="file" id="' + uid + '-file" class="cg-file" accept="image/jpeg,image/png,image/webp">' +
+            '<span class="cg-help">If you skip this, the app shows the subcategory photo.</span>' +
+            '<span class="cg-err" data-photo-err role="alert"></span></div></div></div>' +
+      '<div class="field"><label for="' + uid + '-name">Name <span class="cg-req" aria-hidden="true">*</span></label>' +
+        '<input id="' + uid + '-name" name="name" class="input" maxlength="120" autocomplete="off" autofocus placeholder="e.g. Chapman – 50cl Bottle" value="' + esc(draft.name) + '">' +
+        '<span class="cg-err" data-err="name" role="alert"></span></div>' +
+      '<div class="field"><label for="' + uid + '-price">Price <span class="cg-req" aria-hidden="true">*</span></label>' +
+        '<div class="pp-money"><span aria-hidden="true">₦</span><input id="' + uid + '-price" name="price" class="input" inputmode="decimal" autocomplete="off" value="' + esc(draft.price) + '"></div>' +
+        '<span class="cg-err" data-err="price" role="alert"></span></div>' +
+      '<div class="pp-two">' +
+        '<div class="field"><label for="' + uid + '-main">Category <span class="cg-req" aria-hidden="true">*</span></label>' +
+          '<select id="' + uid + '-main" name="main" class="select">' + mainOptions() + '</select>' +
+          '<span class="cg-err" data-err="main" role="alert"></span></div>' +
+        '<div class="field"><label for="' + uid + '-sub">Subcategory <span class="cg-req" aria-hidden="true">*</span></label>' +
+          '<select id="' + uid + '-sub" name="sub" class="select"' + (draft.main ? '' : ' disabled') + '>' + subOptions() + '</select>' +
+          '<span class="cg-err" data-err="sub" role="alert"></span></div>' +
       '</div>' +
-      '<input class="cx-file" type="file" id="' + uid + '" accept="image/jpeg,image/png,image/webp" aria-label="Choose photo">' +
-      '<span class="cx-help">JPEG, PNG or WebP, up to 5 MB.</span>' +
-      '<span class="cx-err" data-photo-err></span>' +
-      '</div>';
-    var prev = wrap.querySelector('.cx-photo-prev');
-    var drop = wrap.querySelector('.cx-drop');
-    var input = wrap.querySelector('input[type=file]');
-    var pick = wrap.querySelector('label[for="' + uid + '"]');
-    var removeBtn = wrap.querySelector('[data-remove]');
-    var errEl = wrap.querySelector('[data-photo-err]');
-    var state = { file: null, removed: false, objUrl: null };
+      '<div class="field"><label for="' + uid + '-desc">Description <span class="cg-opt">(optional)</span></label>' +
+        '<textarea id="' + uid + '-desc" name="description" class="textarea" rows="3" maxlength="1000" placeholder="What it is, size, what makes it special">' + esc(draft.description) + '</textarea></div>' +
+      '<div class="pp-avail"><div><b>In stock</b><small>Turn off to show “Sold out” in the app without deleting the product.</small></div>' +
+        '<button type="button" class="pp-switch" role="switch" aria-checked="' + draft.on + '" data-on aria-label="In stock"><i></i></button></div>' +
+      '<div class="field"><span class="cg-lbl">Add-ons customers can pick <span class="cg-opt">(optional)</span></span>' +
+        '<div class="pp-addons" data-group="topping"><span class="pp-addons-h">Add-ons</span>' + addonChips('topping') + '</div>' +
+        '<div class="pp-addons" data-group="side"><span class="pp-addons-h">Extras</span>' + addonChips('side') + '</div>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-add-addon style="align-self:flex-start">' + I.plus + 'New add-on</button></div>' +
+      '<div class="field"><span class="cg-lbl">Customer options <span class="cg-opt">(e.g. cake size, flavour, message)</span></span>' +
+        (editing
+          ? '<div class="pp-optsum" data-optsum>' + optSummary(p.id) + '</div>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-edit-options style="align-self:flex-start">🎨 Edit customer options</button>'
+          : '<span class="cg-help">Save the product first, then you can add options like size and flavour.</span>') +
+      '</div>' +
+      '<details class="pp-more-fields"' + (draft.rating || draft.calories || draft.protein ? ' open' : '') + '><summary>Rating &amp; nutrition (optional)</summary><div class="pp-three">' +
+        '<div class="field"><label for="' + uid + '-rating">Rating (0–5)</label><input id="' + uid + '-rating" name="rating" class="input" inputmode="decimal" value="' + esc(draft.rating) + '"><span class="cg-err" data-err="rating" role="alert"></span></div>' +
+        '<div class="field"><label for="' + uid + '-cal">Calories</label><input id="' + uid + '-cal" name="calories" class="input" inputmode="numeric" value="' + esc(draft.calories) + '"><span class="cg-err" data-err="calories" role="alert"></span></div>' +
+        '<div class="field"><label for="' + uid + '-pro">Protein (g)</label><input id="' + uid + '-pro" name="protein" class="input" inputmode="numeric" value="' + esc(draft.protein) + '"><span class="cg-err" data-err="protein" role="alert"></span></div>' +
+      '</div></details>' +
+      '<div class="field"><span class="cg-lbl">How it looks in the app</span><div class="pp-preview" data-preview></div></div>' +
+      '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
 
-    function show() {
-      var src = state.objUrl || (!state.removed ? currentUrl : null);
-      prev.innerHTML = src ? '<img src="' + esc(src) + '" alt="Photo preview">' : '<span>No photo</span>';
-      removeBtn.hidden = !src;
+    var $ = function (s) { return form.querySelector(s); };
+    var input = $('.cg-file'), drop = $('[data-drop]'), errEl = $('[data-photo-err]');
+    function chosenSub() { return draft.sub ? S.catById[draft.sub] : null; }
+    function color() { var m = S.catById[draft.main]; return (m && m.color) || '#FE8C00'; }
+    function previewSrc() {
+      if (draft.objUrl) return draft.objUrl;
+      if (!draft.removed && currentUrl) return currentUrl;
+      var s = chosenSub(); return s && s.image_url ? s.image_url : null;
+    }
+    function paintPhoto() {
+      var own = draft.objUrl || (!draft.removed && currentUrl);
+      var src = previewSrc();
+      $('[data-prev]').style.background = color() + '1a';
+      $('[data-prev]').innerHTML = src ? '<img src="' + esc(src) + '" alt=""' + (own ? '' : ' class="fallback"') + '>' + (own ? '' : '<span class="pp-fb-note">Subcategory photo</span>') : '<span class="pp-noimg">' + esc((draft.name || '?').charAt(0)) + '</span>';
+      $('[data-remove]').hidden = !own;
+      paintPreview();
+    }
+    function paintPreview() {
+      var src = previewSrc(), price = Number(String(draft.price).replace(/[^\d.]/g, '')) || 0, s = chosenSub(), m = S.catById[draft.main];
+      $('[data-preview]').innerHTML =
+        '<div class="pp-app' + (draft.on ? '' : ' sold') + '"><div class="pp-app-img" style="background:' + color() + '1a">' + (src ? '<img src="' + esc(src) + '" alt="">' : '') +
+          (draft.rating ? '<span class="pp-app-r">★ ' + esc(Number(draft.rating).toFixed(1)) + '</span>' : '') + (draft.on ? '' : '<span class="pp-app-sold">Sold out</span>') + '</div>' +
+          '<b>' + esc(draft.name.trim() || 'Product name') + '</b><div class="pp-app-f"><span>' + esc(naira(price)) + '</span>' + (draft.on ? '<i>+</i>' : '') + '</div></div>' +
+        '<p>' + (draft.on
+          ? (m ? 'Appears in the ' + esc(m.name) + ' row on Home' + (s ? ' and on the ' + esc(s.name) + ' page' : '') + '.' : 'Choose a category to see where it appears.')
+          : 'Customers can still see it but can’t add it to their cart.') + '</p>';
+    }
+    function fieldError(name, msg) {
+      var ctl = form.querySelector('[name="' + name + '"]'), err = form.querySelector('[data-err="' + name + '"]');
+      if (err) err.textContent = msg || '';
+      if (ctl) { ctl.classList.toggle('cg-invalid', !!msg); if (msg) ctl.setAttribute('aria-invalid', 'true'); else ctl.removeAttribute('aria-invalid'); }
     }
     function take(file) {
       errEl.textContent = '';
       if (!file) return;
       if (IMG_TYPES.indexOf(file.type) === -1) { errEl.textContent = 'Please choose a JPEG, PNG or WebP image.'; return; }
       if (file.size > MAX_BYTES) { errEl.textContent = 'That image is larger than 5 MB.'; return; }
-      if (state.objUrl) URL.revokeObjectURL(state.objUrl);
-      state.file = file; state.removed = false; state.objUrl = URL.createObjectURL(file);
-      show();
+      if (draft.objUrl) URL.revokeObjectURL(draft.objUrl);
+      draft.file = file; draft.removed = false; draft.objUrl = URL.createObjectURL(file);
+      paintPhoto();
     }
+    function dispose() { if (draft.objUrl) URL.revokeObjectURL(draft.objUrl); }
+
     input.addEventListener('change', function () { take(input.files && input.files[0]); input.value = ''; });
-    pick.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
-    removeBtn.addEventListener('click', function () {
-      if (state.objUrl) URL.revokeObjectURL(state.objUrl);
-      state.file = null; state.objUrl = null; state.removed = true; errEl.textContent = '';
-      show();
+    form.querySelector('label[for="' + uid + '-file"]').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+    $('[data-remove]').addEventListener('click', function () { if (draft.objUrl) URL.revokeObjectURL(draft.objUrl); draft.file = null; draft.objUrl = null; draft.removed = true; paintPhoto(); });
+    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('over'); }); });
+    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('over'); }); });
+    drop.addEventListener('drop', function (e) { take(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
+    drop.addEventListener('click', function (e) { if (!e.target.closest('label, button, input')) input.click(); });
+
+    form.addEventListener('input', function (e) {
+      var n = e.target.name;
+      if (n && draft.hasOwnProperty(n) && n !== 'main' && n !== 'sub') { draft[n] = e.target.value; fieldError(n, ''); }
+      if (n === 'name' || n === 'price' || n === 'rating') paintPreview();
+      if (n === 'name' && !previewSrc()) paintPhoto();
     });
-    ['dragenter', 'dragover'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('cx-over'); }); });
-    ['dragleave', 'drop'].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('cx-over'); }); });
-    drop.addEventListener('drop', function (e) { var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; take(f); });
-    // Tap / click anywhere on the zone opens the picker (phones can't drag files in).
-    drop.addEventListener('click', function (e) { if (e.target.closest('label, button, input')) return; input.click(); });
-    show();
-
-    return {
-      el: wrap,
-      changed: function () { return !!state.file || state.removed; },
-      // Returns the URL to store (uploads if a new file was chosen).
-      resolve: async function () {
-        if (state.file) return await Admin.uploadImage(state.file, folder);
-        if (state.removed) return null;
-        return currentUrl || null;
-      },
-      dispose: function () { if (state.objUrl) URL.revokeObjectURL(state.objUrl); }
-    };
-  }
-
-  /* ---------------- Product form ---------------- */
-
-  function subcategorySelectHtml(selected) {
-    var html = '<option value="">Choose a subcategory…</option>';
-    var found = false;
-    productMains().forEach(function (m) {
-      var subs = S.subsBy[m.id] || [];
-      if (!subs.length) return;
-      html += '<optgroup label="' + esc(m.name) + '">' + subs.map(function (s) {
-        if (s.id === selected) found = true;
-        return '<option value="' + esc(s.id) + '"' + (s.id === selected ? ' selected' : '') + '>' + esc((s.emoji ? s.emoji + ' ' : '') + s.name) + '</option>';
-      }).join('') + '</optgroup>';
+    $('[name="main"]').addEventListener('change', function () {
+      draft.main = this.value; draft.sub = ''; fieldError('main', ''); fieldError('sub', '');
+      var sel = $('[name="sub"]'); sel.innerHTML = subOptions(); sel.disabled = !draft.main;
+      paintPhoto();
+      if (draft.main) sel.focus();
     });
-    // Keep an existing (unexpected) assignment visible rather than silently dropping it.
-    if (selected && !found && S.catById[selected]) {
-      var c = S.catById[selected], m = mainOf(c);
-      html += '<optgroup label="Other"><option value="' + esc(c.id) + '" selected>' + esc(c.name + (m ? ' (' + m.name + ')' : '')) + '</option></optgroup>';
-    }
-    return html;
-  }
+    $('[name="sub"]').addEventListener('change', function () { draft.sub = this.value; fieldError('sub', ''); paintPhoto(); });
+    form.addEventListener('click', function (e) {
+      var a = e.target.closest('[data-addon]');
+      if (a) {
+        var id = a.getAttribute('data-addon'), k = draft.addons.indexOf(id);
+        if (k === -1) draft.addons.push(id); else draft.addons.splice(k, 1);
+        a.setAttribute('aria-pressed', String(k === -1));
+        return;
+      }
+      if (e.target.closest('[data-edit-options]')) {
+        openOptions(p, function () { var s = form.querySelector('[data-optsum]'); if (s) s.innerHTML = optSummary(p.id); });
+        return;
+      }
+      if (e.target.closest('[data-on]')) { draft.on = !draft.on; $('[data-on]').setAttribute('aria-checked', String(draft.on)); paintPreview(); return; }
+      if (e.target.closest('[data-add-addon]')) {
+        openAddon(null, function (c) {
+          draft.addons.push(c.id);
+          ['topping', 'side'].forEach(function (t) { var g = form.querySelector('[data-group="' + t + '"]'); g.innerHTML = '<span class="pp-addons-h">' + (t === 'topping' ? 'Add-ons' : 'Extras') + '</span>' + addonChips(t); });
+        });
+      }
+    });
+    paintPhoto();
 
-  function addonGroupHtml(type, legend, selectedIds) {
-    var items = S.customs.filter(function (c) { return c.type === type; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
-    var body = items.length ? items.map(function (c) {
-      return '<label class="cx-check"><input type="checkbox" name="cust" value="' + esc(c.id) + '"' + (selectedIds.indexOf(c.id) !== -1 ? ' checked' : '') + '>' +
-        '<span>' + esc(c.name) + '</span><span class="cx-addon-price">' + (Number(c.price) > 0 ? '+' + esc(naira(c.price)) : 'Free') + '</span></label>';
-    }).join('') : '<p class="cx-help">None yet. Create them in the “Add-ons &amp; extras” tab.</p>';
-    return '<fieldset><legend>' + legend + '</legend><div class="cx-addon-list">' + body + '</div></fieldset>';
-  }
-
-  function openProductForm(p) {
-    var editing = !!p;
-    var origLinks = editing ? linksFor(p.id) : [];
-    var form = document.createElement('form');
-    form.className = 'cx-form';
-    form.noValidate = true;
-    form.innerHTML =
-      '<div class="field cx-full"><label for="pf-name">Name <span class="cx-req" aria-hidden="true">*</span></label>' +
-      '<input id="pf-name" name="name" class="input" required maxlength="120" autocomplete="off" value="' + esc(editing ? p.name : '') + '">' +
-      '<span class="cx-err" data-err="name" role="alert"></span></div>' +
-      '<div class="field"><label for="pf-cat">Subcategory <span class="cx-req" aria-hidden="true">*</span></label>' +
-      '<select id="pf-cat" name="category_id" class="select" required>' + subcategorySelectHtml(editing ? p.category_id : (ui.sub || '')) + '</select>' +
-      '<span class="cx-err" data-err="category_id" role="alert"></span></div>' +
-      '<div class="field"><label for="pf-price">Price (₦) <span class="cx-req" aria-hidden="true">*</span></label>' +
-      '<input id="pf-price" name="price" class="input" type="number" inputmode="decimal" min="0" step="0.01" required value="' + esc(editing && p.price != null ? Number(p.price) : '') + '">' +
-      '<span class="cx-err" data-err="price" role="alert"></span></div>' +
-      '<div class="cx-form-3">' +
-      '<div class="field"><label for="pf-rating">Rating (0–5)</label>' +
-      '<input id="pf-rating" name="rating" class="input" type="number" inputmode="decimal" min="0" max="5" step="0.1" value="' + esc(editing ? (p.rating != null ? Number(p.rating) : '') : '4.5') + '">' +
-      '<span class="cx-err" data-err="rating" role="alert"></span></div>' +
-      '<div class="field"><label for="pf-cal">Calories (optional)</label>' +
-      '<input id="pf-cal" name="calories" class="input" type="number" inputmode="numeric" min="0" step="1" value="' + esc(editing && p.calories != null ? p.calories : '') + '">' +
-      '<span class="cx-err" data-err="calories" role="alert"></span></div>' +
-      '<div class="field"><label for="pf-pro">Protein, g (optional)</label>' +
-      '<input id="pf-pro" name="protein" class="input" type="number" inputmode="numeric" min="0" step="1" value="' + esc(editing && p.protein != null ? p.protein : '') + '">' +
-      '<span class="cx-err" data-err="protein" role="alert"></span></div>' +
-      '</div>' +
-      '<div class="field cx-full"><label for="pf-desc">Description</label>' +
-      '<textarea id="pf-desc" name="description" class="textarea" rows="3" maxlength="2000">' + esc(editing ? p.description : '') + '</textarea></div>' +
-      '<div class="field cx-full"><span id="pf-photo-label" style="font-weight:700">Photo</span><div data-photo></div>' +
-      '<span class="cx-help">If there is no photo, the app shows the subcategory’s photo instead.</span></div>' +
-      '<div class="field cx-full"><span style="font-weight:700">Add-ons &amp; extras</span>' +
-      '<div class="cx-addons">' + addonGroupHtml('topping', 'Add-ons', origLinks) + addonGroupHtml('side', 'Extras', origLinks) + '</div></div>' +
-      '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
-
-    var photo = photoField(editing ? p.image_url : null, 'products');
-    photo.el.setAttribute('role', 'group');
-    photo.el.setAttribute('aria-labelledby', 'pf-photo-label');
-    form.querySelector('[data-photo]').appendChild(photo.el);
-
-    var saving = false;
-    var SAVE = editing ? 'Save changes' : 'Add product';
-    var m;
-
+    var busy = false, m;
     async function save() {
-      if (saving) return;
-      ['name', 'category_id', 'price', 'rating', 'calories', 'protein'].forEach(function (n) { fieldError(form, n, ''); });
-      var f = form.elements;
-      var name = f.name.value.trim().replace(/\s+/g, ' ');
-      var catId = f.category_id.value;
-      var priceRaw = f.price.value.trim();
-      var ratingRaw = f.rating.value.trim();
-      var calRaw = f.calories.value.trim();
-      var proRaw = f.protein.value.trim();
-      var errors = [];
-
-      if (!name) errors.push(['name', 'Enter a product name.']);
-      else if (S.products.some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== p.id); }))
-        errors.push(['name', 'A product called “' + name + '” already exists. Product names must be unique.']);
-      if (!catId) errors.push(['category_id', 'Choose a subcategory.']);
-      var price = Number(priceRaw);
-      if (priceRaw === '' || !isFinite(price)) errors.push(['price', 'Enter a price.']);
-      else if (price < 0) errors.push(['price', 'Price can’t be negative.']);
-      else if (price >= 1e8) errors.push(['price', 'Price is too large.']);
-      var rating = null;
-      if (ratingRaw !== '') {
-        rating = Number(ratingRaw);
-        if (!isFinite(rating) || rating < 0 || rating > 5) errors.push(['rating', 'Rating must be between 0 and 5.']);
-        else rating = Math.round(rating * 10) / 10;
+      if (busy) return;
+      ['name', 'price', 'main', 'sub', 'rating', 'calories', 'protein'].forEach(function (n) { fieldError(n, ''); });
+      var name = draft.name.trim().replace(/\s+/g, ' ');
+      var price = Number(String(draft.price).replace(/[,\s₦]/g, ''));
+      var bad = [];
+      if (!name) bad.push(['name', 'Enter a name.']);
+      else if (S.products.some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== p.id); })) bad.push(['name', 'A product with this name already exists.']);
+      if (!String(draft.price).trim() || !isFinite(price) || price < 0) bad.push(['price', 'Enter a price, e.g. 3500.']);
+      if (!draft.main) bad.push(['main', 'Choose a category.']);
+      else if (!draft.sub) bad.push(['sub', (S.subsBy[draft.main] || []).length ? 'Choose a subcategory.' : 'Add a subcategory to this category first (Categories page).']);
+      function num(key, label, lo, hi, isInt) {
+        var raw = String(draft[key]).trim();
+        if (!raw) return null;
+        var v = Number(raw);
+        if (!isFinite(v) || v < lo || (hi != null && v > hi) || (isInt && Math.round(v) !== v)) { bad.push([key, label]); return null; }
+        return v;
       }
-      function intOrNull(raw, key, label) {
-        if (raw === '') return null;
-        var n = Number(raw);
-        if (!isFinite(n) || n < 0 || Math.floor(n) !== n) { errors.push([key, label + ' must be a whole number, 0 or more.']); return null; }
-        if (n > 2147483647) { errors.push([key, label + ' is too large.']); return null; }
-        return n;
-      }
-      var calories = intOrNull(calRaw, 'calories', 'Calories');
-      var protein = intOrNull(proRaw, 'protein', 'Protein');
-
-      if (errors.length) {
-        errors.forEach(function (er) { fieldError(form, er[0], er[1]); });
-        var first = form.querySelector('[name="' + errors[0][0] + '"]');
-        if (first) first.focus();
+      var rating = num('rating', 'Use a number from 0 to 5.', 0, 5, false);
+      var calories = num('calories', 'Use a whole number.', 0, null, true);
+      var protein = num('protein', 'Use a whole number.', 0, null, true);
+      if (bad.length) {
+        bad.forEach(function (b) { fieldError(b[0], b[1]); });
+        if (['rating', 'calories', 'protein'].indexOf(bad[0][0]) !== -1) form.querySelector('details').open = true;
+        var first = form.querySelector('[name="' + bad[0][0] + '"]'); if (first) first.focus();
         return;
       }
 
-      var wanted = Array.prototype.map.call(form.querySelectorAll('input[name="cust"]:checked'), function (i) { return i.value; });
-      saving = true;
-      setBusy(m, SAVE, true);
+      busy = true;
+      var saveBtn = m.el.querySelector('.modal-actions .btn-primary');
+      A.setLoading(saveBtn, true, 'Saving…');
       try {
         var imageUrl;
-        try { imageUrl = await photo.resolve(); }
-        catch (e) { Admin.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
-
+        try { imageUrl = draft.file ? await A.uploadImage(draft.file, 'products') : (draft.removed ? null : (currentUrl || null)); }
+        catch (e) { A.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
         var payload = {
-          name: name, category_id: catId, price: Math.round(price * 100) / 100,
-          description: f.description.value.trim() || null,
-          rating: rating, calories: calories, protein: protein, image_url: imageUrl
+          name: name, price: Math.round(price * 100) / 100, category_id: draft.sub,
+          description: draft.description.trim() || null, image_url: imageUrl,
+          rating: rating, calories: calories, protein: protein, is_available: draft.on
         };
         var res = editing
-          ? await Admin.sb.from('menu').update(payload).eq('id', p.id).select().single()
-          : await Admin.sb.from('menu').insert(payload).select().single();
+          ? await A.sb.from('menu').update(payload).eq('id', p.id).select(MENU_COLS).single()
+          : await A.sb.from('menu').insert(payload).select(MENU_COLS).single();
+        if (res.error && missingColumn(res.error)) {
+          // Database not updated yet: save without the stock switch.
+          delete payload.is_available;
+          var cols = MENU_COLS.replace(',is_available', '');
+          res = editing
+            ? await A.sb.from('menu').update(payload).eq('id', p.id).select(cols).single()
+            : await A.sb.from('menu').insert(payload).select(cols).single();
+          if (!res.error) { res.data.is_available = true; if (!draft.on) A.toast('Saved. To use “Sold out”, run the updated supabase/schema.sql.', 'error'); }
+        }
         if (res.error) {
-          if (res.error.code === '23505') {
-            fieldError(form, 'name', 'A product called “' + name + '” already exists. Product names must be unique.');
-            form.querySelector('[name="name"]').focus();
-            Admin.toast('That product name is already taken.', 'error');
-          } else {
-            Admin.toast('Couldn’t save the product: ' + errMsg(res.error), 'error');
-          }
+          if (res.error.code === '23505') fieldError('name', 'A product with this name already exists.');
+          else A.toast('Couldn’t save the product: ' + errMsg(res.error), 'error');
           return;
         }
         var saved = res.data;
-        if (editing) {
-          var i = S.products.findIndex(function (x) { return x.id === p.id; });
-          if (i !== -1) S.products[i] = Object.assign({}, S.products[i], saved);
-        } else {
-          S.products.push(saved);
-        }
+        if (editing) { var i = S.products.findIndex(function (x) { return x.id === p.id; }); S.products[i] = saved; }
+        else S.products.push(saved);
 
         // Sync add-on links
-        var toRemove = origLinks.filter(function (id) { return wanted.indexOf(id) === -1; });
-        var toAdd = wanted.filter(function (id) { return origLinks.indexOf(id) === -1; });
+        var before = editing ? linksFor(saved.id) : [];
+        var toRemove = before.filter(function (id) { return draft.addons.indexOf(id) === -1; });
+        var toAdd = draft.addons.filter(function (id) { return before.indexOf(id) === -1; });
         var linkErr = null;
         if (toRemove.length) {
-          var d = await Admin.sb.from('menu_customizations').delete().eq('menu_id', saved.id).in('customization_id', toRemove);
-          if (d.error) linkErr = d.error;
-          else S.links = S.links.filter(function (l) { return !(l.menu_id === saved.id && toRemove.indexOf(l.customization_id) !== -1); });
+          var d = await A.sb.from('menu_customizations').delete().eq('menu_id', saved.id).in('customization_id', toRemove);
+          if (d.error) linkErr = d.error; else S.links = S.links.filter(function (l) { return !(l.menu_id === saved.id && toRemove.indexOf(l.customization_id) !== -1); });
         }
         if (toAdd.length) {
           var rows = toAdd.map(function (cid) { return { menu_id: saved.id, customization_id: cid }; });
-          var ins = await Admin.sb.from('menu_customizations').insert(rows);
-          if (ins.error) linkErr = ins.error;
-          else S.links = S.links.concat(rows);
+          var ins = await A.sb.from('menu_customizations').insert(rows);
+          if (ins.error) linkErr = ins.error; else S.links = S.links.concat(rows);
         }
-
-        photo.dispose();
+        dispose();
         m.close();
-        if (linkErr) Admin.toast('Product saved, but add-ons couldn’t be updated: ' + errMsg(linkErr), 'error');
-        else Admin.toast(editing ? 'Saved “' + saved.name + '”' : 'Added “' + saved.name + '”', 'success');
-        if (!editing && typeof Admin.refreshBadges === 'function') { try { Admin.refreshBadges(); } catch (e) { /* optional */ } }
+        if (linkErr) A.toast('Saved, but add-ons couldn’t be updated: ' + errMsg(linkErr), 'error');
+        else A.toast(editing ? 'Saved “' + saved.name + '”' : 'Added “' + saved.name + '”', 'success');
         renderAll();
       } catch (e) {
-        Admin.toast('Couldn’t save the product: ' + errMsg(e), 'error');
+        A.toast('Couldn’t save the product: ' + errMsg(e), 'error');
       } finally {
-        saving = false;
-        setBusy(m, SAVE, false);
+        busy = false;
+        if (m.isOpen()) A.setLoading(saveBtn, false);
       }
     }
-
     form.addEventListener('submit', function (e) { e.preventDefault(); save(); });
-    m = Admin.modal({
-      title: editing ? 'Edit product' : 'Add product',
-      body: form,
-      wide: true,
-      actions: [
-        { label: 'Cancel', variant: 'ghost', onClick: function (close) { photo.dispose(); close(); } },
-        { label: SAVE, variant: 'primary', onClick: function () { save(); } }
-      ]
-    });
-    setTimeout(function () { var n = form.querySelector('#pf-name'); if (n) n.focus(); }, 30);
+
+    var actions = [];
+    if (editing) actions.push({ label: 'Delete', variant: 'danger', onClick: function (close) { deleteProduct(p, close); } });
+    actions.push({ label: 'Cancel', variant: 'ghost', onClick: function (close) { dispose(); close(); } });
+    actions.push({ label: editing ? 'Save changes' : 'Add product', variant: 'primary', onClick: function () { save(); } });
+    m = A.modal({ title: editing ? 'Edit product' : 'New product', body: form, className: 'cg-drawer', actions: actions, onClose: dispose });
   }
 
-  async function deleteProduct(p) {
-    var ok = await Admin.confirm(
-      'Delete “' + p.name + '”? It will be removed from the app straight away. Past orders keep their own copy of the item (name, price and photo), so order history is not affected.',
+  async function deleteProduct(p, closeEditor) {
+    var ok = await A.confirm('Delete “' + p.name + '”? It disappears from the app. Past orders keep their details. This can’t be undone.\n\nTip: to hide it for a while, switch it to “Sold out” instead.',
       { danger: true, confirmLabel: 'Delete product' });
     if (!ok) return;
-    var res = await Admin.sb.from('menu').delete().eq('id', p.id);
-    if (res.error) { Admin.toast('Couldn’t delete the product: ' + errMsg(res.error), 'error'); return; }
+    var res = await A.sb.from('menu').delete().eq('id', p.id);
+    if (res.error) { A.toast('Couldn’t delete: ' + errMsg(res.error), 'error'); return; }
     S.products = S.products.filter(function (x) { return x.id !== p.id; });
     S.links = S.links.filter(function (l) { return l.menu_id !== p.id; });
-    Admin.toast('Deleted “' + p.name + '”', 'success');
-    if (typeof Admin.refreshBadges === 'function') { try { Admin.refreshBadges(); } catch (e) { /* optional */ } }
+    if (closeEditor) closeEditor();
+    A.toast('Deleted “' + p.name + '”', 'success');
     renderAll();
   }
 
-  /* ---------------- Add-ons & extras ---------------- */
+  /* ---------------- Add-ons ---------------- */
 
-  function usage(cid) { return S.links.filter(function (l) { return l.customization_id === cid; }).length; }
+  /* ---------------- Customer options (cake size, flavour, message…) ---------------- */
 
-  function renderCustomPanel(panel) {
-    var list = S.customs.slice().sort(function (a, b) {
-      return String(a.type).localeCompare(String(b.type)) * -1 || String(a.name).localeCompare(String(b.name));
-    });
-    var hint = '<p class="cx-hint">' + I_INFO + '<span>Add-ons (toppings) and extras (sides) are optional paid extras customers can pick on a product. Link them to products in each product’s edit form.</span></p>';
-    if (!list.length) {
-      panel.innerHTML = hint + '<div class="empty"><p><b>No add-ons or extras yet</b></p><button type="button" class="btn btn-primary" data-act="add-custom">' + I_PLUS + 'Add add-on / extra</button></div>';
-      return;
-    }
-    panel.innerHTML = hint + '<div class="table-wrap"><table class="table table-cards"><thead><tr>' +
-      '<th scope="col">Name</th><th scope="col">Type</th><th scope="col" class="cx-right">Price</th><th scope="col">Used by</th><th scope="col"><span class="cx-sr">Actions</span></th>' +
-      '</tr></thead><tbody>' + list.map(function (c) {
-        var n = usage(c.id);
-        return '<tr><td class="cx-cell-name tc-id">' + esc(c.name) + '</td>' +
-          '<td class="tc-badge"><span class="chip">' + esc(TYPE_LABEL[c.type] || c.type) + '</span></td>' +
-          '<td class="cx-right cx-nowrap tc-total">' + (Number(c.price) > 0 ? esc(naira(c.price)) : 'Free') + '</td>' +
-          '<td class="tc-time"><span class="tc-only">Used by </span>' + n + ' product' + (n === 1 ? '' : 's') + '</td>' +
-          '<td class="tc-actions"><div class="cx-actions">' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-cedit="' + esc(c.id) + '" aria-label="Edit ' + esc(c.name) + '">Edit</button>' +
-          '<button type="button" class="btn btn-danger btn-sm" data-cdel="' + esc(c.id) + '" aria-label="Delete ' + esc(c.name) + '">Delete</button>' +
-          '</div></td></tr>';
-      }).join('') + '</tbody></table></div>';
+  function optSummary(menuId) {
+    var gs = (S.optGroups || []).filter(function (g) { return g.menu_id === menuId; });
+    if (!gs.length) return '<span class="cg-help">None. Customers add it to the cart as it is.</span>';
+    return gs.map(function (g) { return '<span class="pp-optchip">' + esc(g.name) + (g.required ? ' <b>*</b>' : '') + '</span>'; }).join('');
   }
 
-  function openCustomForm(c) {
+  /** Window to manage the questions customers answer for one product. Saves straight away. */
+  async function openOptions(p, onDone) {
+    var body = document.createElement('div');
+    body.className = 'cg-form';
+    var groups = [];
+    var m = A.modal({
+      title: 'Customer options · ' + p.name, body: body, wide: true,
+      onClose: function () { S.optGroups = (S.optGroups || []).filter(function (g) { return g.menu_id !== p.id; }).concat(groups.map(function (g) { return { id: g.id, menu_id: p.id, name: g.name, required: g.required }; })); if (onDone) onDone(); },
+      actions: [{ label: 'Done', variant: 'primary', onClick: function (close) { close(); } }]
+    });
+
+    async function reload() {
+      var res = await A.sb.from('option_groups').select('id,name,kind,required,max_length,placeholder,sort_order,option_values(id,name,price,hint,swatch,sort_order)')
+        .eq('menu_id', p.id).order('sort_order');
+      if (res.error) {
+        body.innerHTML = '';
+        body.appendChild(A.errorState(/option_groups/.test(errMsg(res.error)) ? 'Customer options need the updated supabase/schema.sql.' : errMsg(res.error), reload));
+        return;
+      }
+      groups = (res.data || []).map(function (g) { g.option_values = (g.option_values || []).sort(function (a, b) { return a.sort_order - b.sort_order; }); return g; });
+      paint();
+    }
+    async function run(q, ok) {
+      var res = await q;
+      if (res.error) { A.toast('Couldn’t save: ' + errMsg(res.error), 'error'); return false; }
+      if (ok) A.toast(ok, 'success', { duration: 1600 });
+      await reload();
+      return true;
+    }
+
+    function paint() {
+      var others = S.products.filter(function (x) { return x.id !== p.id && (S.optGroups || []).some(function (g) { return g.menu_id === x.id; }); });
+      body.innerHTML =
+        '<p class="pp-note" style="margin:0">Questions customers answer before adding <b>' + esc(p.name) + '</b> to the cart. “Choose one” options can add to the price; required ones must be answered. Changes save straight away.</p>' +
+        (groups.length ? groups.map(function (g, i) {
+          return '<div class="pp-og">' +
+            '<div class="pp-og-h"><b>' + esc(g.name) + '</b>' +
+              '<span class="pp-optchip">' + (g.kind === 'text' ? 'Customer types (max ' + (g.max_length || 300) + ')' : 'Choose one') + '</span>' +
+              (g.required ? '<span class="pp-optchip req">Required</span>' : '') +
+              '<span class="pr-spacer"></span>' +
+              '<button type="button" class="cg-icon sm" data-gmove="' + g.id + '" data-dir="-1" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+              '<button type="button" class="cg-icon sm" data-gmove="' + g.id + '" data-dir="1" aria-label="Move down"' + (i === groups.length - 1 ? ' disabled' : '') + '>↓</button>' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-gedit="' + g.id + '">Edit</button>' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-gdel="' + g.id + '" style="color:var(--red)">Delete</button></div>' +
+            (g.kind === 'single'
+              ? '<div class="pp-ov">' + g.option_values.map(function (v) {
+                  return '<span class="pp-ovc">' + (v.swatch ? '<i style="background:' + esc(v.swatch) + '"></i>' : '') + esc(v.name) +
+                    ' <small>' + (Number(v.price) ? '+' + esc(naira(v.price)) : 'included') + (v.hint ? ' · ' + esc(v.hint) : '') + '</small>' +
+                    '<button type="button" data-vedit="' + v.id + '" data-g="' + g.id + '" aria-label="Edit ' + esc(v.name) + '">✎</button>' +
+                    '<button type="button" data-vdel="' + v.id + '" aria-label="Delete ' + esc(v.name) + '">×</button></span>';
+                }).join('') + '<button type="button" class="btn btn-ghost btn-sm" data-vadd="' + g.id + '">' + I.plus + 'Add choice</button></div>'
+              : (g.placeholder ? '<p class="cg-help" style="margin:6px 0 0">Example shown to customers: “' + esc(g.placeholder) + '”</p>' : '')) +
+          '</div>';
+        }).join('') : '<p class="cg-help">No options yet.</p>') +
+        '<div class="pp-og-add"><button type="button" class="btn btn-ghost btn-sm" data-gadd="single">' + I.plus + 'Add a “choose one” question</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-gadd="text">' + I.plus + 'Add a “customer types” question</button>' +
+          (others.length && !groups.length ? '<select class="select" data-copy aria-label="Copy options from another product"><option value="">Copy options from…</option>' +
+            others.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') +
+        '</div>';
+    }
+
+    function ask(title, fields, initial) {
+      return new Promise(function (resolve) {
+        var f = document.createElement('form'); f.className = 'cg-form'; f.noValidate = true;
+        f.innerHTML = fields.map(function (x) {
+          if (x.type === 'check') return '<label style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" name="' + x.name + '"' + (initial[x.name] ? ' checked' : '') + '> ' + esc(x.label) + '</label>';
+          return '<div class="field"><label for="og-' + x.name + '">' + esc(x.label) + '</label><input id="og-' + x.name + '" name="' + x.name + '" class="input"' +
+            (x.type === 'color' ? ' type="color"' : '') + (x.mode ? ' inputmode="' + x.mode + '"' : '') + ' placeholder="' + esc(x.ph || '') + '" value="' + esc(initial[x.name] == null ? '' : initial[x.name]) + '">' +
+            (x.help ? '<span class="cg-help">' + esc(x.help) + '</span>' : '') + '</div>';
+        }).join('') + '<button type="submit" hidden></button>';
+        var done = false;
+        function submit(close) {
+          var out = {};
+          fields.forEach(function (x) { var el = f.elements[x.name]; out[x.name] = x.type === 'check' ? el.checked : el.value.trim(); });
+          if (fields[0] && !out[fields[0].name]) { f.elements[fields[0].name].focus(); return; }
+          done = true; close(); resolve(out);
+        }
+        var mm = A.modal({ title: title, body: f, onClose: function () { if (!done) resolve(null); },
+          actions: [{ label: 'Cancel', variant: 'ghost', onClick: function (close) { close(); } }, { label: 'Save', variant: 'primary', onClick: function (close) { submit(close); } }] });
+        f.addEventListener('submit', function (e) { e.preventDefault(); submit(mm.close); });
+      });
+    }
+    function money(v) { var n = Number(String(v || '0').replace(/[,\s₦]/g, '')); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null; }
+
+    body.addEventListener('click', async function (e) {
+      var b = e.target.closest('button'); if (!b || b.disabled) return;
+      var v, g;
+      if ((v = b.getAttribute('data-gadd'))) {
+        var text = v === 'text';
+        var a = await ask(text ? 'New “customer types” question' : 'New “choose one” question', [
+          { name: 'name', label: 'Question', ph: text ? 'e.g. Message on the cake' : 'e.g. Size' },
+          text ? { name: 'max_length', label: 'Longest answer (characters)', mode: 'numeric', ph: '40' } : null,
+          text ? { name: 'placeholder', label: 'Example for customers (optional)', ph: 'e.g. Happy 10th, Tolu!' } : null,
+          { name: 'required', label: 'Customers must answer this', type: 'check' }
+        ].filter(Boolean), { required: !text });
+        if (!a) return;
+        await run(A.sb.from('option_groups').insert({ menu_id: p.id, name: a.name, kind: v, required: !!a.required,
+          max_length: text ? (Number(a.max_length) || 40) : null, placeholder: text ? (a.placeholder || null) : null,
+          sort_order: groups.reduce(function (mx, x) { return Math.max(mx, x.sort_order || 0); }, 0) + 1 }), 'Question added');
+        return;
+      }
+      if ((v = b.getAttribute('data-gedit'))) {
+        g = groups.find(function (x) { return x.id === v; }); if (!g) return;
+        var t = g.kind === 'text';
+        var r = await ask('Edit question', [
+          { name: 'name', label: 'Question' },
+          t ? { name: 'max_length', label: 'Longest answer (characters)', mode: 'numeric' } : null,
+          t ? { name: 'placeholder', label: 'Example for customers (optional)' } : null,
+          { name: 'required', label: 'Customers must answer this', type: 'check' }
+        ].filter(Boolean), g);
+        if (!r) return;
+        var upd = { name: r.name, required: !!r.required };
+        if (t) { upd.max_length = Number(r.max_length) || g.max_length || 40; upd.placeholder = r.placeholder || null; }
+        await run(A.sb.from('option_groups').update(upd).eq('id', g.id), 'Saved');
+        return;
+      }
+      if ((v = b.getAttribute('data-gdel'))) {
+        g = groups.find(function (x) { return x.id === v; });
+        if (g && await A.confirm('Delete the question “' + g.name + '” and its choices?', { danger: true, confirmLabel: 'Delete' }))
+          await run(A.sb.from('option_groups').delete().eq('id', g.id), 'Deleted');
+        return;
+      }
+      if ((v = b.getAttribute('data-gmove'))) {
+        var i = groups.findIndex(function (x) { return x.id === v; }), j = i + Number(b.getAttribute('data-dir'));
+        var order = groups.slice(); order.splice(j, 0, order.splice(i, 1)[0]);
+        var res = await Promise.all(order.map(function (x, k) { return A.sb.from('option_groups').update({ sort_order: k + 1 }).eq('id', x.id); }));
+        var bad = res.find(function (x) { return x.error; }); if (bad) A.toast('Couldn’t reorder: ' + errMsg(bad.error), 'error');
+        await reload();
+        return;
+      }
+      if ((v = b.getAttribute('data-vadd')) || (v = b.getAttribute('data-vedit'))) {
+        var gid = b.getAttribute('data-vadd') || b.getAttribute('data-g');
+        g = groups.find(function (x) { return x.id === gid; });
+        var cur = b.hasAttribute('data-vedit') ? g.option_values.find(function (x) { return x.id === v; }) : null;
+        var c = await ask(cur ? 'Edit choice' : 'New choice for “' + g.name + '”', [
+          { name: 'name', label: 'Choice', ph: 'e.g. 8 inch' },
+          { name: 'price', label: 'Extra price (₦)', mode: 'decimal', ph: '0', help: '0 means it’s included in the product price.' },
+          { name: 'hint', label: 'Small note (optional)', ph: 'e.g. serves 15–20' },
+          { name: 'swatch', label: 'Colour swatch (optional, for colour choices)', ph: '#F9A8C8' }
+        ], cur ? { name: cur.name, price: Number(cur.price) || '', hint: cur.hint, swatch: cur.swatch } : {});
+        if (!c) return;
+        var price = money(c.price);
+        if (price == null) { A.toast('Enter the extra price as a number, e.g. 2500.', 'error'); return; }
+        var sw = /^#[0-9a-f]{6}$/i.test(c.swatch || '') ? c.swatch : null;
+        var row = { name: c.name, price: price, hint: c.hint || null, swatch: sw };
+        if (cur) await run(A.sb.from('option_values').update(row).eq('id', cur.id), 'Saved');
+        else { row.group_id = g.id; row.sort_order = g.option_values.length + 1; await run(A.sb.from('option_values').insert(row), 'Choice added'); }
+        return;
+      }
+      if ((v = b.getAttribute('data-vdel'))) {
+        if (await A.confirm('Delete this choice?', { danger: true, confirmLabel: 'Delete' })) await run(A.sb.from('option_values').delete().eq('id', v), 'Deleted');
+      }
+    });
+    body.addEventListener('change', async function (e) {
+      if (!e.target.matches('[data-copy]') || !e.target.value) return;
+      var from = S.products.find(function (x) { return x.id === e.target.value; });
+      if (!from || !await A.confirm('Copy all options from “' + from.name + '”?', { confirmLabel: 'Copy' })) { e.target.value = ''; return; }
+      var src = await A.sb.from('option_groups').select('name,kind,required,max_length,placeholder,sort_order,option_values(name,price,hint,swatch,sort_order)').eq('menu_id', from.id);
+      if (src.error) { A.toast('Couldn’t copy: ' + errMsg(src.error), 'error'); return; }
+      for (var k = 0; k < src.data.length; k++) {
+        var sg = src.data[k];
+        var ins = await A.sb.from('option_groups').insert({ menu_id: p.id, name: sg.name, kind: sg.kind, required: sg.required, max_length: sg.max_length, placeholder: sg.placeholder, sort_order: sg.sort_order }).select('id').single();
+        if (ins.error) { A.toast('Couldn’t copy: ' + errMsg(ins.error), 'error'); break; }
+        if ((sg.option_values || []).length) {
+          var vi = await A.sb.from('option_values').insert(sg.option_values.map(function (ov) { return { group_id: ins.data.id, name: ov.name, price: ov.price, hint: ov.hint, swatch: ov.swatch, sort_order: ov.sort_order }; }));
+          if (vi.error) { A.toast('Couldn’t copy: ' + errMsg(vi.error), 'error'); break; }
+        }
+      }
+      A.toast('Options copied', 'success');
+      await reload();
+    });
+
+    body.innerHTML = A.skeletonBlocks(3, 'line');
+    await reload();
+    if (!m.isOpen()) return;
+  }
+
+  function usage(cid) { return S.links.filter(function (l) { return l.customization_id === cid; }).length; }
+  function renderAddons() {
+    var box = root.querySelector('[data-addons]');
+    var list = S.customs.slice().sort(function (a, b) { return String(a.type).localeCompare(String(b.type)) || String(a.name).localeCompare(String(b.name)); });
+    if (!list.length) { box.innerHTML = A.emptyState('No add-ons yet', 'Add-ons are optional things customers can add to a product, like candles or gift wrapping.', I.plus); return; }
+    box.innerHTML = '<p class="pp-note">Add-ons and extras are optional things customers can pick on a product page, like birthday candles or gift wrapping. Choose which products offer them in each product’s editor.</p>' +
+      '<div class="card flush"><div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Type</th><th class="num">Price</th><th class="num">Used by</th><th class="text-right"><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
+      list.map(function (c) {
+        var n = usage(c.id);
+        return '<tr><td><b>' + esc(c.name) + '</b></td><td>' + (c.type === 'side' ? 'Extra' : 'Add-on') + '</td>' +
+          '<td class="num">' + (Number(c.price) ? esc(naira(c.price)) : 'Free') + '</td><td class="num">' + plural(n, 'product') + '</td>' +
+          '<td class="text-right nowrap"><button type="button" class="btn btn-ghost btn-sm" data-aedit="' + esc(c.id) + '">Edit</button> ' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-adel="' + esc(c.id) + '" style="color:var(--red)">Delete</button></td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+  }
+
+  function openAddon(c, onCreated) {
     var editing = !!c;
     var form = document.createElement('form');
-    form.className = 'cx-form';
+    form.className = 'cg-form';
     form.noValidate = true;
     form.innerHTML =
-      '<div class="field cx-full"><label for="cf-name">Name <span class="cx-req" aria-hidden="true">*</span></label>' +
-      '<input id="cf-name" name="name" class="input" required maxlength="80" autocomplete="off" value="' + esc(editing ? c.name : '') + '">' +
-      '<span class="cx-err" data-err="name" role="alert"></span></div>' +
-      '<div class="field"><label for="cf-type">Type</label>' +
-      '<select id="cf-type" name="type" class="select">' +
-      '<option value="topping"' + (!editing || c.type === 'topping' ? ' selected' : '') + '>Add-on</option>' +
-      '<option value="side"' + (editing && c.type === 'side' ? ' selected' : '') + '>Extra</option></select></div>' +
-      '<div class="field"><label for="cf-price">Price (₦) <span class="cx-req" aria-hidden="true">*</span></label>' +
-      '<input id="cf-price" name="price" class="input" type="number" inputmode="decimal" min="0" step="0.01" required value="' + esc(editing && c.price != null ? Number(c.price) : '') + '">' +
-      '<span class="cx-err" data-err="price" role="alert"></span></div>' +
+      '<div class="field"><label for="ad-name">Name <span class="cg-req" aria-hidden="true">*</span></label>' +
+        '<input id="ad-name" name="name" class="input" maxlength="80" autocomplete="off" autofocus placeholder="e.g. Birthday Candles" value="' + esc(editing ? c.name : '') + '">' +
+        '<span class="cg-err" data-err="name" role="alert"></span></div>' +
+      '<div class="field"><label for="ad-price">Price</label><div class="pp-money"><span aria-hidden="true">₦</span><input id="ad-price" name="price" class="input" inputmode="decimal" value="' + esc(editing ? String(Number(c.price) || 0) : '') + '" placeholder="0 for free"></div>' +
+        '<span class="cg-err" data-err="price" role="alert"></span></div>' +
+      '<div class="field"><span class="cg-lbl">Type</span><div class="cg-seg" role="radiogroup" aria-label="Type">' +
+        '<button type="button" role="radio" data-type="topping">Add-on<small>e.g. candles, frosting</small></button>' +
+        '<button type="button" role="radio" data-type="side">Extra<small>e.g. gift box, plates</small></button></div></div>' +
       '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
+    var type = editing ? c.type : 'topping';
+    function paintType() { Array.prototype.forEach.call(form.querySelectorAll('[data-type]'), function (b) { var on = b.getAttribute('data-type') === type; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }); }
+    form.addEventListener('click', function (e) { var b = e.target.closest('[data-type]'); if (b) { type = b.getAttribute('data-type'); paintType(); } });
+    paintType();
+    function err(n, msg) { var el = form.querySelector('[data-err="' + n + '"]'); if (el) el.textContent = msg || ''; }
 
-    var saving = false, m;
-    var SAVE = editing ? 'Save changes' : 'Add';
+    var busy = false, m;
     async function save() {
-      if (saving) return;
-      fieldError(form, 'name', ''); fieldError(form, 'price', '');
+      if (busy) return;
+      err('name', ''); err('price', '');
       var name = form.elements.name.value.trim().replace(/\s+/g, ' ');
-      var type = form.elements.type.value === 'side' ? 'side' : 'topping';
-      var priceRaw = form.elements.price.value.trim();
-      var price = Number(priceRaw);
-      var bad = null;
-      if (!name) { fieldError(form, 'name', 'Enter a name.'); bad = bad || 'name'; }
-      else if (S.customs.some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== c.id); })) { fieldError(form, 'name', 'An add-on or extra with this name already exists.'); bad = bad || 'name'; }
-      if (priceRaw === '' || !isFinite(price)) { fieldError(form, 'price', 'Enter a price (0 for free).'); bad = bad || 'price'; }
-      else if (price < 0) { fieldError(form, 'price', 'Price can’t be negative.'); bad = bad || 'price'; }
-      else if (price >= 1e8) { fieldError(form, 'price', 'Price is too large.'); bad = bad || 'price'; }
-      if (bad) { form.querySelector('[name="' + bad + '"]').focus(); return; }
-
-      saving = true; setBusy(m, SAVE, true);
+      var rawPrice = form.elements.price.value.replace(/[,\s₦]/g, '');
+      var price = rawPrice ? Number(rawPrice) : 0;
+      if (!name) { err('name', 'Enter a name.'); form.elements.name.focus(); return; }
+      if (S.customs.some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== c.id); })) { err('name', 'An add-on with this name already exists.'); return; }
+      if (!isFinite(price) || price < 0) { err('price', 'Enter a price, or 0 for free.'); return; }
+      busy = true;
+      var btn = m.el.querySelector('.modal-actions .btn-primary');
+      A.setLoading(btn, true, 'Saving…');
       try {
-        var payload = { name: name, type: type, price: Math.round(price * 100) / 100 };
+        var payload = { name: name, price: Math.round(price * 100) / 100, type: type };
         var res = editing
-          ? await Admin.sb.from('customizations').update(payload).eq('id', c.id).select().single()
-          : await Admin.sb.from('customizations').insert(payload).select().single();
-        if (res.error) {
-          if (res.error.code === '23505') { fieldError(form, 'name', 'An add-on or extra with this name already exists.'); Admin.toast('That name is already taken.', 'error'); }
-          else Admin.toast('Couldn’t save: ' + errMsg(res.error), 'error');
-          return;
-        }
-        if (editing) {
-          var i = S.customs.findIndex(function (x) { return x.id === c.id; });
-          if (i !== -1) S.customs[i] = res.data;
-        } else S.customs.push(res.data);
+          ? await A.sb.from('customizations').update(payload).eq('id', c.id).select('id,name,price,type').single()
+          : await A.sb.from('customizations').insert(payload).select('id,name,price,type').single();
+        if (res.error) { A.toast('Couldn’t save: ' + errMsg(res.error), 'error'); return; }
+        if (editing) Object.assign(c, res.data); else S.customs.push(res.data);
         m.close();
-        Admin.toast(editing ? 'Saved “' + res.data.name + '”' : 'Added “' + res.data.name + '”', 'success');
-        renderAll();
-      } catch (e) {
-        Admin.toast('Couldn’t save: ' + errMsg(e), 'error');
+        A.toast(editing ? 'Saved “' + res.data.name + '”' : 'Added “' + res.data.name + '”', 'success');
+        if (onCreated && !editing) onCreated(res.data);
+        else if (ui.tab === 'addons') renderAll();
       } finally {
-        saving = false; setBusy(m, SAVE, false);
+        busy = false;
+        if (m.isOpen()) A.setLoading(btn, false);
       }
     }
     form.addEventListener('submit', function (e) { e.preventDefault(); save(); });
-    m = Admin.modal({
-      title: editing ? 'Edit add-on / extra' : 'New add-on / extra',
-      body: form,
+    m = A.modal({
+      title: editing ? 'Edit add-on' : 'New add-on', body: form,
       actions: [
         { label: 'Cancel', variant: 'ghost', onClick: function (close) { close(); } },
-        { label: SAVE, variant: 'primary', onClick: function () { save(); } }
+        { label: editing ? 'Save changes' : 'Add', variant: 'primary', onClick: function () { save(); } }
       ]
     });
-    setTimeout(function () { var n = form.querySelector('#cf-name'); if (n) n.focus(); }, 30);
   }
 
-  async function deleteCustom(c) {
+  async function deleteAddon(c) {
     var n = usage(c.id);
-    var ok = await Admin.confirm(
-      'Delete “' + c.name + '”?' + (n ? ' It will be removed from ' + n + ' product' + (n === 1 ? '' : 's') + '.' : '') +
-      ' Past orders keep their own copy of the add-ons that were chosen.',
-      { danger: true, confirmLabel: 'Delete' });
+    var ok = await A.confirm('Delete “' + c.name + '”?' + (n ? ' It will be removed from ' + plural(n, 'product') + '.' : '') + ' This can’t be undone.', { danger: true, confirmLabel: 'Delete add-on' });
     if (!ok) return;
-    var res = await Admin.sb.from('customizations').delete().eq('id', c.id);
-    if (res.error) { Admin.toast('Couldn’t delete: ' + errMsg(res.error), 'error'); return; }
+    var res = await A.sb.from('customizations').delete().eq('id', c.id);
+    if (res.error) { A.toast('Couldn’t delete: ' + errMsg(res.error), 'error'); return; }
     S.customs = S.customs.filter(function (x) { return x.id !== c.id; });
     S.links = S.links.filter(function (l) { return l.customization_id !== c.id; });
-    Admin.toast('Deleted “' + c.name + '”', 'success');
+    A.toast('Deleted “' + c.name + '”', 'success');
     renderAll();
   }
 
   /* ---------------- Register ---------------- */
 
-  // Each render gets its own wrapper element, so listeners never stack or leak into other sections.
   async function mount(el) {
     var wrap = document.createElement('div');
-    wrap.className = 'cx-products';
+    wrap.className = 'pp-page';
     el.innerHTML = '';
     el.appendChild(wrap);
     root = wrap;
-    wrap.innerHTML = skeleton();
-    wrap.addEventListener('click', onRootClick);
-    wrap.addEventListener('keydown', onTabKey);
+    wrap.innerHTML = '<div class="page-head"><div><h1>Products</h1><p class="pp-sub">Loading products…</p></div></div><div class="pp-grid">' + A.skeletonBlocks(8, 'pp-sk') + '</div>';
+    wrap.addEventListener('click', onClick);
+    wrap.addEventListener('input', onInput);
+    wrap.addEventListener('change', onChange);
     wrap.addEventListener('error', onImgError, true);
     try {
       await load();
     } catch (e) {
       if (root !== wrap) return;
-      wrap.innerHTML = '<div class="page-head"><div><h1>Products</h1></div></div>' +
-        '<div class="empty"><p><b>Couldn’t load products</b></p><p>' + esc(errMsg(e)) + '</p>' +
-        '<button type="button" class="btn btn-primary" data-cx-retry>Try again</button></div>';
-      Admin.toast('Couldn’t load products: ' + errMsg(e), 'error');
-      var retry = wrap.querySelector('[data-cx-retry]');
-      if (retry) retry.addEventListener('click', function () { mount(el); });
+      wrap.innerHTML = '<div class="page-head"><div><h1>Products</h1></div></div>';
+      wrap.appendChild(A.errorState(errMsg(e), function () { mount(el); }));
       return;
     }
     if (root === wrap) renderAll();
   }
 
-  Admin.registerSection({ id: 'products', label: 'Products', icon: ICON, order: 4, render: mount });
+  A.registerSection({ id: 'products', label: 'Products', icon: I.box, order: 4, render: mount });
 })();

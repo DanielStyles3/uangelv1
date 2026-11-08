@@ -17,8 +17,8 @@ const SUCCESS = '#2F9B65';
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const IMPACT_STEPS = [
-    'Every purchase helps fund soup kitchens.',
-    'We personally get to know individuals in need, understand their stories, and provide meal passes to access daily support.',
+    'Every purchase helps fund our outreach programs. The profit from what you buy supports this initiative.',
+    'We get to know individuals in need, understand their stories, and provide for them.',
     'We will employ and empower locals—from our food outlets to our future farms—creating a cycle of community-driven impact.',
 ];
 
@@ -30,7 +30,7 @@ const FOUNDATIONS: { icon: IconName; title: string; text: string }[] = [
 ];
 
 const BENEFITS = [
-    'Nutritious meals for the less privileged through soup kitchens',
+    'Nutritious meals for the less privileged through our outreach programs',
     'Empowered communities through jobs and local partnerships',
     'Restored dignity via a personalized approach to social care',
     'Affordable, high-quality food for the general public',
@@ -78,7 +78,7 @@ const About = () => {
                         resizeMode="contain"
                     />
                     <Text style={styles.heroTitle}>Welcome to U Angel Foods</Text>
-                    <Text style={styles.heroSubtitle}>An Initiative of ECCLESIA NATION</Text>
+                    <Text style={styles.heroSubtitle}>An Initiative of Ecclesia Nation</Text>
                     <View style={styles.heroDivider} />
                     <Text style={styles.heroSlogan}>U Are An Angel</Text>
                 </Animated.View>
@@ -101,7 +101,7 @@ const About = () => {
                             <Ionicons name="flag-outline" size={22} color={ORANGE} />
                         </View>
                         <Text style={styles.body}>
-                            To serve high-quality food and beverages to the public while using the proceeds to support soup kitchens and social outreach programs that feed and care for those in need—without relying on donations, but through excellence in business.
+                            To serve high-quality food and beverages to the public while using the proceeds to fund our outreach programs that feed and care for those in need, without relying on donations, but through excellence in business.
                         </Text>
                     </View>
                 </Section>
@@ -110,7 +110,7 @@ const About = () => {
                 <Section index={3} title="ABOUT US">
                     <View style={styles.card}>
                         <Text style={styles.body}>
-                            U Angel Foods Ltd is a social enterprise founded by ECCLESIA NATION. We serve society through two primary channels:
+                            U Angel Foods is a social enterprise founded by Ecclesia Nation. We serve society through two primary channels:
                         </Text>
                         <View style={styles.bulletRow}>
                             <Ionicons name="restaurant-outline" size={18} color={ORANGE} style={styles.bulletIcon} />
@@ -128,7 +128,7 @@ const About = () => {
                     <View style={styles.highlight}>
                         <Text style={styles.highlightText}>
                             <Text style={styles.highlightLead}>What makes us different? </Text>
-                            Every item you purchase contributes directly to feeding the less privileged through our Soup Kitchens, which are strategically set up to serve individuals who have been identified and verified to need support.
+                            Every item you purchase contributes directly to feeding the less privileged.
                         </Text>
                     </View>
                 </Section>
@@ -211,10 +211,10 @@ const About = () => {
                 <Section index={8} title="HONOURING OUR FATHER">
                     <View style={styles.card}>
                         <Text style={[styles.body, styles.mb]}>
-                            At U Angel Foods Ltd, our name carries a story of honour, gratitude, and spiritual heritage.
+                            At U Angel Foods, our name carries a story of honour, gratitude, and spiritual heritage.
                         </Text>
                         <Text style={styles.body}>
-                            The name U ANGEL FOODS LIMITED was inspired by THE HOLY SPIRIT and given in honour of our spiritual father, the highly esteemed Prophet Uebert Angel—a bondservant servant of GOD whose life, ministry, and commitment to the advancement of the Kingdom of GOD have inspired countless people around the world.
+                            The name U Angel Foods was inspired by THE HOLY SPIRIT and given in honour of our spiritual father, the highly esteemed Prophet Uebert Angel—a bondservant servant of GOD whose life, ministry, and commitment to the advancement of the Kingdom of GOD have inspired countless people around the world.
                         </Text>
                     </View>
 
@@ -223,8 +223,40 @@ const About = () => {
                             <Text key={line} style={styles.closingLine}>{line}</Text>
                         ))}
                         <View style={styles.closingDivider} />
-                        <Text style={styles.signature}>Built by ECCLESIA NATION</Text>
+                        <Text style={styles.signature}>Built by Ecclesia Nation</Text>
                         <Text style={styles.signatureSub}>Named in honour of Prophet Uebert Angel.</Text>
+                    </View>
+                </Section>
+
+                {/* Orders, refunds and liability (client wording) */}
+                <Section index={9} title="ORDERS AND DELIVERY">
+                    <View style={styles.card}>
+                        {[
+                            'Orders are confirmed once payment succeeds.',
+                            'Delivery is scheduled and you are notified. We deliver only; there is no pick-up.',
+                            'Preparation times shown are estimates.',
+                        ].map((line, i) => (
+                            <View key={line} style={[styles.checkRow, i > 0 && styles.checkRowSpaced]}>
+                                <Ionicons name="checkmark-circle" size={20} color={SUCCESS} style={styles.bulletIcon} />
+                                <Text style={[styles.body, styles.flex]}>{line}</Text>
+                            </View>
+                        ))}
+                    </View>
+                </Section>
+
+                <Section index={10} title="CANCELLATION AND REFUNDS">
+                    <View style={styles.card}>
+                        <Text style={styles.body}>
+                            If we cancel your order, you will be refunded. If there is a problem with your order, contact us as soon as possible and we will put it right.
+                        </Text>
+                    </View>
+                </Section>
+
+                <Section index={11} title="LIABILITY">
+                    <View style={styles.card}>
+                        <Text style={styles.body}>
+                            We take care to provide a reliable service but cannot promise it will always be error-free and for that we sincerely apologize. However, we will always make amends, our goal is to attain the highest level of efficiency possible.
+                        </Text>
                     </View>
                 </Section>
 

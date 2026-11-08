@@ -10,7 +10,8 @@ function areCustomizationsEqual(
     const aSorted = [...a].sort((x, y) => x.id.localeCompare(y.id));
     const bSorted = [...b].sort((x, y) => x.id.localeCompare(y.id));
 
-    return aSorted.every((item, idx) => item.id === bSorted[idx].id);
+    // Text options count too: two cakes with different messages are different cart lines.
+    return aSorted.every((item, idx) => item.id === bSorted[idx].id && (item.text ?? '') === (bSorted[idx].text ?? ''));
 }
 
 export const useCartStore = create<CartStore>((set, get) => ({

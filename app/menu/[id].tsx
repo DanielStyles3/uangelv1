@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,9 +10,10 @@ import Animated, {
 } from "react-native-reanimated";
 
 import useFetch from "@/lib/useFetch";
-import { getCategory, getMenu, getMenuItem, getMenuItemCustomizations } from "@/lib/api";
+import { getCategory, getMenu, getMenuItem, getMenuItemCustomizations, getProductOptions } from "@/lib/api";
+import ProductOptions, { answersToCart, missingRequired, OptionAnswers } from "@/components/ProductOptions";
 import { useCartStore } from "@/store/cart.store";
-import { DELIVERY_FEE } from "@/constants";
+import { deliveryFeeForCategory } from "@/constants";
 import { formatNaira } from "@/lib/format";
 import ProductImage from "@/components/ProductImage";
 import { CartCustomization, Customization, MenuItem } from "@/type";
@@ -104,6 +105,8 @@ export default function ProductDetails() {
 
     const { data: item, loading } = useFetch({ fn: getMenuItem, params: { id } });
     const { data: customizations } = useFetch({ fn: getMenuItemCustomizations, params: { id } });
+    const { data: optionGroups } = useFetch({ fn: getProductOptions, params: { id } });
+    const [answers, setAnswers] = useState<OptionAnswers>({ picks: {}, texts: {} });
 
     // Product → its subcategory → main category (which carries the delivery note).
     const subcategoryId = item?.category_id ?? "";
@@ -163,13 +166,28 @@ export default function ProductDetails() {
 
     const mainCategory = subcategory && !subcategory.parent_id ? subcategory : parentCategory;
     const deliveryNote = mainCategory?.delivery_note || "Same-day delivery";
-    const unitPrice = Number(item.price) + selected.reduce((sum, c) => sum + Number(c.price), 0);
+    const groups = optionGroups ?? [];
+    const optionLines = answersToCart(groups, answers);
+    const unitPrice = Number(item.price)
+        + selected.reduce((sum, c) => sum + Number(c.price), 0)
+        + optionLines.reduce((sum, c) => sum + c.price, 0);
     const total = unitPrice * quantity;
     const longDescription = (item.description ?? "").length > 140;
     const cartCount = getTotalItems();
 
+    const soldOut = item.is_available === false;
+
     const handleAddToCart = () => {
-        const cartCustomizations: CartCustomization[] = selected.map((c) => ({ id: c.id, name: c.name, price: Number(c.price), type: c.type }));
+        if (soldOut) return;
+        const missing = missingRequired(groups, answers);
+        if (missing.length) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+            return Alert.alert('Almost there', `Please choose a ${missing.map((m) => m.toLowerCase()).join(' and a ')} for your cake.`);
+        }
+        const cartCustomizations: CartCustomization[] = [
+            ...optionLines,
+            ...selected.map((c) => ({ id: c.id, name: c.name, price: Number(c.price), type: c.type })),
+        ];
         addItem({ id: item.id, name: item.name, price: Number(item.price), image_url: item.image_url, emoji: item.emoji, customizations: cartCustomizations }, quantity);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         btnScale.set(withSequence(withSpring(0.94, { damping: 10, stiffness: 400 }), withSpring(1, { damping: 8 })));
@@ -209,13 +227,13 @@ export default function ProductDetails() {
                             </TouchableOpacity>
                         )}
                         <Text style={styles.name}>{item.name}</Text>
-                        <Text style={styles.price}>{formatNaira(item.price)}</Text>
+                        <Text style={styles.price}>{groups.length ? `From ${formatNaira(item.price)}` : formatNaira(item.price)}</Text>
                     </Animated.View>
 
                     {/* Info chips */}
                     <Animated.View entering={FadeInDown.delay(140).springify().damping(16)} style={styles.chips}>
                         <InfoChip icon="time-outline" label={deliveryNote} />
-                        <InfoChip icon="bicycle-outline" label={`${formatNaira(DELIVERY_FEE)} delivery`} />
+                        <InfoChip icon="bicycle-outline" label={`${formatNaira(deliveryFeeForCategory(mainCategory?.name))} delivery`} />
                         {item.calories != null && <InfoChip icon="flame-outline" label={`${item.calories} kcal`} />}
                         {item.protein != null && <InfoChip icon="barbell-outline" label={`${item.protein}g protein`} />}
                     </Animated.View>
@@ -236,8 +254,10 @@ export default function ProductDetails() {
                     {/* Mission note */}
                     <Animated.View entering={FadeInDown.delay(240).springify().damping(16)} style={styles.mission}>
                         <Ionicons name="heart" size={18} color="#FD652A" />
-                        <Text style={styles.missionText}>Every purchase helps fund soup kitchens. U Are An Angel.</Text>
+                        <Text style={styles.missionText}>Every purchase helps fund our outreach programs. U Are An Angel.</Text>
                     </Animated.View>
+
+                    <ProductOptions groups={groups} answers={answers} onChange={setAnswers} />
 
                     <OptionSection title="Add-ons" hint="Optional" data={toppings} selectedIds={selectedIds} onToggle={toggle} />
                     <OptionSection title="Extras" hint="Optional" data={sides} selectedIds={selectedIds} onToggle={toggle} />
@@ -308,9 +328,15 @@ export default function ProductDetails() {
                 </View>
 
                 <Animated.View style={[{ flex: 1 }, btnStyle]}>
-                    <TouchableOpacity style={styles.addBtn} onPress={handleAddToCart} activeOpacity={0.88}>
-                        <Ionicons name="bag-add" size={18} color="#fff" />
-                        <Text style={styles.addBtnText}>Add to cart · {formatNaira(total)}</Text>
+                    <TouchableOpacity
+                        style={[styles.addBtn, soldOut && { backgroundColor: '#B4B5C0' }]}
+                        onPress={handleAddToCart}
+                        activeOpacity={0.88}
+                        disabled={soldOut}
+                        accessibilityState={{ disabled: soldOut }}
+                    >
+                        <Ionicons name={soldOut ? "close-circle-outline" : "bag-add"} size={18} color="#fff" />
+                        <Text style={styles.addBtnText}>{soldOut ? 'Sold out right now' : `Add to cart · ${formatNaira(total)}`}</Text>
                     </TouchableOpacity>
                 </Animated.View>
             </View>

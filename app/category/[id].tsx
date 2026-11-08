@@ -24,7 +24,10 @@ const SubcategoryTile = ({ sub, isService }: { sub: SubcategoryWithCount; isServ
         style={Platform.OS === 'android' ? { elevation: 10, shadowColor: '#878787' } : {}}
         onPress={() =>
             isService
-                ? router.push({ pathname: '/service-request', params: { categoryId: sub.parent_id ?? '', subcategoryId: sub.id } })
+                ? (sub.child_count
+                    // e.g. Catering › Events: show the event types first
+                    ? router.push({ pathname: '/category/[id]', params: { id: sub.id } })
+                    : router.push({ pathname: '/service-request', params: { categoryId: sub.parent_id ?? '', subcategoryId: sub.id } }))
                 : router.push({ pathname: '/subcategory/[id]', params: { id: sub.id } })
         }
         accessibilityRole="button"
@@ -41,7 +44,7 @@ const SubcategoryTile = ({ sub, isService }: { sub: SubcategoryWithCount; isServ
         </View>
         <Text className="text-center base-bold text-dark-100 mb-2" numberOfLines={2}>{sub.name}</Text>
         {isService ? (
-            <Text className="paragraph-bold text-primary mt-2">Request a quote →</Text>
+            <Text className="paragraph-bold text-primary mt-2">{sub.child_count ? 'See options →' : 'Request a quote →'}</Text>
         ) : (
             <>
                 <Text className="body-regular text-gray-200 mb-4">{productCountLabel(sub.product_count)}</Text>

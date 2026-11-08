@@ -13,9 +13,38 @@ import { DELIVERY_FEE } from "@/constants";
 import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
 import { placeOrder, updateProfile } from "@/lib/api";
 import { openPayment } from "@/lib/payments";
+import useDeliveryFee from "@/lib/useDeliveryFee";
 import { Ionicons } from "@expo/vector-icons";
 import { useCartStore } from "@/store/cart.store";
 import useAuthStore from "@/store/auth.store";
+import { CheckoutPaymentMethod } from "@/type";
+
+/** One choice in the Payment section (radio card). */
+const PaymentOption = ({ icon, title, body, selected, onPress }: {
+    icon: keyof typeof Ionicons.glyphMap; title: string; body: string; selected: boolean; onPress: () => void;
+}) => (
+    <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.8}
+        accessibilityRole="radio"
+        accessibilityState={{ checked: selected }}
+        style={{
+            borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1.5,
+            backgroundColor: selected ? '#0BA4DB14' : '#fff', borderColor: selected ? '#0BA4DB' : '#E4E4EA',
+        }}
+    >
+        <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: selected ? '#0BA4DB' : '#F3F3F6', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name={icon} size={22} color={selected ? '#fff' : '#878787'} />
+        </View>
+        <View style={{ flex: 1 }}>
+            <Text className="paragraph-bold text-dark-100">{title}</Text>
+            <Text className="body-regular text-gray-200">{body}</Text>
+        </View>
+        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? '#0BA4DB' : '#C4C4CC', alignItems: 'center', justifyContent: 'center' }}>
+            {selected && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#0BA4DB' }} />}
+        </View>
+    </TouchableOpacity>
+);
 
 export default function Checkout() {
     const { user, setUser, isAuthenticated } = useAuthStore();
@@ -23,19 +52,26 @@ export default function Checkout() {
 
     const [form, setForm] = useState({
         address: user?.address ?? '',
+        landmark: user?.landmark ?? '',
         city: user?.city ?? '',
         state: user?.state ?? '',
-        phone: formatNigerianPhone(user?.phone),
+        // The rider's number: the delivery phone if set, otherwise the personal phone.
+        phone: formatNigerianPhone(user?.delivery_phone || user?.phone),
         note: '',
     });
     const [saveAddress, setSaveAddress] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('paystack');
+    const { fee: deliveryFee, ready: feeReady } = useDeliveryFee(items.map((i) => i.id));
 
     if (!isAuthenticated) return <Redirect href="/sign-in" />;
     if (items.length === 0 && !isSubmitting) return <Redirect href="/cart" />;
 
     const subtotal = getTotalPrice();
-    const total = subtotal + DELIVERY_FEE;
+    const total = subtotal + deliveryFee;
+    const payOnDelivery = paymentMethod === 'pay_on_delivery';
+    // What Paystack charges now (the server works out the real amounts).
+    const payNow = payOnDelivery ? deliveryFee : total;
 
     const set = (key: keyof typeof form) => (value: string) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -47,21 +83,28 @@ export default function Checkout() {
         if (!address || !city || !form.state) return Alert.alert('Delivery address', 'Please enter your street address, city/area and state.');
         if (!phone) return Alert.alert('Phone number', 'Please enter a valid Nigerian phone number, e.g. 0803 123 4567.');
 
+        const landmark = form.landmark.trim();
+
         setIsSubmitting(true);
         try {
             const orderId = await placeOrder({
                 items,
-                address,
+                address: landmark ? `${address} (Landmark: ${landmark})` : address,
                 city,
                 state: form.state,
                 phone,
                 note: form.note.trim() || undefined,
+                paymentMethod,
             });
 
             if (saveAddress && user) {
                 // Best effort: the order is already placed even if this fails.
                 try {
-                    setUser(await updateProfile(user.id, { address, city, state: form.state, phone }));
+                    // Saves to Delivery address only; the personal phone (Personal details) is left alone.
+                    setUser(await updateProfile(user.id, {
+                        address, city, state: form.state, landmark: landmark || null,
+                        delivery_phone: phone === user.phone ? null : phone,
+                    }));
                 } catch (e) {
                     console.log('save address failed', e);
                 }
@@ -95,6 +138,13 @@ export default function Checkout() {
                             autoCapitalize="words"
                         />
                         <CustomInput
+                            label="Landmark (optional)"
+                            placeholder="e.g. Opposite Mega Plaza"
+                            value={form.landmark}
+                            onChangeText={set('landmark')}
+                            autoCapitalize="sentences"
+                        />
+                        <CustomInput
                             label="City / Area"
                             placeholder="e.g. Lekki"
                             value={form.city}
@@ -103,7 +153,7 @@ export default function Checkout() {
                         />
                         <StatePicker value={form.state} onChange={set('state')} />
                         <CustomInput
-                            label="Phone number"
+                            label="Phone for the rider"
                             placeholder="0803 123 4567"
                             value={form.phone}
                             onChangeText={set('phone')}
@@ -111,7 +161,7 @@ export default function Checkout() {
                         />
                         <CustomInput
                             label="Note for the rider (optional)"
-                            placeholder="Landmark, gate code, etc."
+                            placeholder="Gate code, best time to call, etc."
                             value={form.note}
                             onChangeText={set('note')}
                             autoCapitalize="sentences"
@@ -126,15 +176,27 @@ export default function Checkout() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Paystack is the only payment method: card, bank transfer or USSD. */}
-                    <View style={{ borderRadius: 20, padding: 16, backgroundColor: '#0BA4DB14', borderWidth: 1.5, borderColor: '#0BA4DB55', flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                        <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: '#0BA4DB', alignItems: 'center', justifyContent: 'center' }}>
-                            <Ionicons name="shield-checkmark" size={22} color="#fff" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text className="paragraph-bold text-dark-100">Secure payment with Paystack</Text>
-                            <Text className="body-regular text-gray-200">Pay now by card, bank transfer or USSD. Your order is confirmed as soon as payment goes through.</Text>
-                        </View>
+                    {/* Pay everything now, or pay the delivery fee now and the items to the rider.
+                        Online payments go through Paystack: card, bank transfer or USSD. */}
+                    <View className="gap-3">
+                        <Text className="h3-bold text-dark-100">Payment</Text>
+                        <PaymentOption
+                            icon="shield-checkmark"
+                            title="Pay everything now"
+                            body={`Pay ${feeReady ? formatNaira(total) : 'the full amount'} with Paystack: card, bank transfer or USSD.`}
+                            selected={!payOnDelivery}
+                            onPress={() => setPaymentMethod('paystack')}
+                        />
+                        <PaymentOption
+                            icon="bicycle"
+                            title="Pay on delivery"
+                            body={feeReady
+                                ? `Pay ${formatNaira(deliveryFee)} delivery now with Paystack, then ${formatNaira(subtotal)} to the rider (cash or transfer).`
+                                : `Pay the delivery fee now with Paystack, then ${formatNaira(subtotal)} to the rider (cash or transfer).`}
+                            selected={payOnDelivery}
+                            onPress={() => setPaymentMethod('pay_on_delivery')}
+                        />
+                        <Text className="body-regular text-gray-200">Your order is confirmed as soon as the online payment goes through.</Text>
                     </View>
 
                     <View className="border border-gray-200 p-5 rounded-2xl">
@@ -148,17 +210,30 @@ export default function Checkout() {
                         ))}
                         <View className="border-t border-gray-300 my-2" />
                         <PaymentInfoStripe label={`Subtotal (${getTotalItems()} items)`} value={formatNaira(subtotal)} />
-                        <PaymentInfoStripe label="Delivery fee" value={formatNaira(DELIVERY_FEE)} />
+                        <PaymentInfoStripe label="Delivery fee" value={feeReady ? formatNaira(deliveryFee) : '…'} />
+                        {feeReady && deliveryFee > DELIVERY_FEE && (
+                            <Text className="body-regular text-gray-200">{formatNaira(deliveryFee)} delivery for orders with groceries or Local Market items.</Text>
+                        )}
                         <View className="border-t border-gray-300 my-2" />
                         <PaymentInfoStripe
                             label="Total"
-                            value={formatNaira(total)}
+                            value={feeReady ? formatNaira(total) : '…'}
                             labelStyle="base-bold !text-dark-100"
                             valueStyle="base-bold !text-dark-100"
                         />
+                        {payOnDelivery && (
+                            <>
+                                <PaymentInfoStripe label="Pay now (delivery)" value={feeReady ? formatNaira(deliveryFee) : '…'} />
+                                <PaymentInfoStripe label="Pay the rider on delivery" value={formatNaira(subtotal)} />
+                            </>
+                        )}
                     </View>
 
-                    <CustomButton title={`Pay ${formatNaira(total)} with Paystack`} isLoading={isSubmitting} onPress={submit} />
+                    <CustomButton
+                        title={feeReady ? `Pay ${formatNaira(payNow)} now with Paystack` : 'Pay now with Paystack'}
+                        isLoading={isSubmitting}
+                        onPress={submit}
+                    />
                 </ScrollView>
             </KeyboardAvoidingView>
         </SafeAreaView>

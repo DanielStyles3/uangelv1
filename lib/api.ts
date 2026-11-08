@@ -7,7 +7,9 @@ import {
     GetMenuParams,
     MenuItem,
     NewServiceRequest,
+    OptionGroup,
     Order,
+    Promotion,
     ServiceRequest,
     PlaceOrderParams,
     ProfileUpdate,
@@ -18,7 +20,7 @@ import {
 
 // Also embed the product's subcategory photo: products without their own photo
 // (until the admin uploads one) show their subcategory's picture instead.
-const MENU_COLUMNS = 'id, name, description, image_url, emoji, price, rating, calories, protein, category_id, created_at, categories(image_url)';
+const MENU_COLUMNS = 'id, name, description, image_url, emoji, price, rating, calories, protein, is_available, category_id, created_at, categories(image_url)';
 
 type MenuRow = MenuItem & { categories?: { image_url: string | null } | null };
 const withFallbackPhoto = ({ categories, ...item }: MenuRow): MenuItem => ({
@@ -26,8 +28,8 @@ const withFallbackPhoto = ({ categories, ...item }: MenuRow): MenuItem => ({
     image_url: item.image_url ?? categories?.image_url ?? null,
 });
 const CATEGORY_COLUMNS = 'id, name, description, parent_id, emoji, color, image_url, sort_order, delivery_note, kind, created_at';
-const PROFILE_COLUMNS = 'id, name, email, avatar, phone, address, city, state, created_at';
-const ORDER_COLUMNS = 'id, user_id, status, payment_method, payment_status, paystack_reference, paid_at, subtotal, delivery_fee, total, delivery_address, city, state, phone, note, created_at';
+const PROFILE_COLUMNS = 'id, name, email, avatar, phone, address, city, state, landmark, delivery_phone, created_at';
+const ORDER_COLUMNS = 'id, user_id, status, payment_method, payment_status, paystack_reference, paid_at, subtotal, delivery_fee, total, online_amount, balance_due, balance_collected_at, delivery_address, city, state, phone, note, created_at';
 
 // Supabase returns { data, error }; turn errors into thrown Errors so callers can try/catch.
 function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
@@ -132,10 +134,11 @@ export const getCurrentUser = async (): Promise<User | null> => {
     // (e.g. the user signed up before the trigger existed).
     const fallbackName = (authUser.user_metadata?.name as string | undefined) || authUser.email?.split('@')[0] || 'User';
 
+    // Plain insert (not upsert): customers can't UPDATE id/email on profiles.
     return unwrap(
         await supabase
             .from('profiles')
-            .upsert({ id: authUser.id, name: fallbackName, email: authUser.email ?? '' })
+            .insert({ id: authUser.id, name: fallbackName, email: authUser.email ?? '' })
             .select(PROFILE_COLUMNS)
             .single()
     ) as User;
@@ -169,6 +172,51 @@ export const getMenu = async ({ category, query, limit }: GetMenuParams): Promis
     return (unwrap(await request) as unknown as MenuRow[]).map(withFallbackPhoto);
 }
 
+/**
+ * Live Home banners, in the admin's order. Never throws: on any error (e.g. the table
+ * doesn't exist yet) it returns [] and Home falls back to its built-in banners.
+ */
+export const getPromotions = async (): Promise<Promotion[]> => {
+    const { data, error } = await supabase
+        .from('promotions')
+        .select('id, eyebrow, title, cta, image_url, color, link_type, link_id')
+        .order('sort_order')
+        .limit(8);
+    if (error) return [];
+    return (data ?? []) as Promotion[];
+}
+
+/** Christmas pre-order campaign: paid orders so far (0 if unavailable). */
+export const getCampaignProgress = async (): Promise<number> => {
+    const { data, error } = await supabase.rpc('campaign_progress');
+    if (error) return 0;
+    return Number(data) || 0;
+}
+
+export type HomeProduct = MenuItem & { main_category_id: string | null };
+
+/**
+ * Every product, best-rated first, tagged with its MAIN category — one request that
+ * feeds Home's "Top rated" row and its per-category rows.
+ */
+export const getHomeProducts = async (): Promise<HomeProduct[]> => {
+    type Row = MenuItem & { categories?: { image_url: string | null; parent_id: string | null } | null };
+    const rows = unwrap(
+        await supabase.from('menu')
+            .select('id, name, description, image_url, emoji, price, rating, calories, protein, is_available, category_id, created_at, categories(image_url, parent_id)')
+            .order('rating', { ascending: false, nullsFirst: false })
+            .order('name')
+            .limit(500)
+    ) as unknown as Row[];
+
+    return rows.map(({ categories, ...item }) => ({
+        ...item,
+        image_url: item.image_url ?? categories?.image_url ?? null,
+        // Products sit in a subcategory; its parent is the main category (or it IS one).
+        main_category_id: categories?.parent_id ?? item.category_id,
+    }));
+}
+
 export const getMenuItem = async ({ id }: { id: string }): Promise<MenuItem> => {
     return withFallbackPhoto(unwrap(
         await supabase.from('menu').select(MENU_COLUMNS).eq('id', id).single()
@@ -188,6 +236,36 @@ export const getMenuItemCustomizations = async ({ id }: { id: string }): Promise
         .map((row) => row.customizations)
         .filter((c): c is Customization => c !== null)
         .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** "Customise your cake" questions for a product, in order (empty for most products). */
+export const getProductOptions = async ({ id }: { id: string }): Promise<OptionGroup[]> => {
+    const { data, error } = await supabase
+        .from('option_groups')
+        .select('id, menu_id, name, kind, required, max_length, placeholder, sort_order, option_values (id, group_id, name, price, hint, swatch, sort_order)')
+        .eq('menu_id', id)
+        .order('sort_order');
+    if (error) return [];   // e.g. before schema.sql adds the tables: the product just has no options
+    return ((data ?? []) as OptionGroup[]).map((g) => ({
+        ...g,
+        option_values: [...(g.option_values ?? [])].sort((a, b) => a.sort_order - b.sort_order),
+    }));
+}
+
+/**
+ * Ids of products that need choices before they can go in the cart (e.g. cakes: size, flavour).
+ * Quick "+" buttons open the product page for these instead of adding straight away.
+ */
+let requiredOptionIds: Promise<Set<string>> | null = null;
+export const getProductsNeedingChoices = (): Promise<Set<string>> => {
+    if (!requiredOptionIds) {
+        requiredOptionIds = (async () => {
+            const { data, error } = await supabase.from('option_groups').select('menu_id').eq('required', true);
+            if (error) { requiredOptionIds = null; return new Set<string>(); }
+            return new Set((data ?? []).map((r: { menu_id: string }) => r.menu_id));
+        })();
+    }
+    return requiredOptionIds;
 }
 
 /** The 7 main categories (Home cards, Search filter chips), in display order. */
@@ -213,26 +291,56 @@ export const getSubcategories = async ({ parentId }: { parentId: string }): Prom
             .order('sort_order')
     ) as unknown as (Category & { menu: { count: number }[] })[];
 
-    return rows.map(({ menu, ...category }) => ({ ...category, product_count: menu?.[0]?.count ?? 0 }));
+    // How many options sit under each one (e.g. Catering › Events › Wedding Parties).
+    const ids = rows.map((r) => r.id);
+    const childCount: Record<string, number> = {};
+    if (ids.length) {
+        const { data } = await supabase.from('categories').select('parent_id').in('parent_id', ids);
+        (data ?? []).forEach((c: { parent_id: string }) => { childCount[c.parent_id] = (childCount[c.parent_id] ?? 0) + 1; });
+    }
+
+    return rows.map(({ menu, ...category }) => ({
+        ...category,
+        product_count: menu?.[0]?.count ?? 0,
+        child_count: childCount[category.id] ?? 0,
+    }));
 }
 
 // ---------------------------------------------------------------------------
 // Orders (writes go through the place_order / cancel_order database functions)
 // ---------------------------------------------------------------------------
 
-/** Creates the order as 'awaiting_payment'; pay it with openPayment() (lib/payments.ts → app/pay.tsx). */
-export const placeOrder = async ({ items, address, city, state, phone, note }: PlaceOrderParams): Promise<string> => {
+/**
+ * Delivery fee for a cart: ₦5,000 if any product is from Groceries & Essentials or
+ * The Local Market, else ₦2,000. For display; place_order() charges the real fee.
+ */
+export const getDeliveryFee = async (menuIds: string[]): Promise<number> => {
+    const { data, error } = await supabase.rpc('delivery_fee_for', { p_menu_ids: menuIds });
+    if (error) throw new Error(error.message);
+    return Number(data);
+}
+
+/**
+ * Creates the order as 'awaiting_payment'; pay it with openPayment() (lib/payments.ts → app/pay.tsx).
+ * 'pay_on_delivery': only the delivery fee is paid online; the items are paid to the rider.
+ */
+export const placeOrder = async ({ items, address, city, state, phone, note, paymentMethod = 'paystack' }: PlaceOrderParams): Promise<string> => {
     const { data, error } = await supabase.rpc('place_order', {
-        p_items: items.map((item) => ({
-            menu_id: item.id,
-            quantity: item.quantity,
-            customization_ids: (item.customizations ?? []).map((c) => c.id),
-        })),
+        p_items: items.map((item) => {
+            const all = item.customizations ?? [];
+            return {
+                menu_id: item.id,
+                quantity: item.quantity,
+                customization_ids: all.filter((c) => c.type !== 'option' && c.type !== 'text').map((c) => c.id),
+                option_ids: all.filter((c) => c.type === 'option').map((c) => c.id),
+                texts: all.filter((c) => c.type === 'text').map((c) => ({ group_id: c.id, text: c.text ?? '' })),
+            };
+        }),
         p_address: address,
         p_city: city,
         p_state: state,
         p_phone: phone,
-        p_payment_method: 'paystack',
+        p_payment_method: paymentMethod,
         p_note: note ?? null,
     });
 
