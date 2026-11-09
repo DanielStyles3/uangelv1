@@ -170,7 +170,7 @@ export default function Checkout() {
 
                         <TouchableOpacity className="flex-row items-center gap-3" onPress={() => setSaveAddress((v) => !v)}>
                             <View className={cn("size-5 rounded border-2 flex-center", saveAddress ? "bg-primary border-primary" : "border-gray-200")}>
-                                {saveAddress && <Text className="small-bold text-white">✓</Text>}
+                                {saveAddress && <Ionicons name="checkmark" size={14} color="#fff" />}
                             </View>
                             <Text className="paragraph-medium text-dark-100">Save as my default address</Text>
                         </TouchableOpacity>

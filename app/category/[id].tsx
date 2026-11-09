@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import {ActivityIndicator, FlatList, Text, View} from "react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {router, useLocalSearchParams} from "expo-router";
@@ -28,7 +29,7 @@ export default function CategoryScreen() {
             <SafeAreaView className="flex-1 bg-white px-5 pt-5">
                 <CustomHeader title="Category" />
                 <View className="flex-1 items-center justify-center gap-y-3 pb-20">
-                    <Text className="text-5xl">🔍</Text>
+                    <Ionicons name="search-outline" size={52} color="#C4C4CC" />
                     <Text className="paragraph-bold text-dark-100">Category not found</Text>
                     <View className="w-40">
                         <CustomButton title="Go home" onPress={() => router.replace('/')} />
@@ -92,7 +93,7 @@ export default function CategoryScreen() {
                         </View>
                     ) : (
                         <View className="py-10 items-center gap-y-2">
-                            <Text className="text-4xl">🧺</Text>
+                            <Ionicons name="basket-outline" size={44} color="#C4C4CC" />
                             <Text className="paragraph-bold text-dark-100">No sections here yet</Text>
                             <Text className="body-regular text-gray-200 text-center">
                                 Check back soon, or browse everything in {category.name}.

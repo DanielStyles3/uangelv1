@@ -268,7 +268,7 @@ const OrderCard = ({ order, index }: { order: Order; index: number }) => {
                         {order.payment_method === "pay_on_delivery" && Number(order.balance_due) > 0 && (
                             <Text style={styles.podNote} numberOfLines={1}>
                                 {order.balance_collected_at
-                                    ? "Paid on delivery ✓"
+                                    ? <>Paid on delivery <Ionicons name="checkmark-circle" size={13} color="#2F9B65" /></>
                                     : `Pay ${formatNaira(order.balance_due)} to the rider`}
                             </Text>
                         )}

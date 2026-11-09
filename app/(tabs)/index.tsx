@@ -147,7 +147,7 @@ export default function Index() {
         {/* Greeting + delivery area + cart */}
         <View className="flex-row items-center justify-between mt-4">
           <View className="flex-1 mr-4">
-            <Text className="body-medium text-gray-200">{greeting()}{firstName ? `, ${firstName}` : ''} 👋</Text>
+            <Text className="body-medium text-gray-200">{greeting()}{firstName ? `, ${firstName}` : ''} <Ionicons name="hand-left" size={14} color="#FD652A" /></Text>
             <TouchableOpacity className="flex-row items-center gap-x-1 mt-1" onPress={() => router.push('/delivery-address')}>
               <Ionicons name="location" size={16} color={ORANGE} />
               <Text className="paragraph-bold text-dark-100 flex-shrink" numberOfLines={1}>
@@ -169,7 +169,7 @@ export default function Index() {
           <View className="py-20 flex-center"><ActivityIndicator size="large" color={ORANGE} /></View>
         ) : failed ? (
           <View className="py-16 items-center gap-y-3">
-            <Text className="text-5xl">🛒</Text>
+            <Ionicons name={error ? "cloud-offline-outline" : "basket-outline"} size={52} color="#C4C4CC" />
             <Text className="paragraph-bold text-dark-100 text-center">{error ? "Couldn't load the shop" : 'Nothing here yet'}</Text>
             <Text className="body-regular text-gray-200 text-center">
               {error ? 'Check your connection and try again.' : 'Pull down to refresh, or try again in a moment.'}
@@ -280,7 +280,7 @@ function Section({ title, subtitle, note, onSeeAll, children }: {
           <Text className="h3-bold text-dark-100" numberOfLines={1}>{title}</Text>
           {subtitle ? <Text className="body-regular text-gray-200 mt-0.5">{subtitle}</Text> : null}
           {note ? (
-            <View style={styles.noteChip}><Text style={styles.noteText}>🚚 {note}</Text></View>
+            <View style={styles.noteChip}><Text style={styles.noteText}><Ionicons name="bicycle" size={13} /> {note}</Text></View>
           ) : null}
         </View>
         {onSeeAll && (

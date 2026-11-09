@@ -18,7 +18,7 @@ const Filter = ({ categories }: { categories?: Category[] | null }) => {
         // Service categories (Catering, Events) have no products to search.
         ...(categories ?? [])
             .filter((c) => c.kind !== 'service')
-            .map((c) => ({ id: c.id, name: c.emoji ? `${c.emoji} ${c.name}` : c.name })),
+            .map((c) => ({ id: c.id, name: c.name })),
     ];
 
     return (

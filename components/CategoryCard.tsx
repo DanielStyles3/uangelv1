@@ -105,7 +105,7 @@ const CategoryCard = ({ category, reversed = false, interactive = true }: Catego
                         </View>
 
                         {category.delivery_note && (
-                            <Text className="small-bold text-white/90">🚚 {category.delivery_note}</Text>
+                            <Text className="small-bold text-white/90"><Ionicons name="bicycle" size={14} color="rgba(255,255,255,0.9)" /> {category.delivery_note}</Text>
                         )}
 
                         {interactive && (

@@ -229,7 +229,7 @@ export default function OrderDetails() {
                         </View>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.successTitle}>Payment successful!</Text>
-                            <Text style={styles.successBody}>Thank you. Every order helps feed someone in need. 🧡</Text>
+                            <Text style={styles.successBody}>Thank you. Every order helps feed someone in need. <Ionicons name="heart" size={14} color="#FD652A" /></Text>
                         </View>
                     </Animated.View>
                 )}

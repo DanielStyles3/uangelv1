@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import {View, Text, Alert} from 'react-native'
 import {Link, router} from "expo-router";
 import {useState} from "react";
@@ -36,7 +37,7 @@ const SignIn = () => {
     return (
         <View style={{ paddingHorizontal: 24, paddingTop: 22, gap: 18 }}>
             <View style={{ gap: 4, marginBottom: 2 }}>
-                <Text className="h1-bold text-dark-100">Welcome back 👋</Text>
+                <Text className="h1-bold text-dark-100">Welcome back <Ionicons name="hand-left" size={24} color="#FD652A" /></Text>
                 <Text className="paragraph-medium text-gray-200">Sign in to order your favourites.</Text>
             </View>
 
