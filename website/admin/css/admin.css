@@ -640,8 +640,9 @@ body.modal-open { overflow: hidden; }
   /* Touch targets. */
   .btn { min-height: 44px; }
   .btn-sm { height: 44px; padding: 0 14px; font-size: 14px; }
-  .chip { height: 40px; padding: 0 16px; }
+  .chip { height: 44px; padding: 0 16px; flex: none; }
   .check { min-height: 44px; }
+  .link-btn { min-height: 44px; padding: 0 2px; }
   .check input { width: 20px; height: 20px; }
   .icon-btn { width: 44px; height: 44px; }
 
@@ -764,6 +765,16 @@ body.modal-open { overflow: hidden; }
   .table-cards .tc-actions .cx-actions .btn { flex: 1 1 0; }
   .table-cards .tc-main .row { flex-wrap: wrap !important; }
   .table-cards .tc-main .nowrap { white-space: normal; }
+}
+/* Tablets and any touch screen: no iOS input zoom, ≥44px touch targets (sizes only; layout unchanged). */
+@media (max-width: 768px), (pointer: coarse) {
+  .input, .select, .textarea, .input-sm, .select.input-sm { font-size: 16px; }
+  .btn, .btn-sm { min-height: 44px; }
+  .chip { height: 44px; }
+  .icon-btn { width: 44px; height: 44px; }
+  .link-btn { min-height: 44px; }
+  .check { min-height: 44px; }
+  .toast button { min-width: 44px; min-height: 44px; margin: -12px -10px -12px 0; font-size: 22px; }
 }
 @media (max-width: 340px) {
   .grid-4 { grid-template-columns: minmax(0, 1fr); }

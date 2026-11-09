@@ -1005,7 +1005,7 @@
       if (!Admin.sb) { loginAlert('Couldn’t connect to the server.'); return; }
       var btn = $('#forgot-btn');
       btn.disabled = true;
-      Admin.sb.auth.resetPasswordForEmail(em).then(function (res) {
+      Admin.sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin + '/admin/' }).then(function (res) {
         btn.disabled = false;
         if (res.error) { loginAlert(friendlyAuthError(res.error)); return; }
         loginAlert('If an account exists for ' + em + ', a password reset link is on its way. Check your inbox.', 'success');

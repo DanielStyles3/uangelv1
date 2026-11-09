@@ -109,26 +109,11 @@ const About = () => {
                 {/* About us */}
                 <Section index={3} title="ABOUT US">
                     <View style={styles.card}>
-                        <Text style={styles.body}>
-                            U Angel Foods is a social enterprise founded by Ecclesia Nation. We serve society through two primary channels:
+                        <Text style={[styles.body, styles.mb]}>
+                            U Angel Foods is a social enterprise founded by Ecclesia Nation with the goal of transforming lives.
                         </Text>
-                        <View style={styles.bulletRow}>
-                            <Ionicons name="restaurant-outline" size={18} color={ORANGE} style={styles.bulletIcon} />
-                            <Text style={[styles.body, styles.flex]}>
-                                Food Outlets offering a wide range of tasty, healthy, affordable food.
-                            </Text>
-                        </View>
-                        <View style={styles.bulletRow}>
-                            <Ionicons name="storefront-outline" size={18} color={ORANGE} style={styles.bulletIcon} />
-                            <Text style={[styles.body, styles.flex]}>
-                                Some products will not only be available on our application but also distributed through supermarkets and stores.
-                            </Text>
-                        </View>
-                    </View>
-                    <View style={styles.highlight}>
-                        <Text style={styles.highlightText}>
-                            <Text style={styles.highlightLead}>What makes us different? </Text>
-                            Every item you purchase contributes directly to feeding the less privileged.
+                        <Text style={styles.body}>
+                            As a social enterprise, we operate at the intersection of for-profit and non-profit organisations. Our mission is simple: to build a profitable business whose profits are channelled towards caring for the less privileged, supporting outreaches, establishing soup kitchens, and creating employment opportunities for GOD&apos;S people.
                         </Text>
                     </View>
                 </Section>

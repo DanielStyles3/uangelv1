@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Dimensions, FlatList, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, {
     Extrapolation, FadeInDown, FadeInUp, FadeOutDown, interpolate,
-    useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSequence, withSpring,
+    useAnimatedRef, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSequence, withSpring,
 } from "react-native-reanimated";
 
 import useFetch from "@/lib/useFetch";
 import { getCategory, getMenu, getMenuItem, getMenuItemCustomizations, getProductOptions } from "@/lib/api";
-import ProductOptions, { answersToCart, missingRequired, OptionAnswers } from "@/components/ProductOptions";
+import ProductOptions, { answersToCart, missingRequired, OptionAnswers, StepHeader } from "@/components/ProductOptions";
 import { useCartStore } from "@/store/cart.store";
 import { deliveryFeeForCategory } from "@/constants";
 import { formatNaira } from "@/lib/format";
@@ -21,8 +21,10 @@ import { CartCustomization, Customization, MenuItem } from "@/type";
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const { width: SCREEN_W } = Dimensions.get("window");
-const HERO_H = Math.round(SCREEN_W * 0.92);
+const HERO_H = Math.round(SCREEN_W * 0.95);
 const ORANGE = "#FD652A";
+const INK = "#181C2E";
+const GREY = "#5B5B66";
 
 // Icons for the seeded add-ons/extras (no emoji); anything else gets a sparkle.
 const CUSTOMIZATION_ICON: Record<string, IconName> = {
@@ -41,47 +43,36 @@ const CUSTOMIZATION_ICON: Record<string, IconName> = {
 };
 const iconFor = (name: string): IconName => CUSTOMIZATION_ICON[name.trim().toLowerCase()] ?? "sparkles-outline";
 
-const InfoChip = ({ icon, label }: { icon: IconName; label: string }) => (
-    <View style={styles.chip}>
-        <Ionicons name={icon} size={15} color={ORANGE} />
-        <Text style={styles.chipText}>{label}</Text>
+/** One of the three info tiles under the price. */
+const InfoTile = ({ icon, value, label }: { icon: IconName; value: string; label: string }) => (
+    <View style={styles.tile}>
+        <Ionicons name={icon} size={20} color={ORANGE} />
+        <Text style={styles.tileValue} numberOfLines={1}>{value}</Text>
+        <Text style={styles.tileLabel} numberOfLines={1}>{label}</Text>
     </View>
 );
 
-const OptionCard = ({ item, selected, onPress }: { item: Customization; selected: boolean; onPress: () => void }) => (
+/** Add-on / extra as a tappable card with an icon and a checkbox (2 per row). */
+const AddonCard = ({ item, selected, onPress }: { item: Customization; selected: boolean; onPress: () => void }) => (
     <TouchableOpacity
         onPress={onPress}
-        activeOpacity={0.8}
-        style={[styles.option, selected && styles.optionSelected]}
+        activeOpacity={0.85}
+        style={[styles.addon, selected && styles.addonOn]}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: selected }}
-        accessibilityLabel={`${item.name}, plus ${formatNaira(item.price)}`}
+        accessibilityLabel={`${item.name}, ${Number(item.price) > 0 ? `plus ${formatNaira(item.price)}` : "free"}`}
     >
-        <View style={[styles.optionIcon, selected && { backgroundColor: ORANGE }]}>
-            <Ionicons name={iconFor(item.name)} size={20} color={selected ? "#fff" : ORANGE} />
+        <View style={[styles.addonIcon, selected && { backgroundColor: ORANGE }]}>
+            <Ionicons name={iconFor(item.name)} size={19} color={selected ? "#fff" : ORANGE} />
         </View>
-        <View style={{ flex: 1 }}>
-            <Text style={styles.optionName} numberOfLines={2}>{item.name}</Text>
-            <Text style={styles.optionPrice}>{Number(item.price) > 0 ? `+${formatNaira(item.price)}` : "Free"}</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.addonName} numberOfLines={2}>{item.name}</Text>
+            <Text style={styles.addonPrice}>{Number(item.price) > 0 ? `+${formatNaira(item.price)}` : "Free"}</Text>
         </View>
         <View style={[styles.check, selected && styles.checkOn]}>
-            {selected && <Ionicons name="checkmark" size={14} color="#fff" />}
+            {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
         </View>
     </TouchableOpacity>
-);
-
-const OptionSection = ({ title, hint, data, selectedIds, onToggle }: {
-    title: string; hint: string; data: Customization[]; selectedIds: Set<string>; onToggle: (c: Customization) => void;
-}) => data.length === 0 ? null : (
-    <View style={styles.section}>
-        <View style={styles.sectionHead}>
-            <Text style={styles.sectionTitle}>{title}</Text>
-            <Text style={styles.sectionHint}>{hint}</Text>
-        </View>
-        <View style={{ gap: 10 }}>
-            {data.map((c) => <OptionCard key={c.id} item={c} selected={selectedIds.has(c.id)} onPress={() => onToggle(c)} />)}
-        </View>
-    </View>
 );
 
 const SimilarCard = ({ item }: { item: MenuItem }) => (
@@ -101,7 +92,7 @@ const SimilarCard = ({ item }: { item: MenuItem }) => (
 export default function ProductDetails() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const insets = useSafeAreaInsets();
-    const { addItem, getTotalItems } = useCartStore();
+    const { addItem, getTotalItems, getTotalPrice } = useCartStore();
 
     const { data: item, loading } = useFetch({ fn: getMenuItem, params: { id } });
     const { data: customizations } = useFetch({ fn: getMenuItemCustomizations, params: { id } });
@@ -122,6 +113,10 @@ export default function ProductDetails() {
     const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => () => { if (addedTimer.current) clearTimeout(addedTimer.current); }, []);
 
+    // Where the "Make it yours" steps start inside the sheet (for scroll-to).
+    const [optionsY, setOptionsY] = useState(0);
+    const scrollRef = useAnimatedRef<Animated.ScrollView>();
+
     // Scroll-driven hero (parallax + pull-to-zoom) and a top bar that fades in.
     const scrollY = useSharedValue(0);
     const onScroll = useAnimatedScrollHandler((e) => { scrollY.value = e.contentOffset.y; });
@@ -139,8 +134,7 @@ export default function ProductDetails() {
     const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: btnScale.value }] }));
 
     const selectedIds = useMemo(() => new Set(selected.map((c) => c.id)), [selected]);
-    const toppings = (customizations ?? []).filter((c) => c.type === "topping");
-    const sides = (customizations ?? []).filter((c) => c.type === "side");
+    const addons = customizations ?? [];
     const similar = (similarRaw ?? []).filter((m) => m.id !== id).slice(0, 8);
 
     const toggle = (c: Customization) => {
@@ -165,7 +159,10 @@ export default function ProductDetails() {
     }
 
     const mainCategory = subcategory && !subcategory.parent_id ? subcategory : parentCategory;
+    const accent = mainCategory?.color ?? ORANGE;
     const deliveryNote = mainCategory?.delivery_note || "Same-day delivery";
+    const deliveryShort = /next/i.test(deliveryNote) ? "Next day" : "Same day";
+    const deliveryFee = deliveryFeeForCategory(mainCategory?.name);
     const groups = optionGroups ?? [];
     const optionLines = answersToCart(groups, answers);
     const unitPrice = Number(item.price)
@@ -174,15 +171,35 @@ export default function ProductDetails() {
     const total = unitPrice * quantity;
     const longDescription = (item.description ?? "").length > 140;
     const cartCount = getTotalItems();
-
     const soldOut = item.is_available === false;
+    const missing = missingRequired(groups, answers);
+    const hasChoices = groups.length > 0 || addons.length > 0;
+    const pricedOptions = groups.some((g) => g.option_values?.some((v) => Number(v.price) > 0));
+
+    // Third info tile: real nutrition when we have it, otherwise how payment works.
+    const thirdTile: { icon: IconName; value: string; label: string } =
+        item.calories != null ? { icon: "flame-outline", value: `${item.calories} kcal`, label: "Energy" }
+        : item.protein != null ? { icon: "barbell-outline", value: `${item.protein}g`, label: "Protein" }
+        : { icon: "shield-checkmark-outline", value: "Paystack", label: "Secure pay" };
+
+    const choiceSummary = [
+        ...optionLines.map((c) => c.name),
+        ...(selected.length ? [`+ ${selected.map((c) => c.name).join(", ")}`] : []),
+    ];
+
+    const scrollToOptions = () => {
+        scrollRef.current?.scrollTo({ y: Math.max(0, HERO_H - 32 + optionsY - 90), animated: true });
+    };
+
+    const share = () => {
+        Share.share({ message: `${item.name} – ${formatNaira(item.price)} on U Angel Foods. Every order helps feed someone in need.` }).catch(() => {});
+    };
 
     const handleAddToCart = () => {
         if (soldOut) return;
-        const missing = missingRequired(groups, answers);
         if (missing.length) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-            return Alert.alert('Almost there', `Please choose a ${missing.map((m) => m.toLowerCase()).join(' and a ')} for your cake.`);
+            return scrollToOptions();
         }
         const cartCustomizations: CartCustomization[] = [
             ...optionLines,
@@ -193,7 +210,7 @@ export default function ProductDetails() {
         btnScale.set(withSequence(withSpring(0.94, { damping: 10, stiffness: 400 }), withSpring(1, { damping: 8 })));
         setAdded(true);
         if (addedTimer.current) clearTimeout(addedTimer.current);
-        addedTimer.current = setTimeout(() => setAdded(false), 3500);
+        addedTimer.current = setTimeout(() => setAdded(false), 4000);
     };
 
     return (
@@ -205,43 +222,52 @@ export default function ProductDetails() {
             </Animated.View>
 
             <Animated.ScrollView
+                ref={scrollRef}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingTop: HERO_H - 32, paddingBottom: 140 + insets.bottom }}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingTop: HERO_H - 32, paddingBottom: 150 + insets.bottom }}
             >
                 <View style={styles.sheet}>
                     <View style={styles.grabber} />
 
                     {/* Title block */}
-                    <Animated.View entering={FadeInDown.delay(80).springify().damping(16)}>
+                    <Animated.View entering={FadeInDown.delay(60).springify().damping(16)} style={{ gap: 8 }}>
                         {(subcategory || mainCategory) && (
                             <TouchableOpacity
-                                style={styles.crumb}
+                                style={[styles.crumb, { backgroundColor: `${accent}1F` }]}
                                 onPress={() => subcategory && router.push({ pathname: "/subcategory/[id]", params: { id: subcategory.id } })}
                                 hitSlop={6}
                             >
-                                <Text style={styles.crumbText} numberOfLines={1}>
+                                <Text style={[styles.crumbText, { color: accent }]} numberOfLines={1}>
                                     {[mainCategory?.name, subcategory?.parent_id ? subcategory.name : null].filter(Boolean).join("  ›  ")}
                                 </Text>
                             </TouchableOpacity>
                         )}
                         <Text style={styles.name}>{item.name}</Text>
-                        <Text style={styles.price}>{groups.length ? `From ${formatNaira(item.price)}` : formatNaira(item.price)}</Text>
+                        <View style={styles.priceRow}>
+                            <Text style={styles.price}>{pricedOptions ? `From ${formatNaira(item.price)}` : formatNaira(item.price)}</Text>
+                            {pricedOptions && <Text style={styles.priceNote}>price depends on your choices</Text>}
+                        </View>
+                        {soldOut && (
+                            <View style={styles.soldOutPill}>
+                                <Ionicons name="close-circle" size={14} color="#B91C1C" />
+                                <Text style={styles.soldOutText}>Sold out right now</Text>
+                            </View>
+                        )}
                     </Animated.View>
 
-                    {/* Info chips */}
-                    <Animated.View entering={FadeInDown.delay(140).springify().damping(16)} style={styles.chips}>
-                        <InfoChip icon="time-outline" label={deliveryNote} />
-                        <InfoChip icon="bicycle-outline" label={`${formatNaira(deliveryFeeForCategory(mainCategory?.name))} delivery`} />
-                        {item.calories != null && <InfoChip icon="flame-outline" label={`${item.calories} kcal`} />}
-                        {item.protein != null && <InfoChip icon="barbell-outline" label={`${item.protein}g protein`} />}
+                    {/* Info tiles */}
+                    <Animated.View entering={FadeInDown.delay(110).springify().damping(16)} style={styles.tiles}>
+                        <InfoTile icon="time-outline" value={deliveryShort} label="Delivery" />
+                        <InfoTile icon="bicycle-outline" value={formatNaira(deliveryFee)} label="Delivery fee" />
+                        <InfoTile icon={thirdTile.icon} value={thirdTile.value} label={thirdTile.label} />
                     </Animated.View>
 
                     {/* Description */}
                     {item.description ? (
-                        <Animated.View entering={FadeInDown.delay(200).springify().damping(16)} style={styles.section}>
-                            <Text style={styles.sectionTitle}>About this item</Text>
+                        <Animated.View entering={FadeInDown.delay(160).springify().damping(16)}>
                             <Text style={styles.description} numberOfLines={expanded ? undefined : 3}>{item.description}</Text>
                             {longDescription && (
                                 <TouchableOpacity onPress={() => setExpanded((v) => !v)} hitSlop={8}>
@@ -251,21 +277,61 @@ export default function ProductDetails() {
                         </Animated.View>
                     ) : null}
 
-                    {/* Mission note */}
-                    <Animated.View entering={FadeInDown.delay(240).springify().damping(16)} style={styles.mission}>
-                        <Ionicons name="heart" size={18} color="#FD652A" />
-                        <Text style={styles.missionText}>Every purchase helps fund our outreach programs. U Are An Angel.</Text>
+                    {/* Mission */}
+                    <Animated.View entering={FadeInDown.delay(200).springify().damping(16)} style={styles.mission}>
+                        <Ionicons name="heart" size={18} color={ORANGE} />
+                        <Text style={styles.missionText}>This order helps feed someone in need. U Are An Angel.</Text>
                     </Animated.View>
 
-                    <ProductOptions groups={groups} answers={answers} onChange={setAnswers} />
+                    {/* "Make it yours" entry card → scrolls to the steps */}
+                    {hasChoices && !soldOut && (
+                        <Animated.View entering={FadeInDown.delay(240).springify().damping(16)}>
+                            <TouchableOpacity style={styles.makeCard} onPress={scrollToOptions} activeOpacity={0.85}>
+                                <View style={styles.makeIcon}><Ionicons name="sparkles" size={19} color="#fff" /></View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.makeTitle}>Make it yours</Text>
+                                    <Text style={styles.makeText} numberOfLines={1}>
+                                        {groups.length ? groups.map((g) => g.name.toLowerCase()).join(", ") + (addons.length ? " & add-ons" : "") : "Add-ons & extras"}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-down" size={18} color={GREY} />
+                            </TouchableOpacity>
+                        </Animated.View>
+                    )}
 
-                    <OptionSection title="Add-ons" hint="Optional" data={toppings} selectedIds={selectedIds} onToggle={toggle} />
-                    <OptionSection title="Extras" hint="Optional" data={sides} selectedIds={selectedIds} onToggle={toggle} />
+                    {/* Steps */}
+                    {hasChoices && (
+                        <View style={styles.steps} onLayout={(e) => setOptionsY(e.nativeEvent.layout.y)}>
+                            <ProductOptions groups={groups} answers={answers} onChange={setAnswers} startStep={1} />
+
+                            {addons.length > 0 && (
+                                <View style={{ gap: 12 }}>
+                                    <StepHeader step={groups.length + 1} title="Add-ons & extras" required={false} />
+                                    <View style={styles.addonGrid}>
+                                        {addons.map((c) => (
+                                            <AddonCard key={c.id} item={c} selected={selectedIds.has(c.id)} onPress={() => toggle(c)} />
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+
+                            {choiceSummary.length > 0 && (
+                                <Animated.View entering={FadeInDown.springify().damping(16)} style={styles.summary}>
+                                    <Text style={styles.summaryLabel}>YOUR CHOICES</Text>
+                                    {choiceSummary.map((line) => (
+                                        <Text key={line} style={styles.summaryLine}>{line}</Text>
+                                    ))}
+                                </Animated.View>
+                            )}
+                        </View>
+                    )}
 
                     {/* Similar items */}
                     {similar.length > 0 && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>More from {subcategory?.name ?? "this category"}</Text>
+                        <View style={{ marginTop: 28 }}>
+                            <View style={styles.sectionHead}>
+                                <Text style={styles.sectionTitle}>More from {subcategory?.name ?? "this category"}</Text>
+                            </View>
                             <FlatList
                                 data={similar}
                                 keyExtractor={(m) => m.id}
@@ -280,28 +346,36 @@ export default function ProductDetails() {
                 </View>
             </Animated.ScrollView>
 
-            {/* Top bar: always-visible round buttons + a title bar that fades in on scroll */}
-            <Animated.View style={[styles.topBarBg, { height: insets.top + 60 }, barStyle]}>
-                <Text style={[styles.topBarTitle, { marginTop: insets.top + 18 }]} numberOfLines={1}>{item.name}</Text>
+            {/* Top bar: title bar that fades in on scroll + always-visible round buttons */}
+            <Animated.View style={[styles.topBarBg, { height: insets.top + 64 }, barStyle]}>
+                <Text style={[styles.topBarTitle, { marginTop: insets.top + 20 }]} numberOfLines={1}>{item.name}</Text>
             </Animated.View>
             <View style={[styles.topButtons, { top: insets.top + 10 }]} pointerEvents="box-none">
                 <TouchableOpacity style={styles.roundBtn} onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))} accessibilityLabel="Back">
-                    <Ionicons name="chevron-back" size={22} color="#181C2E" />
+                    <Ionicons name="chevron-back" size={22} color={INK} />
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.roundBtn} onPress={() => router.push("/cart")} accessibilityLabel={`Cart, ${cartCount} items`}>
-                    <Ionicons name="bag-handle-outline" size={21} color="#181C2E" />
-                    {cartCount > 0 && (
-                        <View style={styles.cartBadge}><Text style={styles.cartBadgeText}>{cartCount > 99 ? "99+" : cartCount}</Text></View>
-                    )}
-                </TouchableOpacity>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                    <TouchableOpacity style={styles.roundBtn} onPress={share} accessibilityLabel="Share">
+                        <Ionicons name="share-outline" size={20} color={INK} />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.roundBtn} onPress={() => router.push("/cart")} accessibilityLabel={`Cart, ${cartCount} items`}>
+                        <Ionicons name="bag-handle-outline" size={21} color={INK} />
+                        {cartCount > 0 && (
+                            <View style={styles.cartBadge}><Text style={styles.cartBadgeText}>{cartCount > 99 ? "99+" : cartCount}</Text></View>
+                        )}
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* "Added" snackbar */}
             {added && (
-                <Animated.View entering={FadeInUp.springify().damping(15)} exiting={FadeOutDown} style={[styles.snack, { bottom: 104 + insets.bottom }]}>
-                    <Ionicons name="checkmark-circle" size={20} color="#2F9B65" />
-                    <Text style={styles.snackText}>Added to cart</Text>
-                    <TouchableOpacity onPress={() => router.push("/cart")} hitSlop={8}>
+                <Animated.View entering={FadeInUp.springify().damping(15)} exiting={FadeOutDown} style={[styles.snack, { bottom: 100 + insets.bottom }]}>
+                    <View style={styles.snackTick}><Ionicons name="checkmark" size={16} color="#fff" /></View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.snackText}>Added to cart</Text>
+                        <Text style={styles.snackSub}>{cartCount} item{cartCount === 1 ? "" : "s"} · {formatNaira(getTotalPrice())} so far</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => router.push("/cart")} hitSlop={10}>
                         <Text style={styles.snackAction}>View cart</Text>
                     </TouchableOpacity>
                 </Animated.View>
@@ -315,7 +389,7 @@ export default function ProductDetails() {
                         onPress={() => { Haptics.selectionAsync().catch(() => {}); setQuantity((q) => Math.max(1, q - 1)); }}
                         accessibilityLabel="Decrease quantity"
                     >
-                        <Ionicons name="remove" size={18} color="#181C2E" />
+                        <Ionicons name="remove" size={18} color={INK} />
                     </TouchableOpacity>
                     <Text style={styles.qty}>{quantity}</Text>
                     <TouchableOpacity
@@ -329,14 +403,18 @@ export default function ProductDetails() {
 
                 <Animated.View style={[{ flex: 1 }, btnStyle]}>
                     <TouchableOpacity
-                        style={[styles.addBtn, soldOut && { backgroundColor: '#B4B5C0' }]}
+                        style={[styles.addBtn, soldOut ? styles.addBtnOff : missing.length ? styles.addBtnNeedsChoice : null]}
                         onPress={handleAddToCart}
                         activeOpacity={0.88}
                         disabled={soldOut}
                         accessibilityState={{ disabled: soldOut }}
                     >
-                        <Ionicons name={soldOut ? "close-circle-outline" : "bag-add"} size={18} color="#fff" />
-                        <Text style={styles.addBtnText}>{soldOut ? 'Sold out right now' : `Add to cart · ${formatNaira(total)}`}</Text>
+                        <Ionicons name={soldOut ? "close-circle-outline" : missing.length ? "arrow-down-circle-outline" : "bag-add"} size={18} color="#fff" />
+                        <Text style={styles.addBtnText} numberOfLines={1}>
+                            {soldOut ? "Sold out right now"
+                                : missing.length ? `Choose ${missing[0].toLowerCase()} to continue`
+                                : `Add to cart · ${formatNaira(total)}`}
+                        </Text>
                     </TouchableOpacity>
                 </Animated.View>
             </View>
@@ -349,91 +427,100 @@ const styles = StyleSheet.create({
     center: { alignItems: "center", justifyContent: "center", gap: 12 },
 
     hero: { position: "absolute", top: 0, left: 0, right: 0, height: HERO_H, backgroundColor: "#FFF3E6" },
-    heroShade: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.08)" },
+    heroShade: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.06)" },
 
-    sheet: {
-        backgroundColor: "#fff",
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
-        paddingHorizontal: 20,
-        paddingTop: 10,
-        minHeight: 600,
-    },
-    grabber: { width: 44, height: 5, borderRadius: 3, backgroundColor: "#E4E4EA", alignSelf: "center", marginBottom: 16 },
+    sheet: { backgroundColor: "#fff", borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 10, gap: 18, minHeight: 600 },
+    grabber: { width: 44, height: 5, borderRadius: 3, backgroundColor: "#E4E4EA", alignSelf: "center", marginBottom: -4 },
 
-    crumb: { alignSelf: "flex-start", backgroundColor: "#FFF3E6", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, marginBottom: 10 },
-    crumbText: { fontFamily: "Quicksand-Bold", fontSize: 12, color: ORANGE },
-    name: { fontFamily: "Quicksand-Bold", fontSize: 26, lineHeight: 32, color: "#181C2E" },
-    price: { fontFamily: "Quicksand-Bold", fontSize: 24, color: ORANGE, marginTop: 6 },
+    crumb: { alignSelf: "flex-start", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+    crumbText: { fontFamily: "Quicksand-Bold", fontSize: 12 },
+    name: { fontFamily: "Quicksand-Bold", fontSize: 25, lineHeight: 31, color: INK },
+    priceRow: { flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", gap: 8 },
+    price: { fontFamily: "Quicksand-Bold", fontSize: 24, color: "#C2410C" },
+    priceNote: { fontFamily: "Quicksand-SemiBold", fontSize: 13, color: GREY },
+    soldOutPill: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: "#FDECEC", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+    soldOutText: { fontFamily: "Quicksand-Bold", fontSize: 12, color: "#B91C1C" },
 
-    chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 16 },
-    chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "#F6F6F8" },
-    chipText: { fontFamily: "Quicksand-SemiBold", fontSize: 12.5, color: "#181C2E" },
+    tiles: { flexDirection: "row", gap: 8 },
+    tile: { flex: 1, backgroundColor: "#F6F6F8", borderRadius: 16, paddingVertical: 11, paddingHorizontal: 6, alignItems: "center", gap: 3 },
+    tileValue: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: INK },
+    tileLabel: { fontFamily: "Quicksand-SemiBold", fontSize: 11, color: GREY },
 
-    section: { marginTop: 26 },
-    sectionHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 },
-    sectionTitle: { fontFamily: "Quicksand-Bold", fontSize: 18, color: "#181C2E" },
-    sectionHint: { fontFamily: "Quicksand-SemiBold", fontSize: 12, color: "#A3A3AD" },
-    description: { fontFamily: "Quicksand-Medium", fontSize: 14.5, lineHeight: 22, color: "#5B5B66", marginTop: 8 },
-    readMore: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: ORANGE, marginTop: 6 },
+    description: { fontFamily: "Quicksand-Medium", fontSize: 14.5, lineHeight: 22, color: "#4B4B55" },
+    readMore: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: ORANGE, marginTop: 4 },
 
-    mission: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 22, padding: 14, borderRadius: 18, backgroundColor: "#FFF1EA" },
-    missionText: { flex: 1, fontFamily: "Quicksand-SemiBold", fontSize: 13, color: "#9A3412" },
+    mission: { flexDirection: "row", alignItems: "center", gap: 10, padding: 13, borderRadius: 16, backgroundColor: "#FFF1EA" },
+    missionText: { flex: 1, fontFamily: "Quicksand-Bold", fontSize: 13, color: "#9A3412" },
 
-    option: {
-        flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 18,
-        backgroundColor: "#fff", borderWidth: 1.5, borderColor: "#EDEDF1",
-    },
-    optionSelected: { borderColor: ORANGE, backgroundColor: "#FFF8F0" },
-    optionIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: "#FFF3E6", alignItems: "center", justifyContent: "center" },
-    optionName: { fontFamily: "Quicksand-Bold", fontSize: 14.5, color: "#181C2E" },
-    optionPrice: { fontFamily: "Quicksand-SemiBold", fontSize: 13, color: "#878787", marginTop: 2 },
-    check: { width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: "#D6D6DD", alignItems: "center", justifyContent: "center" },
+    makeCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 13, borderRadius: 18, borderWidth: 1.5, borderStyle: "dashed", borderColor: "#FDBA9B" },
+    makeIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: ORANGE, alignItems: "center", justifyContent: "center" },
+    makeTitle: { fontFamily: "Quicksand-Bold", fontSize: 15, color: INK },
+    makeText: { fontFamily: "Quicksand-SemiBold", fontSize: 12.5, color: GREY, marginTop: 1 },
+
+    steps: { gap: 26, marginTop: 10 },
+    addonGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+    addon: { width: "48.6%", minHeight: 66, flexDirection: "row", alignItems: "center", gap: 9, padding: 10, borderRadius: 16, borderWidth: 1.5, borderColor: "#E4E4EA", backgroundColor: "#fff" },
+    addonOn: { borderWidth: 2, borderColor: ORANGE, backgroundColor: "#FFF4EE" },
+    addonIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#FFF1EA", alignItems: "center", justifyContent: "center" },
+    addonName: { fontFamily: "Quicksand-Bold", fontSize: 13, lineHeight: 16, color: INK },
+    addonPrice: { fontFamily: "Quicksand-Bold", fontSize: 12, color: "#C2410C", marginTop: 2 },
+    check: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: "#D6D6DD", alignItems: "center", justifyContent: "center" },
     checkOn: { backgroundColor: ORANGE, borderColor: ORANGE },
+
+    summary: { backgroundColor: "#F6F6F8", borderRadius: 18, padding: 14, gap: 4 },
+    summaryLabel: { fontFamily: "Quicksand-Bold", fontSize: 11.5, letterSpacing: 0.8, color: GREY, marginBottom: 2 },
+    summaryLine: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: INK },
+
+    sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    sectionTitle: { fontFamily: "Quicksand-Bold", fontSize: 18, color: INK },
 
     similar: { width: 140 },
     similarPhoto: { width: 140, height: 110, borderRadius: 18, overflow: "hidden", backgroundColor: "#FFF3E6" },
-    similarName: { fontFamily: "Quicksand-Bold", fontSize: 13, color: "#181C2E", marginTop: 8, minHeight: 34 },
-    similarPrice: { fontFamily: "Quicksand-Bold", fontSize: 13, color: ORANGE, marginTop: 2 },
+    similarName: { fontFamily: "Quicksand-Bold", fontSize: 13, color: INK, marginTop: 8, minHeight: 34 },
+    similarPrice: { fontFamily: "Quicksand-Bold", fontSize: 13, color: "#C2410C", marginTop: 2 },
 
     topBarBg: {
         position: "absolute", top: 0, left: 0, right: 0, backgroundColor: "#fff", alignItems: "center",
         borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E6E6EA",
     },
-    topBarTitle: { fontFamily: "Quicksand-Bold", fontSize: 16, color: "#181C2E", maxWidth: SCREEN_W - 140 },
+    topBarTitle: { fontFamily: "Quicksand-Bold", fontSize: 16, color: INK, maxWidth: SCREEN_W - 180 },
     topButtons: { position: "absolute", left: 16, right: 16, flexDirection: "row", justifyContent: "space-between" },
     roundBtn: {
-        width: 42, height: 42, borderRadius: 21, backgroundColor: "#fff", alignItems: "center", justifyContent: "center",
+        width: 44, height: 44, borderRadius: 22, backgroundColor: "#fff", alignItems: "center", justifyContent: "center",
         shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4,
     },
     cartBadge: {
         position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9,
-        backgroundColor: "#FD652A", borderWidth: 2, borderColor: "#fff", alignItems: "center", justifyContent: "center",
+        backgroundColor: ORANGE, borderWidth: 2, borderColor: "#fff", alignItems: "center", justifyContent: "center",
     },
     cartBadgeText: { fontFamily: "Quicksand-Bold", fontSize: 9.5, color: "#fff" },
 
     snack: {
-        position: "absolute", left: 20, right: 20, flexDirection: "row", alignItems: "center", gap: 10,
-        backgroundColor: "#181C2E", borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14,
-        shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 8,
+        position: "absolute", left: 16, right: 16, flexDirection: "row", alignItems: "center", gap: 12,
+        backgroundColor: INK, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 13,
+        shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 10,
     },
-    snackText: { flex: 1, fontFamily: "Quicksand-Bold", fontSize: 14, color: "#fff" },
-    snackAction: { fontFamily: "Quicksand-Bold", fontSize: 14, color: ORANGE },
+    snackTick: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#2F9B65", alignItems: "center", justifyContent: "center" },
+    snackText: { fontFamily: "Quicksand-Bold", fontSize: 14.5, color: "#fff" },
+    snackSub: { fontFamily: "Quicksand-SemiBold", fontSize: 12, color: "#C9CBD6", marginTop: 1 },
+    snackAction: { fontFamily: "Quicksand-Bold", fontSize: 14, color: "#FFB08A" },
 
     bottomBar: {
-        position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: 14,
+        position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: 12,
         paddingHorizontal: 20, paddingTop: 12, backgroundColor: "#fff",
         borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E6E6EA",
         shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12,
     },
-    stepper: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#F3F3F6", borderRadius: 999, padding: 4 },
-    stepBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+    stepper: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#F3F3F6", borderRadius: 999, padding: 4 },
+    stepBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
     stepBtnPlus: { backgroundColor: ORANGE },
-    qty: { minWidth: 18, textAlign: "center", fontFamily: "Quicksand-Bold", fontSize: 17, color: "#181C2E" },
+    qty: { minWidth: 16, textAlign: "center", fontFamily: "Quicksand-Bold", fontSize: 17, color: INK },
     addBtn: {
         flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 54, borderRadius: 999,
-        backgroundColor: ORANGE, paddingHorizontal: 16,
+        backgroundColor: ORANGE, paddingHorizontal: 14,
         shadowColor: ORANGE, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
     },
-    addBtnText: { fontFamily: "Quicksand-Bold", fontSize: 15.5, color: "#fff" },
+    addBtnNeedsChoice: { backgroundColor: INK, shadowColor: INK, shadowOpacity: 0.2 },
+    addBtnOff: { backgroundColor: "#B4B5C0", shadowOpacity: 0 },
+    addBtnText: { fontFamily: "Quicksand-Bold", fontSize: 15, color: "#fff", flexShrink: 1 },
 });

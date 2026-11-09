@@ -214,3 +214,43 @@
 .cg-mini .cg-p-circle b { font-size: 11px; }
 .cg-mini-note { margin: 0; font-size: 12px; color: var(--muted); flex: 1 1 160px; }
 .cg-mini-btn { display: inline-block; background: var(--navy); color: #fff; font-size: 12px; font-weight: 700; padding: 8px 14px; border-radius: 999px; }
+
+/* ---------------- Phones (≤640px) ---------------- */
+@media (max-width: 640px) {
+  /* The drag handle + position are hidden here, so the row has only photo · info · actions.
+     (With three tracks the info column used to land in the 54px track and wrap word by word.) */
+  .cg-row { grid-template-columns: 54px minmax(0, 1fr); gap: 10px 12px; }
+  .cg-acts { gap: 8px; }
+  .cg-tip { align-items: flex-start; font-size: 13px; padding: 12px 14px; }
+  .cg-tab { min-height: 44px; padding: 0 16px; }
+
+  /* Touch targets. */
+  .cg-icon { width: 44px; height: 44px; border-radius: 12px; }
+  .cg-icon.sm { width: 40px; height: 40px; border-radius: 10px; }
+  .cg-sw { width: 40px; height: 40px; }
+  .cg-swatches { gap: 10px; }
+  .cg-seg button { min-height: 48px; }
+
+  /* Subcategory tiles: two per row; Edit gets its own full-width line under the arrows. */
+  .cg-subs { padding: 12px; }
+  .cg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .cg-tools { flex-wrap: wrap; gap: 6px; }
+  .cg-edit { flex: 1 1 100%; margin-left: 0; min-height: 40px; font-size: 13px; }
+  .cg-add { min-height: 150px; }
+
+  /* Editor drop zones: the whole zone is the tap target, button full width. */
+  .cg-drop { padding: 16px; min-height: 120px; justify-content: center; }
+  .cg-drop-btns .btn { flex: 1 1 auto; }
+}
+/* Tablets / touch screens: ≥44px touch targets. */
+@media (max-width: 768px), (pointer: coarse) {
+  .cg-icon { width: 44px; height: 44px; }
+  .cg-icon.sm { width: 40px; height: 40px; }
+  .cg-edit { min-height: 40px; }
+  .cg-tools { flex-wrap: wrap; }
+  .cg-tab { min-height: 44px; }
+}
+/* Drag-to-reorder doesn't work with touch; the arrow buttons do the same job. */
+@media (hover: none) and (pointer: coarse) {
+  .cg-grab { display: none; }
+}

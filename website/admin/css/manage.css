@@ -321,3 +321,111 @@
 .pp-ovc button { border: 0; background: var(--line-2); width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font: inherit; font-size: 13px; color: var(--grey-2); }
 .pp-ovc button:hover { background: var(--line); }
 .pp-og-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ---------- Phones (≤640px) ---------- */
+.cu-msort { display: none; }
+@media (max-width: 640px) {
+  /* Touch targets (≥44px). */
+  .pp-switch { min-height: 44px; padding: 0 4px 0 0; }
+  .pp-tabs button { min-height: 44px; }
+  .pp-chip, .cu-chip { min-height: 44px; padding: 0 15px; white-space: nowrap; flex: none; }
+  .pp-addon, .pr-seg button { min-height: 44px; font-size: 13px; }
+  .rq-tpl { min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; font-size: 13px; }
+  .rq-step { min-height: 44px; font-size: 12px; }
+  .pp-ovc { min-height: 40px; }
+  .pp-ovc button { width: 32px; height: 32px; }
+  .cu-cbtn { width: 44px; height: 44px; border-radius: 12px; }
+  .cu-cbtn svg { width: 18px; height: 18px; }
+
+  /* Quick filters / customer groups: one sideways-scrolling chip row. */
+  .pp-chips, .cu-chips {
+    flex-wrap: nowrap; overflow-x: auto; margin-left: -16px; margin-right: -16px; padding: 2px 16px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-padding: 0 16px;
+  }
+  .pp-chips::-webkit-scrollbar, .cu-chips::-webkit-scrollbar { display: none; }
+  .pp-tabs { overflow-x: auto; scrollbar-width: none; }
+  .pp-tabs button { flex: none; white-space: nowrap; }
+
+  /* Products: two cards per row. */
+  .pp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .pp-body { padding: 9px 10px 10px; gap: 4px; }
+  .pp-body b { font-size: 13.5px; }
+  .pp-body small { font-size: 11.5px; overflow-wrap: anywhere; }
+  .pp-row { flex-wrap: wrap; gap: 2px 8px; }
+  .pp-price { font-size: 14px; }
+  .pp-row .btn { flex: 1 1 100%; }
+  .pp-badges { top: 6px; left: 6px; right: 6px; flex-wrap: wrap; }
+  .pp-new { min-height: 200px; }
+  .pp-sk { height: 240px; }
+  /* Product editor: photo preview doesn't take the whole first screen. */
+  .pp-up-prev { max-height: 200px; width: 100%; }
+  .pp-preview { padding: 12px; }
+
+  /* Stat tiles (customers + requests): 2 per row, amounts never overflow. */
+  .cu-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .cu-tile { padding: 14px; }
+  .cu-tile span { font-size: 12px; line-height: 1.3; display: block; }
+  .cu-tile b { font-size: clamp(17px, 5.4vw, 22px); line-height: 1.2; }
+  .cu-tile small { font-size: 11.5px; line-height: 1.35; }
+  .cu-stats { gap: 6px; }
+  .cu-stats div { padding: 8px 10px; }
+  .cu-stats b { font-size: 14.5px; }
+
+  /* Customers table → stacked cards. */
+  .cu-msort { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line-2); }
+  .cu-msort label { font-size: 13px; font-weight: 700; color: var(--grey-2); white-space: nowrap; }
+  .cu-msort .select { flex: 1 1 auto; min-width: 0; }
+  .cu-table.table-cards tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-items: center; }
+  .cu-table.table-cards .cu-c-who { grid-column: 1 / 3; grid-row: 1; }
+  .cu-table.table-cards .cu-c-contact { grid-column: 3; grid-row: 1; justify-self: end; }
+  .cu-table.table-cards .cu-c-area { grid-column: 1 / 3; grid-row: 2; font-size: 13px; color: var(--grey-2); overflow-wrap: anywhere; }
+  .cu-table.table-cards .cu-c-grp { grid-column: 3; grid-row: 2; justify-self: end; text-align: right; }
+  .cu-table.table-cards .cu-c-n { grid-row: 3; }
+  .cu-table.table-cards .cu-c-n {
+    text-align: left; font-size: 13.5px; background: var(--bg); border-radius: 10px; padding: 6px 8px;
+    white-space: normal; overflow-wrap: anywhere; align-self: stretch;
+  }
+  .cu-table.table-cards td[data-label]::before { font-size: 10px; }
+  .cu-who { min-width: 0; }
+  .cu-who b { overflow-wrap: anywhere; }
+  .cu-prof b { overflow-wrap: anywhere; }
+  .cu-actions .btn { flex: 1 1 auto; }
+  .cu-olist button { min-height: 52px; }
+  .cu-adminrow { flex-wrap: wrap; }
+
+  /* Add-ons table → stacked cards. */
+  .pp-atable.table-cards tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; }
+  .pp-atable .pp-a-name { grid-column: 1; overflow-wrap: anywhere; }
+  .pp-atable .pp-a-price { grid-column: 2; grid-row: 1; text-align: right; font-weight: 700; }
+  .pp-atable .pp-a-type { grid-column: 1; font-size: 13px; color: var(--muted); }
+  .pp-atable .pp-a-used { grid-column: 2; grid-row: 2; text-align: right; font-size: 13px; color: var(--muted); }
+  .pp-atable .pp-a-acts { grid-column: 1 / -1; display: flex; gap: 8px; margin-top: 8px; }
+  .pp-atable .pp-a-acts .btn { flex: 1 1 0; }
+
+  /* Requests: board columns (shares .ob-scroll / .ob-col with the orders board). */
+  .rq-board {
+    grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: min(82vw, 300px);
+    min-width: 0; width: max-content; padding-right: 16px;
+  }
+  .rq-strip { margin: 0 -16px; padding: 2px 16px 8px; scroll-snap-type: x proximity; scroll-padding: 0 16px; }
+  .rq-day { width: min(72vw, 230px); scroll-snap-align: start; }
+  .rq-row { padding: 12px 16px; gap: 12px; min-height: 64px; }
+
+  /* Promotions. */
+  .pr-row { padding: 12px; gap: 12px; }
+  .pr-banner { height: 132px; border-radius: 18px; }
+  .pr-photo { width: 92px; height: 108px; margin-right: 10px; border-radius: 15px; }
+  .pr-copy { padding-left: 14px; }
+  .pr-copy b { font-size: 16px; }
+  .pr-acts { gap: 8px; }
+}
+@media (max-width: 340px) {
+  .cu-tiles, .pp-grid { grid-template-columns: minmax(0, 1fr); }
+}
+/* Tablets / touch screens: ≥44px touch targets. */
+@media (max-width: 768px), (pointer: coarse) {
+  .pp-switch { min-height: 44px; }
+  .pp-chip, .cu-chip, .pp-tabs button, .pp-addon, .pr-seg button, .rq-step { min-height: 44px; }
+  .cu-cbtn { width: 44px; height: 44px; }
+  .cu-sort { min-height: 44px; }
+}

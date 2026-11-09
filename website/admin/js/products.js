@@ -690,12 +690,12 @@
     var list = S.customs.slice().sort(function (a, b) { return String(a.type).localeCompare(String(b.type)) || String(a.name).localeCompare(String(b.name)); });
     if (!list.length) { box.innerHTML = A.emptyState('No add-ons yet', 'Add-ons are optional things customers can add to a product, like candles or gift wrapping.', I.plus); return; }
     box.innerHTML = '<p class="pp-note">Add-ons and extras are optional things customers can pick on a product page, like birthday candles or gift wrapping. Choose which products offer them in each product’s editor.</p>' +
-      '<div class="card flush"><div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Type</th><th class="num">Price</th><th class="num">Used by</th><th class="text-right"><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
+      '<div class="card flush"><div class="table-wrap"><table class="table table-cards pp-atable"><thead><tr><th>Name</th><th>Type</th><th class="num">Price</th><th class="num">Used by</th><th class="text-right"><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
       list.map(function (c) {
         var n = usage(c.id);
-        return '<tr><td><b>' + esc(c.name) + '</b></td><td>' + (c.type === 'side' ? 'Extra' : 'Add-on') + '</td>' +
-          '<td class="num">' + (Number(c.price) ? esc(naira(c.price)) : 'Free') + '</td><td class="num">' + plural(n, 'product') + '</td>' +
-          '<td class="text-right nowrap"><button type="button" class="btn btn-ghost btn-sm" data-aedit="' + esc(c.id) + '">Edit</button> ' +
+        return '<tr><td class="pp-a-name"><b>' + esc(c.name) + '</b></td><td class="pp-a-type">' + (c.type === 'side' ? 'Extra' : 'Add-on') + '</td>' +
+          '<td class="num pp-a-price">' + (Number(c.price) ? esc(naira(c.price)) : 'Free') + '</td><td class="num pp-a-used">' + plural(n, 'product') + '</td>' +
+          '<td class="text-right nowrap pp-a-acts"><button type="button" class="btn btn-ghost btn-sm" data-aedit="' + esc(c.id) + '">Edit</button> ' +
           '<button type="button" class="btn btn-ghost btn-sm" data-adel="' + esc(c.id) + '" style="color:var(--red)">Delete</button></td></tr>';
       }).join('') + '</tbody></table></div></div>';
   }

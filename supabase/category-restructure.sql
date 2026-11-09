@@ -167,7 +167,7 @@ begin
     update public.categories c set image_url = v.url
       from (values
         (v_food, null::text, 'https://images.unsplash.com/photo-1763048443535-1243379234e2?w=1200&q=80&auto=format&fit=crop'),
-        (v_food, 'Lait Caillé', 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Thiakry_2013.jpg/960px-Thiakry_2013.jpg'),
+        (v_food, 'Lait Caillé', 'https://rembodejacmfbeohvmhl.supabase.co/storage/v1/object/public/catalog/products/wm/8068d67671134d28.jpg'),
         (v_food, 'Ready-To-Eat', 'https://images.unsplash.com/photo-1664993101841-036f189719b6?w=800&q=80&auto=format&fit=crop'),
         (v_food, 'Bread & Pastries', 'https://images.unsplash.com/photo-1597528662465-55ece5734101?w=800&q=80&auto=format&fit=crop'),
         (v_groc, 'Bread & Pastries', 'https://images.unsplash.com/photo-1597528662465-55ece5734101?w=800&q=80&auto=format&fit=crop'),

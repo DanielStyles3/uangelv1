@@ -89,14 +89,14 @@
     var wa = c.phone ? '<a class="cu-cbtn wa" href="' + esc(A.waLink(c.phone)) + '" target="_blank" rel="noopener" aria-label="WhatsApp ' + esc(nameOf(c)) + '" data-stop>' + I.whatsapp + '</a>' : '';
     var call = c.phone ? '<a class="cu-cbtn" href="' + esc(A.telLink(c.phone)) + '" aria-label="Call ' + esc(nameOf(c)) + '" data-stop>' + I.phone + '</a>' : '';
     return '<tr class="clickable" tabindex="0" data-id="' + esc(c.id) + '">' +
-      '<td><div class="cu-who"><span class="cu-av" style="background:' + avColor(c) + '" aria-hidden="true">' + esc(initials(c)) + '</span>' +
+      '<td class="cu-c-who"><div class="cu-who"><span class="cu-av" style="background:' + avColor(c) + '" aria-hidden="true">' + esc(initials(c)) + '</span>' +
         '<span><b>' + esc(nameOf(c)) + (c.is_admin ? ' <span class="cu-g admin">Admin</span>' : '') + '</b><small>' + esc(c.phone || c.email || '') + '</small></span></div></td>' +
-      '<td>' + esc(area(c) || '—') + '</td>' +
-      '<td><span class="cu-g ' + g[0] + '">' + esc(g[1]) + '</span></td>' +
-      '<td class="num">' + A.formatNumber(Number(c.orders_count) || 0) + '</td>' +
-      '<td class="num"><b>' + esc(A.formatNaira(c.total_spent)) + '</b></td>' +
-      '<td class="num nowrap">' + esc(lastText(c)) + '</td>' +
-      '<td><div class="cu-contact">' + (wa + call || '<span class="muted small">—</span>') + '</div></td></tr>';
+      '<td class="cu-c-area">' + esc(area(c) || '—') + '</td>' +
+      '<td class="cu-c-grp"><span class="cu-g ' + g[0] + '">' + esc(g[1]) + '</span></td>' +
+      '<td class="num cu-c-n" data-label="Orders">' + A.formatNumber(Number(c.orders_count) || 0) + '</td>' +
+      '<td class="num cu-c-n" data-label="Spent"><b>' + esc(A.formatNaira(c.total_spent)) + '</b></td>' +
+      '<td class="num nowrap cu-c-n" data-label="Last order">' + esc(lastText(c)) + '</td>' +
+      '<td class="cu-c-contact"><div class="cu-contact">' + (wa + call || '<span class="muted small">—</span>') + '</div></td></tr>';
   }
 
   function renderTable() {
@@ -107,7 +107,11 @@
         : A.emptyState('No customers yet', 'People who sign up in the app will appear here.', I.users);
       return;
     }
-    box.innerHTML = '<div class="table-wrap"><table class="table cu-table"><thead><tr>' +
+    box.innerHTML = '<div class="cu-msort"><label for="cu-msort">Sort by</label><select id="cu-msort" class="select" data-msort>' +
+        [['spent', 'Total spent'], ['orders', 'Orders'], ['last', 'Last order']].map(function (o) {
+          return '<option value="' + o[0] + '"' + (S.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+        }).join('') + '</select></div>' +
+      '<div class="table-wrap"><table class="table cu-table table-cards"><thead><tr>' +
       '<th>Customer</th><th>Area</th><th>Group</th>' + sortTh('orders', 'Orders') + sortTh('spent', 'Total spent') + sortTh('last', 'Last order') +
       '<th><span class="sr-only">Contact</span></th></tr></thead><tbody>' + shown.map(rowHtml).join('') + '</tbody></table></div>' +
       '<div class="table-foot"><span>Showing ' + A.formatNumber(shown.length) + ' of ' + A.formatNumber(list.length) + '</span>' +
@@ -256,6 +260,10 @@
       if (e.target.closest('[data-more]')) { S.limit += PAGE; renderTable(); return; }
       var tr = e.target.closest('tr[data-id]');
       if (tr) { var c = S.rows.find(function (x) { return x.id === tr.getAttribute('data-id'); }); if (c) openProfile(c); }
+    });
+    // Phone layout: the sortable column headers are hidden, so a "Sort by" select stands in for them.
+    table.addEventListener('change', function (e) {
+      if (e.target.matches('[data-msort]')) { S.sort = e.target.value; renderTable(); var s = table.querySelector('[data-msort]'); if (s) s.focus(); }
     });
     table.addEventListener('keydown', function (e) {
       if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('tr[data-id]')) {

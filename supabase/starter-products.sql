@@ -5,7 +5,7 @@ select v.name, v.description, v.image_url, v.emoji, v.price, v.rating, null, nul
   from (values
     ('Food', 'Lait Caillé', 'Sweet Lait Caillé – 500ml Bottle',
      'Chilled, lightly sweetened curdled milk, smooth and refreshing. Best served cold.',
-     'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Thiakry_2013.jpg/960px-Thiakry_2013.jpg', '🥛', 2500::numeric, 4.6::numeric),
+     'https://rembodejacmfbeohvmhl.supabase.co/storage/v1/object/public/catalog/products/wm/8068d67671134d28.jpg', '🥛', 2500::numeric, 4.6::numeric),
     ('Food', 'Ready-To-Eat', 'Jollof Rice & Chicken – Plate',
      'Smoky party jollof with a piece of fried chicken and plantain, delivered hot.',
      'https://images.unsplash.com/photo-1664993101841-036f189719b6?w=800&q=80&auto=format&fit=crop', '🍛', 5500::numeric, 4.8::numeric),

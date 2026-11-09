@@ -257,7 +257,11 @@
     }
     var every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(cw / 64))));
     labels.forEach(function (lb, i) {
-      if ((n - 1 - i) % every === 0) out += '<text class="db-axis" x="' + x(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(lb) + '</text>';
+      if ((n - 1 - i) % every !== 0) return;
+      // Keep edge labels inside the SVG (e.g. "Today" at the right end on phones).
+      var half = String(lb).length * 3.3, anchor = 'middle';
+      if (x(i) + half > W) anchor = 'end'; else if (x(i) - half < 0) anchor = 'start';
+      out += '<text class="db-axis" x="' + x(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="' + anchor + '">' + esc(lb) + '</text>';
     });
     function path(arr, upto) {
       var d = '';

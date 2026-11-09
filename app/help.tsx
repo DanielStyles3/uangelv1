@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, {
     FadeIn,
@@ -66,7 +66,14 @@ const FAQS: { q: string; a: string }[] = [
     },
 ];
 
-const FaqItem = ({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) => {
+const CONTACTS: { label: string; value: string; url: string; icon: keyof typeof Ionicons.glyphMap; color: string; tint: string }[] = [
+    { label: 'WhatsApp', value: '0704 905 5555', url: 'https://wa.me/2347049055555', icon: 'logo-whatsapp', color: '#1FA855', tint: '#E7F7EE' },
+    { label: 'Call us', value: '0704 905 5555', url: 'tel:+2347049055555', icon: 'call-outline', color: ORANGE, tint: '#FFF1EA' },
+    { label: 'Email', value: 'uangelfoods@gmail.com', url: 'mailto:uangelfoods@gmail.com', icon: 'mail-outline', color: NAVY, tint: '#EEF0F5' },
+    { label: 'Instagram', value: '@uangelfoods', url: 'https://instagram.com/uangelfoods', icon: 'logo-instagram', color: '#D6249F', tint: '#FCE9F5' },
+];
+
+const FaqItem =({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) => {
     const rotation = useSharedValue(open ? 180 : 0);
 
     useEffect(() => {
@@ -134,8 +141,28 @@ const Help = () => {
                 <Animated.View layout={LinearTransition.duration(220)} style={styles.contact}>
                     <Ionicons name="chatbubbles-outline" size={26} color={ORANGE} />
                     <Text style={styles.contactTitle}>Still need help?</Text>
-                    {/* TODO: add real support phone / WhatsApp / email */}
-                    <Text style={styles.contactText}>Contact details coming soon.</Text>
+                    <Text style={styles.contactText}>Our team is happy to help. Reach us any way you like.</Text>
+                    <View style={styles.contactGrid}>
+                        {CONTACTS.map((c) => (
+                            <TouchableOpacity
+                                key={c.label}
+                                style={styles.contactBtn}
+                                activeOpacity={0.8}
+                                onPress={() => Linking.openURL(c.url).catch(() => {})}
+                                accessibilityRole="link"
+                                accessibilityLabel={`${c.label}: ${c.value}`}
+                            >
+                                <View style={[styles.contactIcon, { backgroundColor: c.tint }]}>
+                                    <Ionicons name={c.icon} size={20} color={c.color} />
+                                </View>
+                                <View style={styles.flex}>
+                                    <Text style={styles.contactLabel}>{c.label}</Text>
+                                    <Text style={styles.contactValue} numberOfLines={1}>{c.value}</Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={GREY} />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
                 </Animated.View>
             </ScrollView>
         </SafeAreaView>
@@ -207,6 +234,11 @@ const styles = StyleSheet.create({
     },
     contactTitle: { fontFamily: 'Quicksand-Bold', fontSize: 17, color: NAVY, marginTop: 8 },
     contactText: { fontFamily: 'Quicksand-Regular', fontSize: 14, color: GREY, marginTop: 4, textAlign: 'center' },
+    contactGrid: { alignSelf: 'stretch', gap: 10, marginTop: 16 },
+    contactBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, backgroundColor: BG },
+    contactIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+    contactLabel: { fontFamily: 'Quicksand-Bold', fontSize: 14.5, color: NAVY },
+    contactValue: { fontFamily: 'Quicksand-Medium', fontSize: 13, color: GREY, marginTop: 1 },
 });
 
 export default Help;
