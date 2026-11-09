@@ -3,7 +3,16 @@
 // functions work whether or not the project's legacy service_role key is enabled.
 import postgres from "npm:postgres@3.4.5";
 
+/** Key for Paystack API calls (secret sk_… or a restricted rk_… key with transaction permissions). */
 export const PAYSTACK_SECRET_KEY = Deno.env.get("PAYSTACK_SECRET_KEY") ?? "";
+
+/**
+ * Keys that may have signed a webhook. Paystack signs webhooks with the account's main
+ * SECRET key (sk_…), so when PAYSTACK_SECRET_KEY is a restricted key, set
+ * PAYSTACK_WEBHOOK_SECRET to the sk_… key. Both are accepted.
+ */
+export const PAYSTACK_WEBHOOK_KEYS = [Deno.env.get("PAYSTACK_WEBHOOK_SECRET") ?? "", PAYSTACK_SECRET_KEY]
+    .filter((k, i, all) => k && all.indexOf(k) === i);
 
 export const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, max: 1 });
 

@@ -2,7 +2,7 @@
 //   https://<project-ref>.supabase.co/functions/v1/paystack-webhook
 // Deployed WITHOUT JWT verification; authenticity is checked with Paystack's
 // HMAC-SHA512 signature of the raw body using the secret key.
-import { PAYSTACK_SECRET_KEY, verifyAndMarkPaid } from "../_shared/paystack.ts";
+import { PAYSTACK_WEBHOOK_KEYS, verifyAndMarkPaid } from "../_shared/paystack.ts";
 
 const hmacSha512Hex = async (key: string, body: string) => {
     const k = await crypto.subtle.importKey("raw", new TextEncoder().encode(key), { name: "HMAC", hash: "SHA-512" }, false, ["sign"]);
@@ -15,9 +15,11 @@ Deno.serve(async (req) => {
 
     const raw = await req.text();
     const signature = req.headers.get("x-paystack-signature") ?? "";
-    if (!PAYSTACK_SECRET_KEY || signature !== (await hmacSha512Hex(PAYSTACK_SECRET_KEY, raw))) {
-        return new Response("Invalid signature", { status: 401 });
+    let valid = false;
+    for (const key of PAYSTACK_WEBHOOK_KEYS) {
+        if (signature && signature === (await hmacSha512Hex(key, raw))) { valid = true; break; }
     }
+    if (!valid) return new Response("Invalid signature", { status: 401 });
 
     try {
         const event = JSON.parse(raw);
