@@ -38,9 +38,8 @@ const SubcategoryTile = ({ sub, isService, index = 0, accent = "#FD652A" }: {
             >
                 <ProductImage imageUrl={sub.image_url} className="size-full" resizeMode="cover" />
 
-                {/* Soft fade + darker band so the white text always reads on any photo */}
+                {/* Smooth dark gradient at the bottom so the white text reads on any photo */}
                 <View style={styles.fade} />
-                <View style={styles.band} />
 
                 <View style={[styles.pill, isService && { backgroundColor: accent }]}>
                     <Text style={[styles.pillText, isService && { color: "#fff" }]}>{pill}</Text>
@@ -66,8 +65,10 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFF3E6",
         shadowColor: "#181C2E", shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
     },
-    fade: { position: "absolute", left: 0, right: 0, bottom: 0, height: "62%", backgroundColor: "rgba(10,12,24,0.18)" },
-    band: { position: "absolute", left: 0, right: 0, bottom: 0, height: "38%", backgroundColor: "rgba(10,12,24,0.45)" },
+    fade: {
+        position: "absolute", left: 0, right: 0, bottom: 0, height: "65%",
+        backgroundImage: "linear-gradient(to bottom, rgba(10,12,24,0) 0%, rgba(10,12,24,0.25) 40%, rgba(10,12,24,0.72) 100%)",
+    },
     pill: {
         position: "absolute", top: 10, left: 10, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
         backgroundColor: "rgba(255,255,255,0.92)",

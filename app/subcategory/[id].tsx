@@ -121,7 +121,6 @@ export default function SubcategoryScreen() {
             <View style={styles.banner}>
                 <ProductImage imageUrl={sub.image_url} className="size-full" resizeMode="cover" />
                 <View style={styles.bannerFade} />
-                <View style={styles.bannerBand} />
                 <View style={[styles.bannerContent, { paddingTop: insets.top }]}>
                     {parent && (
                         <TouchableOpacity
@@ -236,8 +235,10 @@ const styles = StyleSheet.create({
     center: { alignItems: "center", justifyContent: "center" },
 
     banner: { height: BANNER_H, backgroundColor: "#FFF3E6" },
-    bannerFade: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(10,12,24,0.22)" },
-    bannerBand: { position: "absolute", left: 0, right: 0, bottom: 0, height: "55%", backgroundColor: "rgba(10,12,24,0.35)" },
+    bannerFade: {
+        position: "absolute", left: 0, right: 0, top: 0, bottom: 0,
+        backgroundImage: "linear-gradient(to bottom, rgba(10,12,24,0.25) 0%, rgba(10,12,24,0.1) 35%, rgba(10,12,24,0.7) 100%)",
+    },
     bannerContent: { position: "absolute", left: GUTTER, right: GUTTER, bottom: 34, gap: 8 },
     crumb: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
     crumbText: { fontFamily: "Quicksand-Bold", fontSize: 11.5, color: "#fff" },

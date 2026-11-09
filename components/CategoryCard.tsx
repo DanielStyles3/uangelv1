@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { Dimensions, Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,13 +19,34 @@ const { width: SCREEN_W } = Dimensions.get("window");
 // Text column = half the card (screen − 2×20 gutter) minus its padding (40 side + ~20 gap).
 const TEXT_W = (SCREEN_W - 40) / 2 - 60;
 
+/** Approximate advance width (in em) of bold uppercase Quicksand characters. */
+const charEm = (c: string) =>
+    /[MW]/.test(c) ? 0.98 : /[NOQGDHUC&]/.test(c) ? 0.8 : /[IJ1]/.test(c) ? 0.36 : c === ' ' ? 0.28 : /[^A-Z0-9]/.test(c) ? 0.45 : 0.72;
+const wordEm = (w: string) => [...w].reduce((s, c) => s + charEm(c), 0);
+
 /**
- * Title size that keeps the LONGEST word on one line (so "CATERING" never breaks as
- * "CATERIN G"). Bold uppercase Quicksand is roughly 0.72em per character.
+ * Splits the title into lines ourselves (whole words only) at a size where the longest
+ * word fits, so Android can never break "REFRESHMENTS" into "REFRESHMEN / TS".
+ * Each line is then drawn with numberOfLines=1 + adjustsFontSizeToFit as a safety net.
  */
-const titleSize = (title: string) => {
-    const longest = Math.max(...title.split(/\s+/).map((w) => w.length), 1);
-    return Math.max(16, Math.min(30, Math.floor(TEXT_W / (longest * 0.72))));
+const layoutTitle = (title: string, width: number) => {
+    // "&" always stays with the word before it ("DRINKS &" / "REFRESHMENTS").
+    const words = title.split(/\s+/).filter(Boolean).reduce<string[]>((acc, w) => {
+        if (w === '&' && acc.length) acc[acc.length - 1] += ' &'; else acc.push(w);
+        return acc;
+    }, []);
+    const longest = Math.max(...words.map(wordEm), 1);
+    let size = Math.max(15, Math.min(30, Math.floor(width / (longest * 1.06))));
+    for (;;) {
+        const lines: string[] = [];
+        for (const w of words) {
+            const last = lines[lines.length - 1];
+            if (last && (wordEm(last) + charEm(' ') + wordEm(w)) * size * 1.06 <= width) lines[lines.length - 1] = `${last} ${w}`;
+            else lines.push(w);
+        }
+        if (lines.length <= 3 || size <= 15) return { size, lines };
+        size -= 1;
+    }
 };
 
 /**
@@ -34,7 +55,9 @@ const titleSize = (title: string) => {
  */
 const CategoryCard = ({ category, reversed = false, interactive = true }: CategoryCardProps) => {
     const title = category.name.toUpperCase();
-    const fontSize = titleSize(title);
+    // Start from an estimate, then use the real width of the text column once measured.
+    const [textW, setTextW] = useState(TEXT_W);
+    const { size: fontSize, lines } = layoutTitle(title, textW);
 
     return (
         <Pressable
@@ -59,13 +82,27 @@ const CategoryCard = ({ category, reversed = false, interactive = true }: Catego
                     </View>
 
                     <View className={cn("offer-card__info", reversed ? 'pl-10' : 'pr-10')}>
-                        <Text
-                            style={{ fontFamily: "Quicksand-Bold", fontSize, lineHeight: Math.round(fontSize * 1.15), color: "#fff" }}
-                            numberOfLines={3}
-                            textBreakStrategy="simple"
+                        <View
+                            accessible
+                            accessibilityLabel={category.name}
+                            style={{ alignSelf: 'stretch' }}
+                            onLayout={(e) => {
+                                const w = Math.floor(e.nativeEvent.layout.width);
+                                if (w > 40 && Math.abs(w - textW) > 2) setTextW(w);
+                            }}
                         >
-                            {title}
-                        </Text>
+                            {lines.map((line) => (
+                                <Text
+                                    key={line}
+                                    style={{ fontFamily: "Quicksand-Bold", fontSize, lineHeight: Math.round(fontSize * 1.15), color: "#fff" }}
+                                    numberOfLines={1}
+                                    adjustsFontSizeToFit
+                                    minimumFontScale={0.7}
+                                >
+                                    {line}
+                                </Text>
+                            ))}
+                        </View>
 
                         {category.delivery_note && (
                             <Text className="small-bold text-white/90">🚚 {category.delivery_note}</Text>
