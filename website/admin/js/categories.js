@@ -442,6 +442,7 @@
           '<input id="' + uid + '-note" name="delivery_note" class="input" maxlength="120" autocomplete="off" placeholder="e.g. Standard next-day delivery" value="' + esc(draft.delivery_note) + '"></div>'
         : '') +
       '<div class="field"><span class="cg-lbl">How it looks in the app</span><div class="cg-mini" data-mini></div></div>' +
+      (isMain ? '<p class="cg-help" style="margin:0">This photo is also used for the category’s card in the “Shop” section of uangelfoods.com.</p>' : '') +
       '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
 
     var $ = function (s) { return form.querySelector(s); };

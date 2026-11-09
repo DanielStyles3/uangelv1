@@ -66,6 +66,20 @@
     }
   }).catch(function () { /* keep defaults */ });
 
+  // ---- Shop tiles: photo = the category's photo (Admin › Categories), same as the app ----
+  var tiles = document.querySelectorAll('[data-cat]');
+  if (tiles.length) {
+    get('categories?select=name,image_url&parent_id=is.null').then(function (rows) {
+      var byName = {};
+      (rows || []).forEach(function (c) { byName[c.name] = c.image_url; });
+      Array.prototype.forEach.call(tiles, function (card) {
+        var url = safeUrl(byName[card.getAttribute('data-cat')]);
+        var img = card.querySelector('.cat-media img');
+        if (img && url && img.getAttribute('src') !== url) img.src = url;
+      });
+    }).catch(function () { /* keep defaults */ });
+  }
+
   // ---- Banners (live ones only; RLS already hides switched-off / out-of-date banners) ----
   var strip = document.getElementById('offers');
   var track = strip && strip.querySelector('[data-promos]');
