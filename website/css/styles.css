@@ -248,6 +248,18 @@ ul, ol { padding: 0; list-style: none; }
 .footer-col h3 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
 .footer-col a { text-decoration: none; font-weight: 600; font-size: 14.5px; color: var(--ink-2); width: fit-content; }
 .footer-col a:hover { color: var(--orange-ink); }
+/* ---- Line icons (replace emoji): sized by font-size, coloured by `color` ---- */
+.ico { width: 1em; height: 1em; display: inline-block; vertical-align: -0.14em; flex: none; }
+.give-loop li b { color: var(--orange); line-height: 1; margin-bottom: 6px; }
+.eyebrow .ico { margin-right: 4px; }
+.cat-note { display: inline-flex; align-items: center; gap: 6px; }
+.cat-note .ico { color: var(--orange-ink); font-size: 15px; }
+.xbar .ico { font-size: 18px; color: #FDE68A; }
+.farm-card span { color: var(--green); }
+.benefit span { color: var(--orange); }
+.fork-icons { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; vertical-align: -0.2em; font-size: 1.25em; }
+.fork-icons span { font-size: .8em; }
+
 /* ---- Banners under the hero (Admin › Promotions) ---- */
 .promo-strip { padding-block: 0 clamp(36px, 6vw, 64px); margin-top: calc(-1 * clamp(20px, 4vw, 48px)); }
 .promo-track { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, calc((100% - 20px) / 2)); gap: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; scrollbar-width: thin; }
