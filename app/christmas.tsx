@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import ProductImage from "@/components/ProductImage";
 import { CAMPAIGN_END, CAMPAIGN_FLYER, CAMPAIGN_GOAL, campaignLive } from "@/constants/campaign";
@@ -10,15 +11,22 @@ import { getCampaignProgress, getHomeProducts } from "@/lib/api";
 import { formatNaira } from "@/lib/format";
 import useFetch from "@/lib/useFetch";
 
+type IconName = keyof typeof Ionicons.glyphMap;
+
 const RED = "#C8102E";
+const RED_DEEP = "#991B1B";
+const GOLD = "#F5B301";
 const INK = "#181C2E";
 const { width: SCREEN_W } = Dimensions.get("window");
-const CARD_W = (SCREEN_W - 40 - 12) / 2;
+const GUTTER = 20;
+// Explicit pixel sizes (not % + aspectRatio) so Android never stretches or crops the flyer.
+const FLYER = SCREEN_W - GUTTER * 2 - 24;
+const CARD_W = (SCREEN_W - GUTTER * 2 - 12) / 2;
 
-const POINTS: [string, string, string, string][] = [
-    ["🍲", "#FDECEC", "Your pre-order feeds someone", "Every pre-order helps provide food during the Xmas period for the less privileged."],
-    ["🚚", "#FFF5DB", "Delivered next day", "All pre-orders are delivered the day after you order."],
-    ["🎁", "#EAF7EF", "Make a difference together", "Let’s make this Christmas brighter for the less privileged."],
+const POINTS: { icon: IconName; tint: string; color: string; title: string; text: string }[] = [
+    { icon: "restaurant", tint: "#FDECEC", color: RED, title: "Your pre-order feeds someone", text: "Every pre-order helps provide food during the Xmas period for the less privileged." },
+    { icon: "car-sport", tint: "#FFF5DB", color: "#B45309", title: "Delivered next day", text: "All pre-orders are delivered the day after you order." },
+    { icon: "gift", tint: "#EAF7EF", color: "#15803D", title: "Make a difference together", text: "Let’s make this Christmas brighter for the less privileged." },
 ];
 
 function useCountdown() {
@@ -33,11 +41,13 @@ function useCountdown() {
 
 /** Christmas pre-order campaign: flyer, live progress towards 10,000, countdown, favourites. */
 export default function Christmas() {
+    const insets = useSafeAreaInsets();
     const { data: count } = useFetch({ fn: getCampaignProgress });
     const { data: products } = useFetch({ fn: getHomeProducts });
     const left = useCountdown();
     const live = campaignLive();
     const done = count ?? 0;
+    const pct = Math.min(100, (done / CAMPAIGN_GOAL) * 100);
     const favourites = (products ?? []).filter((p) => p.is_available !== false).slice(0, 6);
 
     return (
@@ -49,24 +59,43 @@ export default function Christmas() {
                 <Text style={styles.headTitle}>Christmas pre-order</Text>
             </View>
 
-            <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-                <Image
-                    source={CAMPAIGN_FLYER}
-                    style={styles.flyer}
-                    resizeMode="cover"
-                    accessibilityLabel="Christmas flyer: we want to get 10,000 pre-orders between now and the 15th of December. All pre-orders are delivered next day, to provide food during the Xmas period for the less privileged."
-                />
+            <ScrollView
+                contentContainerStyle={[styles.body, { paddingBottom: (live ? 110 : 32) + insets.bottom }]}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Hero: festive card with the full, uncropped flyer */}
+                <Animated.View entering={FadeInDown.duration(400)} style={styles.hero}>
+                    <View style={[styles.glow, { top: -70, right: -60 }]} />
+                    <View style={[styles.glow, { bottom: -80, left: -70, backgroundColor: "rgba(245,179,1,0.18)" }]} />
+                    <View style={styles.eyebrowPill}>
+                        <Ionicons name="sparkles" size={12} color={RED_DEEP} />
+                        <Text style={styles.eyebrow}>CHRISTMAS 2026 CAMPAIGN</Text>
+                    </View>
+                    <Text style={styles.heroTitle}>Help us reach{"\n"}10,000 pre-orders</Text>
+                    <Text style={styles.heroText}>Between now and 15 December. Every order feeds someone in need.</Text>
+                    <Image
+                        source={CAMPAIGN_FLYER}
+                        style={styles.flyer}
+                        resizeMode="contain"
+                        accessibilityLabel="Christmas flyer: we want to get 10,000 pre-orders between now and the 15th of December. All pre-orders are delivered next day, to provide food during the Xmas period for the less privileged."
+                    />
+                </Animated.View>
 
-                <View style={styles.progress}>
-                    <Text style={styles.count}>
-                        {done.toLocaleString("en-NG")} <Text style={styles.countOf}>of {CAMPAIGN_GOAL.toLocaleString("en-NG")} pre-orders</Text>
-                    </Text>
-                    <View style={styles.bar}><View style={[styles.barFill, { width: `${Math.max(2, Math.min(100, (done / CAMPAIGN_GOAL) * 100))}%` }]} /></View>
+                {/* Progress + countdown */}
+                <Animated.View entering={FadeInDown.delay(80).duration(400)} style={styles.progress}>
+                    <View style={styles.progressTop}>
+                        <Text style={styles.count}>{done.toLocaleString("en-NG")}</Text>
+                        <Text style={styles.countOf}>of {CAMPAIGN_GOAL.toLocaleString("en-NG")} pre-orders</Text>
+                    </View>
+                    <View style={styles.bar}>
+                        <View style={[styles.barFill, { width: `${Math.max(2, pct)}%` }]} />
+                    </View>
+                    <Text style={styles.pct}>{pct < 1 && done > 0 ? "<1" : Math.floor(pct)}% of our goal</Text>
                     {live ? (
                         <View style={styles.cd}>
-                            {([[left.d, "days"], [left.h, "hours"], [left.m, "mins"]] as [number, string][]).map(([n, l]) => (
+                            {([[left.d, "Days"], [left.h, "Hours"], [left.m, "Mins"]] as [number, string][]).map(([n, l]) => (
                                 <View key={l} style={styles.cdBox}>
-                                    <Text style={styles.cdNum}>{l === "days" ? n : String(n).padStart(2, "0")}</Text>
+                                    <Text style={styles.cdNum}>{l === "Days" ? n : String(n).padStart(2, "0")}</Text>
                                     <Text style={styles.cdLabel}>{l}</Text>
                                 </View>
                             ))}
@@ -74,39 +103,62 @@ export default function Christmas() {
                     ) : (
                         <Text style={styles.thanks}>The campaign has ended. Thank you for every pre-order!</Text>
                     )}
-                </View>
+                </Animated.View>
 
-                <View style={{ gap: 10 }}>
-                    {POINTS.map(([e, bg, t, s]) => (
-                        <View key={t} style={styles.point}>
-                            <View style={[styles.pointIcon, { backgroundColor: bg }]}><Text style={{ fontSize: 18 }}>{e}</Text></View>
+                {/* Why it matters */}
+                <Animated.View entering={FadeInDown.delay(140).duration(400)} style={styles.points}>
+                    {POINTS.map((p, i) => (
+                        <View key={p.title} style={[styles.point, i < POINTS.length - 1 && styles.pointDivider]}>
+                            <View style={[styles.pointIcon, { backgroundColor: p.tint }]}>
+                                <Ionicons name={p.icon} size={20} color={p.color} />
+                            </View>
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.pointTitle}>{t}</Text>
-                                <Text style={styles.pointText}>{s}</Text>
+                                <Text style={styles.pointTitle}>{p.title}</Text>
+                                <Text style={styles.pointText}>{p.text}</Text>
                             </View>
                         </View>
                     ))}
-                </View>
+                </Animated.View>
 
+                {/* Favourites */}
                 {favourites.length > 0 && (
-                    <View style={{ gap: 12 }}>
-                        <Text style={styles.h2}>Pre-order favourites</Text>
+                    <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ gap: 12 }}>
+                        <View style={styles.h2Row}>
+                            <Text style={styles.h2}>Pre-order favourites</Text>
+                            <TouchableOpacity onPress={() => router.push("/search")} hitSlop={8} style={styles.seeAll}>
+                                <Text style={styles.seeAllText}>See all</Text>
+                                <Ionicons name="chevron-forward" size={14} color="#FE8C00" />
+                            </TouchableOpacity>
+                        </View>
                         <View style={styles.grid}>
                             {favourites.map((p) => (
-                                <Pressable key={p.id} style={styles.card} onPress={() => router.push({ pathname: "/menu/[id]", params: { id: p.id } })} accessibilityLabel={p.name}>
-                                    <View style={styles.cardImg}><ProductImage imageUrl={p.image_url} className="size-full" resizeMode="cover" /></View>
+                                <TouchableOpacity
+                                    key={p.id}
+                                    style={styles.card}
+                                    activeOpacity={0.85}
+                                    onPress={() => router.push({ pathname: "/menu/[id]", params: { id: p.id } })}
+                                    accessibilityLabel={p.name}
+                                >
+                                    <View style={styles.cardImg}>
+                                        <ProductImage imageUrl={p.image_url} className="size-full" resizeMode="cover" />
+                                    </View>
                                     <Text style={styles.cardName} numberOfLines={2}>{p.name}</Text>
-                                    <Text style={styles.cardPrice}>{formatNaira(p.price)}</Text>
-                                </Pressable>
+                                    <View style={styles.cardBottom}>
+                                        <Text style={styles.cardPrice}>{formatNaira(p.price)}</Text>
+                                        <View style={styles.cardAdd}><Ionicons name="arrow-forward" size={14} color="#fff" /></View>
+                                    </View>
+                                </TouchableOpacity>
                             ))}
                         </View>
-                    </View>
+                    </Animated.View>
                 )}
             </ScrollView>
 
+            {/* Sticky CTA — padded above Android's navigation bar so it's never covered/washed out */}
             {live && (
-                <View style={styles.foot}>
-                    <TouchableOpacity style={styles.cta} onPress={() => router.push("/search")} accessibilityRole="button">
+                <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
+                    <TouchableOpacity style={styles.cta} onPress={() => router.push("/search")} activeOpacity={0.88} accessibilityRole="button">
+                        <Ionicons name="gift" size={18} color="#fff" />
                         <Text style={styles.ctaText}>Start my pre-order</Text>
                         <Ionicons name="arrow-forward" size={18} color="#fff" />
                     </TouchableOpacity>
@@ -116,34 +168,64 @@ export default function Christmas() {
     );
 }
 
+const shadow = { shadowColor: INK, shadowOpacity: 0.07, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 3 };
+
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: "#fff" },
-    head: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 },
-    back: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F5F5F7", alignItems: "center", justifyContent: "center" },
+    screen: { flex: 1, backgroundColor: "#FAFAFB" },
+    head: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, backgroundColor: "#FAFAFB" },
+    back: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", ...shadow },
     headTitle: { fontFamily: "Quicksand-Bold", fontSize: 17, color: INK },
-    body: { paddingHorizontal: 20, paddingBottom: 32, gap: 18 },
-    flyer: { width: "100%", aspectRatio: 1, borderRadius: 22 },
-    progress: { borderWidth: 1.5, borderColor: "#F5C6CC", backgroundColor: "#FFF6F7", borderRadius: 18, padding: 14, gap: 10 },
-    count: { fontFamily: "Quicksand-Bold", fontSize: 26, color: RED },
+    body: { paddingHorizontal: GUTTER, paddingTop: 4, gap: 16 },
+
+    hero: { backgroundColor: RED, borderRadius: 26, padding: 12, paddingTop: 18, overflow: "hidden", alignItems: "center" },
+    glow: { position: "absolute", width: 220, height: 220, borderRadius: 110, backgroundColor: "rgba(255,255,255,0.10)" },
+    eyebrowPill: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: GOLD, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999 },
+    eyebrow: { fontFamily: "Quicksand-Bold", fontSize: 10.5, letterSpacing: 1.2, color: RED_DEEP },
+    heroTitle: { fontFamily: "Quicksand-Bold", fontSize: 26, lineHeight: 31, color: "#fff", textAlign: "center", marginTop: 12 },
+    heroText: { fontFamily: "Quicksand-Medium", fontSize: 13.5, lineHeight: 19, color: "rgba(255,255,255,0.88)", textAlign: "center", marginTop: 6, marginBottom: 14, paddingHorizontal: 10 },
+    flyer: { width: FLYER, height: FLYER, borderRadius: 18, backgroundColor: "#fff" },
+
+    progress: { backgroundColor: "#fff", borderRadius: 22, padding: 16, gap: 10, ...shadow },
+    progressTop: { flexDirection: "row", alignItems: "baseline", gap: 8, flexWrap: "wrap" },
+    count: { fontFamily: "Quicksand-Bold", fontSize: 30, color: RED },
     countOf: { fontFamily: "Quicksand-SemiBold", fontSize: 14, color: "#4B4F63" },
-    bar: { height: 10, borderRadius: 5, backgroundColor: "#F8D7DB", overflow: "hidden" },
-    barFill: { height: "100%", borderRadius: 5, backgroundColor: RED },
-    cd: { flexDirection: "row", gap: 8 },
-    cdBox: { flex: 1, backgroundColor: RED, borderRadius: 12, paddingVertical: 6, alignItems: "center" },
-    cdNum: { fontFamily: "Quicksand-Bold", fontSize: 20, color: "#fff" },
-    cdLabel: { fontFamily: "Quicksand-SemiBold", fontSize: 11, color: "rgba(255,255,255,0.85)" },
+    bar: { height: 12, borderRadius: 6, backgroundColor: "#F8D7DB", overflow: "hidden" },
+    barFill: { height: "100%", borderRadius: 6, backgroundColor: RED },
+    pct: { fontFamily: "Quicksand-SemiBold", fontSize: 12, color: "#878787" },
+    cd: { flexDirection: "row", gap: 8, marginTop: 4 },
+    cdBox: { flex: 1, backgroundColor: INK, borderRadius: 14, paddingVertical: 10, alignItems: "center" },
+    cdNum: { fontFamily: "Quicksand-Bold", fontSize: 22, color: "#fff" },
+    cdLabel: { fontFamily: "Quicksand-SemiBold", fontSize: 11, color: GOLD, marginTop: 1 },
     thanks: { fontFamily: "Quicksand-Bold", fontSize: 14, color: INK },
-    point: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
-    pointIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+
+    points: { backgroundColor: "#fff", borderRadius: 22, paddingHorizontal: 16, paddingVertical: 4, ...shadow },
+    point: { flexDirection: "row", gap: 12, alignItems: "flex-start", paddingVertical: 14 },
+    pointDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#ECECF1" },
+    pointIcon: { width: 42, height: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
     pointTitle: { fontFamily: "Quicksand-Bold", fontSize: 15, color: INK },
-    pointText: { fontFamily: "Quicksand-Medium", fontSize: 13.5, color: "#4B4F63", marginTop: 2 },
+    pointText: { fontFamily: "Quicksand-Medium", fontSize: 13.5, lineHeight: 19, color: "#4B4F63", marginTop: 2 },
+
+    h2Row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     h2: { fontFamily: "Quicksand-Bold", fontSize: 18, color: INK },
+    seeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
+    seeAllText: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: "#FE8C00" },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-    card: { width: CARD_W, padding: 8, borderRadius: 18, backgroundColor: "#fff", shadowColor: INK, shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
-    cardImg: { height: 110, borderRadius: 12, overflow: "hidden", backgroundColor: "#FFF3E6" },
+    card: { width: CARD_W, padding: 8, borderRadius: 18, backgroundColor: "#fff", ...shadow },
+    cardImg: { height: 112, borderRadius: 12, overflow: "hidden", backgroundColor: "#FFF3E6" },
     cardName: { fontFamily: "Quicksand-Bold", fontSize: 13, color: INK, marginTop: 8, minHeight: 34 },
+    cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
     cardPrice: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: "#FE8C00" },
-    foot: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 18, borderTopWidth: 1, borderTopColor: "#ECECF1", backgroundColor: "#fff" },
-    cta: { flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", backgroundColor: RED, borderRadius: 999, paddingVertical: 15 },
-    ctaText: { fontFamily: "Quicksand-Bold", fontSize: 15, color: "#fff" },
+    cardAdd: { width: 28, height: 28, borderRadius: 14, backgroundColor: RED, alignItems: "center", justifyContent: "center" },
+
+    foot: {
+        position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: GUTTER, paddingTop: 12,
+        backgroundColor: "#fff", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#ECECF1",
+        shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12,
+    },
+    cta: {
+        flexDirection: "row", gap: 10, alignItems: "center", justifyContent: "center", backgroundColor: RED,
+        borderRadius: 999, height: 56,
+        shadowColor: RED, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5,
+    },
+    ctaText: { fontFamily: "Quicksand-Bold", fontSize: 16, color: "#fff" },
 });

@@ -189,7 +189,10 @@ export default function Index() {
                         <ProductImage imageUrl={c.image_url} className="size-full" resizeMode="cover" />
                       </View>
                     </View>
-                    <Text style={styles.circleText} numberOfLines={2}>{c.name}</Text>
+                    {/* Break only between words ("Drinks &" / "Refreshments"), shrinking slightly if needed. */}
+                    <Text style={styles.circleText} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8} textBreakStrategy="simple">
+                      {c.name.replace(' & ', ' &\n')}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -338,7 +341,8 @@ const styles = StyleSheet.create({
   row: { paddingHorizontal: GUTTER, gap: 12, paddingBottom: 4 },
 
   circles: { paddingHorizontal: GUTTER, gap: 14 },
-  circle: { width: 72, alignItems: 'center', gap: 8 },
+  // Wide enough that the longest single word ("Refreshments", "Celebrations") fits on one line.
+  circle: { width: 86, alignItems: 'center', gap: 8 },
   ring: {
     width: 68, height: 68, borderRadius: 34, borderWidth: 2.5, padding: 3, backgroundColor: '#fff',
     shadowColor: DARK, shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 3,

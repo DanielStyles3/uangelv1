@@ -46,3 +46,5 @@ website/.vercel
 .vercel
 *.apk
 *.aab
+
+dist-web/

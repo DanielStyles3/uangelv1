@@ -209,7 +209,7 @@ export default function Checkout() {
                             />
                         ))}
                         <View className="border-t border-gray-300 my-2" />
-                        <PaymentInfoStripe label={`Subtotal (${getTotalItems()} items)`} value={formatNaira(subtotal)} />
+                        <PaymentInfoStripe label={`Subtotal (${getTotalItems()} item${getTotalItems() === 1 ? '' : 's'})`} value={formatNaira(subtotal)} />
                         <PaymentInfoStripe label="Delivery fee" value={feeReady ? formatNaira(deliveryFee) : '…'} />
                         {feeReady && deliveryFee > DELIVERY_FEE && (
                             <Text className="body-regular text-gray-200">{formatNaira(deliveryFee)} delivery for orders with groceries or Local Market items.</Text>

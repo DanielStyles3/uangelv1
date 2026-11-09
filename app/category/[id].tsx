@@ -1,58 +1,13 @@
-import {ActivityIndicator, FlatList, Platform, Text, TouchableOpacity, View} from "react-native";
+import {ActivityIndicator, FlatList, Text, View} from "react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {router, useLocalSearchParams} from "expo-router";
-import cn from "clsx";
 
 import CategoryCard from "@/components/CategoryCard";
 import CustomButton from "@/components/CustomButton";
 import CustomHeader from "@/components/CustomHeader";
-import ProductImage from "@/components/ProductImage";
+import SubcategoryTile from "@/components/SubcategoryTile";
 import {getCategory, getSubcategories} from "@/lib/api";
 import useFetch from "@/lib/useFetch";
-import {SubcategoryWithCount} from "@/type";
-
-const productCountLabel = (count: number) =>
-    count === 0 ? 'Coming soon' : count === 1 ? '1 product' : `${count} products`;
-
-/**
- * Same design as the menu cards: white card with a round photo floating over the top edge.
- * Service categories (Catering, Events) have no products: the tile opens the request form.
- */
-const SubcategoryTile = ({ sub, isService }: { sub: SubcategoryWithCount; isService: boolean }) => (
-    <TouchableOpacity
-        className="menu-card"
-        style={Platform.OS === 'android' ? { elevation: 10, shadowColor: '#878787' } : {}}
-        onPress={() =>
-            isService
-                ? (sub.child_count
-                    // e.g. Catering › Events: show the event types first
-                    ? router.push({ pathname: '/category/[id]', params: { id: sub.id } })
-                    : router.push({ pathname: '/service-request', params: { categoryId: sub.parent_id ?? '', subcategoryId: sub.id } }))
-                : router.push({ pathname: '/subcategory/[id]', params: { id: sub.id } })
-        }
-        accessibilityRole="button"
-        accessibilityLabel={isService ? `${sub.name}, request a quote` : `${sub.name}, ${productCountLabel(sub.product_count)}`}
-    >
-        <View className="size-32 absolute -top-10 rounded-full overflow-hidden border-4 border-white bg-primary/10">
-            <ProductImage
-                imageUrl={sub.image_url}
-                emoji={sub.emoji}
-                className="size-full"
-                emojiClassName="text-5xl"
-                resizeMode="cover"
-            />
-        </View>
-        <Text className="text-center base-bold text-dark-100 mb-2" numberOfLines={2}>{sub.name}</Text>
-        {isService ? (
-            <Text className="paragraph-bold text-primary mt-2">{sub.child_count ? 'See options →' : 'Request a quote →'}</Text>
-        ) : (
-            <>
-                <Text className="body-regular text-gray-200 mb-4">{productCountLabel(sub.product_count)}</Text>
-                <Text className="paragraph-bold text-primary">Shop now →</Text>
-            </>
-        )}
-    </TouchableOpacity>
-);
 
 export default function CategoryScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -91,14 +46,11 @@ export default function CategoryScreen() {
                 data={subcategories ?? []}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item, index }) => (
-                    // Original staggered grid: right column sits lower.
-                    <View className={cn("flex-1 max-w-[48%]", index % 2 === 1 ? 'mt-10' : 'mt-0')}>
-                        <SubcategoryTile sub={item} isService={isService} />
-                    </View>
+                    <SubcategoryTile sub={item} isService={isService} index={index} accent={category.color ?? '#FE8C00'} />
                 )}
                 numColumns={2}
-                columnWrapperClassName="gap-7"
-                contentContainerClassName="gap-7 px-5 pt-5 pb-10"
+                columnWrapperStyle={{ gap: 14 }}
+                contentContainerStyle={{ gap: 14, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }}
                 ListHeaderComponent={() => (
                     <View className="mb-5">
                         <CustomHeader title={category.name} />
