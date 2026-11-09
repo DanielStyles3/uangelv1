@@ -30,7 +30,9 @@ Deno.serve(async (req) => {
                 currency: "NGN",
                 reference,
                 callback_url,
-                channels: ["card", "bank_transfer", "ussd", "bank"],
+                // No `channels` list: Paystack offers every payment method enabled on the account
+                // (card, bank transfer, USSD, Pay with Bank, QR, …). Manage them in the Paystack
+                // dashboard → Settings → Preferences → Payment channels.
                 metadata: { order_id: order.id, user_id: user.id },
             }),
         });
