@@ -127,7 +127,7 @@ export default function Christmas() {
                             <Text style={styles.h2}>Pre-order favourites</Text>
                             <TouchableOpacity onPress={() => router.push("/search")} hitSlop={8} style={styles.seeAll}>
                                 <Text style={styles.seeAllText}>See all</Text>
-                                <Ionicons name="chevron-forward" size={14} color="#FE8C00" />
+                                <Ionicons name="chevron-forward" size={14} color="#FD652A" />
                             </TouchableOpacity>
                         </View>
                         <View style={styles.grid}>
@@ -208,13 +208,13 @@ const styles = StyleSheet.create({
     h2Row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     h2: { fontFamily: "Quicksand-Bold", fontSize: 18, color: INK },
     seeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
-    seeAllText: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: "#FE8C00" },
+    seeAllText: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: "#FD652A" },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
     card: { width: CARD_W, padding: 8, borderRadius: 18, backgroundColor: "#fff", ...shadow },
     cardImg: { height: 112, borderRadius: 12, overflow: "hidden", backgroundColor: "#FFF3E6" },
     cardName: { fontFamily: "Quicksand-Bold", fontSize: 13, color: INK, marginTop: 8, minHeight: 34 },
     cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
-    cardPrice: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: "#FE8C00" },
+    cardPrice: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: "#FD652A" },
     cardAdd: { width: 28, height: 28, borderRadius: 14, backgroundColor: RED, alignItems: "center", justifyContent: "center" },
 
     foot: {

@@ -17,7 +17,7 @@ const { width: SCREEN_W } = Dimensions.get("window");
 const GUTTER = 20;
 const CARD_W = (SCREEN_W - GUTTER * 2 - 14) / 2;
 const BANNER_H = 250;
-const ORANGE = "#FE8C00";
+const ORANGE = "#FD652A";
 const INK = "#181C2E";
 
 type Sort = "popular" | "low" | "high";

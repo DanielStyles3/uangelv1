@@ -8,7 +8,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, w
 
 import { useCartStore } from "@/store/cart.store";
 
-const ORANGE = "#FE8C00";
+const ORANGE = "#FD652A";
 const INACTIVE = "#8A8A94";
 const INDICATOR_W = 28;
 

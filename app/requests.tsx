@@ -87,12 +87,12 @@ export default function Requests() {
                 data={requests ?? []}
                 keyExtractor={(r) => r.id}
                 contentContainerClassName="px-5 pt-5 pb-10 gap-4"
-                refreshControl={<RefreshControl refreshing={loading && !!requests} onRefresh={() => refetch()} tintColor="#FE8C00" />}
+                refreshControl={<RefreshControl refreshing={loading && !!requests} onRefresh={() => refetch()} tintColor="#FD652A" />}
                 ListHeaderComponent={() => <CustomHeader title="My requests" showSearch={false} />}
                 renderItem={({ item }) => <RequestCard request={item} onCancelled={() => refetch()} />}
                 ListEmptyComponent={() =>
                     loading ? (
-                        <ActivityIndicator color="#FE8C00" className="mt-10" />
+                        <ActivityIndicator color="#FD652A" className="mt-10" />
                     ) : (
                         <View className="flex-center gap-3 mt-10">
                             <Image source={images.emptyState} className="size-52" resizeMode="contain" />

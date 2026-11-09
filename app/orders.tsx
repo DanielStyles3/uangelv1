@@ -33,7 +33,7 @@ import type { Order, OrderStatus } from "@/type";
 // ---------------------------------------------------------------------------
 
 const C = {
-    orange: "#FE8C00",
+    orange: "#FD652A",
     logo: "#FD652A",
     navy: "#181C2E",
     grey: "#878787",

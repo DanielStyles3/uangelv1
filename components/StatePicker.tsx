@@ -53,7 +53,7 @@ const StatePicker = ({ label = "State", value, onChange }: StatePickerProps) => 
                                     }}
                                 >
                                     <Text className={cn("paragraph-semibold", selected ? "text-primary" : "text-dark-100")}>{item}</Text>
-                                    {selected && <Image source={images.check} className="size-4" resizeMode="contain" tintColor="#FE8C00" />}
+                                    {selected && <Image source={images.check} className="size-4" resizeMode="contain" tintColor="#FD652A" />}
                                 </TouchableOpacity>
                             );
                         }}

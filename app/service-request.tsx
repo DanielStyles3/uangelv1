@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Alert, Image, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
@@ -12,7 +12,7 @@ import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/
 import useFetch from "@/lib/useFetch";
 import useAuthStore from "@/store/auth.store";
 
-const ORANGE = "#FE8C00";
+const ORANGE = "#FD652A";
 const INK = "#181C2E";
 const PURPLE = "#6B21A8";
 const CUSTOM = "Customised event";
@@ -133,12 +133,13 @@ export default function ServiceRequestScreen() {
     const guests = Number(digitsOnly(form.guests)) || 0;
     const budget = Number(digitsOnly(form.budget)) || 0;
 
-    const valid = useMemo(() => [
+    // Cheap checks, so no memo needed (the React Compiler couldn't preserve one here).
+    const valid = [
         !!picked && (!isCustom || !!form.customName.trim()) && !!form.date,
         guests > 0 && budget > 0,
         !!form.address.trim() && !!form.city.trim() && !!form.state,
         !!form.fullName.trim() && !!normalizeNigerianPhone(form.phone),
-    ], [picked, isCustom, form, guests, budget]);
+    ];
 
     if (!isAuthenticated) return <Redirect href="/sign-in" />;
 

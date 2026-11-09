@@ -99,9 +99,9 @@ const styles = StyleSheet.create({
     bottomRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
     stepper: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#F3F3F6", borderRadius: 999, padding: 3 },
     stepBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
-    stepBtnPlus: { backgroundColor: "#FE8C00" },
+    stepBtnPlus: { backgroundColor: "#FD652A" },
     qty: { minWidth: 16, textAlign: "center", fontFamily: "Quicksand-Bold", fontSize: 15, color: "#181C2E" },
-    total: { fontFamily: "Quicksand-Bold", fontSize: 16, color: "#FE8C00" },
+    total: { fontFamily: "Quicksand-Bold", fontSize: 16, color: "#FD652A" },
 });
 
 export default CartItem;

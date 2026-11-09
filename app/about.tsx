@@ -7,7 +7,7 @@ import Constants from "expo-constants";
 
 import CustomHeader from "@/components/CustomHeader";
 
-const ORANGE = '#FE8C00';
+const ORANGE = '#FD652A';
 const LOGO_ORANGE = '#FD652A';
 const NAVY = '#181C2E';
 const GREY = '#878787';

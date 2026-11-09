@@ -22,7 +22,7 @@ type IconName = keyof typeof Ionicons.glyphMap;
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const HERO_H = Math.round(SCREEN_W * 0.92);
-const ORANGE = "#FE8C00";
+const ORANGE = "#FD652A";
 
 // Icons for the seeded add-ons/extras (no emoji); anything else gets a sparkle.
 const CUSTOMIZATION_ICON: Record<string, IconName> = {

@@ -29,8 +29,14 @@ const PromoCarousel = ({ slides }: { slides: PromoSlide[] }) => {
     const [paused, setPaused] = useState(false);
 
     // The banner list can change (admin promotions load after the built-in ones): start over.
-    useEffect(() => {
+    // Reset the index while rendering (React's "adjust state on prop change" pattern) instead of
+    // setState inside an effect, which caused an extra render pass.
+    const [prevCount, setPrevCount] = useState(slides.length);
+    if (prevCount !== slides.length) {
+        setPrevCount(slides.length);
         setIndex(0);
+    }
+    useEffect(() => {
         listRef.current?.scrollToOffset({ offset: 0, animated: false });
     }, [slides.length]);
 
@@ -146,7 +152,7 @@ const styles = StyleSheet.create({
     },
     dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 12 },
     dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#E2E2E8" },
-    dotActive: { width: 20, backgroundColor: "#FE8C00" },
+    dotActive: { width: 20, backgroundColor: "#FD652A" },
 });
 
 export default PromoCarousel;

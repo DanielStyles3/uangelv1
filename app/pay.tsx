@@ -118,7 +118,7 @@ export default function PayScreen() {
                 </View>
             ) : !checkoutUrl ? (
                 <View style={styles.center}>
-                    <ActivityIndicator color="#FE8C00" size="large" />
+                    <ActivityIndicator color="#FD652A" size="large" />
                     <Text style={styles.loadingText}>Opening secure checkout…</Text>
                 </View>
             ) : (
@@ -128,7 +128,7 @@ export default function PayScreen() {
                     startInLoadingState
                     renderLoading={() => (
                         <View style={[StyleSheet.absoluteFill, styles.center]}>
-                            <ActivityIndicator color="#FE8C00" size="large" />
+                            <ActivityIndicator color="#FD652A" size="large" />
                         </View>
                     )}
                     onShouldStartLoadWithRequest={(req): boolean => !intercept(req.url)}
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     loadingText: { fontFamily: 'Quicksand-SemiBold', fontSize: 14, color: '#878787', marginTop: 6 },
     errorTitle: { fontFamily: 'Quicksand-Bold', fontSize: 18, color: '#181C2E' },
     errorBody: { fontFamily: 'Quicksand-Medium', fontSize: 14, color: '#878787', textAlign: 'center' },
-    btn: { marginTop: 12, backgroundColor: '#FE8C00', borderRadius: 999, paddingHorizontal: 24, paddingVertical: 14 },
+    btn: { marginTop: 12, backgroundColor: '#FD652A', borderRadius: 999, paddingHorizontal: 24, paddingVertical: 14 },
     btnText: { fontFamily: 'Quicksand-Bold', fontSize: 15, color: '#fff' },
     overlay: { backgroundColor: 'rgba(24,28,46,0.75)', alignItems: 'center', justifyContent: 'center', gap: 12 },
     overlayText: { fontFamily: 'Quicksand-Bold', fontSize: 15, color: '#fff' },

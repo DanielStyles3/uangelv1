@@ -18,7 +18,7 @@ export default function CategoryScreen() {
     if (categoryLoading && !category) {
         return (
             <SafeAreaView className="flex-1 bg-white flex-center">
-                <ActivityIndicator size="large" color="#FE8C00" />
+                <ActivityIndicator size="large" color="#FD652A" />
             </SafeAreaView>
         );
     }
@@ -46,7 +46,7 @@ export default function CategoryScreen() {
                 data={subcategories ?? []}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item, index }) => (
-                    <SubcategoryTile sub={item} isService={isService} index={index} accent={category.color ?? '#FE8C00'} />
+                    <SubcategoryTile sub={item} isService={isService} index={index} accent={category.color ?? '#FD652A'} />
                 )}
                 numColumns={2}
                 columnWrapperStyle={{ gap: 14 }}
@@ -88,7 +88,7 @@ export default function CategoryScreen() {
                 ListEmptyComponent={() =>
                     subsLoading ? (
                         <View className="py-10 flex-center">
-                            <ActivityIndicator size="large" color="#FE8C00" />
+                            <ActivityIndicator size="large" color="#FD652A" />
                         </View>
                     ) : (
                         <View className="py-10 items-center gap-y-2">

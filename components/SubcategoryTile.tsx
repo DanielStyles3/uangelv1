@@ -16,7 +16,7 @@ const countLabel = (n: number) => (n === 0 ? "Coming soon" : n === 1 ? "1 item" 
  * name in white, a count pill and an arrow. Service subcategories (Catering, Events)
  * open their options or the quote form instead of a product list.
  */
-const SubcategoryTile = ({ sub, isService, index = 0, accent = "#FE8C00" }: {
+const SubcategoryTile = ({ sub, isService, index = 0, accent = "#FD652A" }: {
     sub: SubcategoryWithCount; isService: boolean; index?: number; accent?: string;
 }) => {
     const open = () => {

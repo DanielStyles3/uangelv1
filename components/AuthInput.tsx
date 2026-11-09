@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-const ORANGE = "#FE8C00";
+const ORANGE = "#FD652A";
 
 interface AuthInputProps {
     label: string;

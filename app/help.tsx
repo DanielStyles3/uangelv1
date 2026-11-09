@@ -14,7 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import CustomHeader from "@/components/CustomHeader";
 
-const ORANGE = '#FE8C00';
+const ORANGE = '#FD652A';
 const NAVY = '#181C2E';
 const GREY = '#878787';
 const BG = '#FAFAFA';

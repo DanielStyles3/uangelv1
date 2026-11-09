@@ -39,7 +39,7 @@ const CategoryCard = ({ category, reversed = false, interactive = true }: Catego
     return (
         <Pressable
             className={cn("offer-card", reversed ? 'flex-row-reverse' : 'flex-row')}
-            style={{ backgroundColor: category.color ?? '#FE8C00' }}
+            style={{ backgroundColor: category.color ?? '#FD652A' }}
             android_ripple={interactive ? { color: "#ffffff22" } : undefined}
             disabled={!interactive}
             onPress={() => router.push({ pathname: '/category/[id]', params: { id: category.id } })}

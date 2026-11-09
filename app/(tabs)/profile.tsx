@@ -25,7 +25,7 @@ interface RowProps {
 }
 
 /** One settings-style row: tinted icon, label, optional detail line, count badge and chevron. */
-const Row = ({ icon, label, detail, badge, onPress, last, tint = '#FE8C00' }: RowProps) => (
+const Row = ({ icon, label, detail, badge, onPress, last, tint = '#FD652A' }: RowProps) => (
     <TouchableOpacity style={[styles.row, !last && styles.rowDivider]} onPress={onPress} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={label}>
         <View style={[styles.rowIcon, { backgroundColor: `${tint}1A` }]}>
             <Ionicons name={icon} size={20} color={tint} />
@@ -116,7 +116,7 @@ const Profile = () => {
     if (!user) {
         return (
             <View style={styles.loading}>
-                <ActivityIndicator color="#FE8C00" />
+                <ActivityIndicator color="#FD652A" />
             </View>
         );
     }
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     rowIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
     rowLabel: { fontFamily: 'Quicksand-Bold', fontSize: 15, color: '#181C2E' },
     rowDetail: { fontFamily: 'Quicksand-Medium', fontSize: 12.5, color: '#878787', marginTop: 2 },
-    badge: { minWidth: 24, height: 24, paddingHorizontal: 7, borderRadius: 12, backgroundColor: '#FE8C00', alignItems: 'center', justifyContent: 'center', marginRight: 4 },
+    badge: { minWidth: 24, height: 24, paddingHorizontal: 7, borderRadius: 12, backgroundColor: '#FD652A', alignItems: 'center', justifyContent: 'center', marginRight: 4 },
     badgeText: { fontFamily: 'Quicksand-Bold', fontSize: 12, color: '#fff' },
 
     deleteBtn: { alignSelf: 'center', paddingVertical: 14, paddingHorizontal: 20, marginTop: 6 },

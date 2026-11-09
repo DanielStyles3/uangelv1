@@ -26,7 +26,7 @@ export default function PaymentReturn() {
 
     return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, backgroundColor: '#fff' }}>
-            <ActivityIndicator color="#FE8C00" size="large" />
+            <ActivityIndicator color="#FD652A" size="large" />
             <Text style={{ fontFamily: 'Quicksand-SemiBold', color: '#181C2E' }}>Confirming your payment…</Text>
         </View>
     );

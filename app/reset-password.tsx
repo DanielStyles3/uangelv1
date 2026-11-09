@@ -59,7 +59,7 @@ export default function ResetPassword() {
 
             {linkState === 'checking' && (
                 <View className="flex-row items-center gap-3">
-                    <ActivityIndicator color="#FE8C00" />
+                    <ActivityIndicator color="#FD652A" />
                     <Text className="paragraph-medium text-gray-200">Checking your reset link…</Text>
                 </View>
             )}

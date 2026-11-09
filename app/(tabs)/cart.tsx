@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     title: { fontFamily: 'Quicksand-Bold', fontSize: 26, color: '#181C2E' },
     countPill: { backgroundColor: '#FFF1E0', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
-    countText: { fontFamily: 'Quicksand-Bold', fontSize: 12, color: '#FE8C00' },
+    countText: { fontFamily: 'Quicksand-Bold', fontSize: 12, color: '#FD652A' },
     clear: { fontFamily: 'Quicksand-Bold', fontSize: 14, color: '#F14141' },
     sectionTitle: { fontFamily: 'Quicksand-Bold', fontSize: 18, color: '#181C2E' },
 
@@ -203,8 +203,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, padding: 14,
         borderRadius: 20, backgroundColor: '#181C2E',
     },
-    deliverIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#FE8C00', alignItems: 'center', justifyContent: 'center' },
-    deliverLabel: { fontFamily: 'Quicksand-Bold', fontSize: 10, letterSpacing: 1.5, color: '#FE8C00' },
+    deliverIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#FD652A', alignItems: 'center', justifyContent: 'center' },
+    deliverLabel: { fontFamily: 'Quicksand-Bold', fontSize: 10, letterSpacing: 1.5, color: '#FD652A' },
     deliverValue: { fontFamily: 'Quicksand-SemiBold', fontSize: 14, color: '#fff', marginTop: 2 },
     deliverChange: { fontFamily: 'Quicksand-Bold', fontSize: 13, color: 'rgba(255,255,255,0.7)' },
 
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     rowLabel: { fontFamily: 'Quicksand-Medium', fontSize: 14, color: '#878787' },
     rowValue: { fontFamily: 'Quicksand-Bold', fontSize: 14, color: '#181C2E' },
     rowLabelBold: { fontFamily: 'Quicksand-Bold', fontSize: 17, color: '#181C2E' },
-    rowValueBold: { fontFamily: 'Quicksand-Bold', fontSize: 19, color: '#FE8C00' },
+    rowValueBold: { fontFamily: 'Quicksand-Bold', fontSize: 19, color: '#FD652A' },
     divider: { height: 1, backgroundColor: '#EFEFF2', marginVertical: 2 },
     payNote: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, padding: 10, borderRadius: 12, backgroundColor: '#EAF7F0' },
     payNoteText: { flex: 1, fontFamily: 'Quicksand-SemiBold', fontSize: 12.5, color: '#2F9B65' },
@@ -229,8 +229,8 @@ const styles = StyleSheet.create({
     sugPhoto: { height: 100, borderRadius: 14, overflow: 'hidden', backgroundColor: '#FFF3E6' },
     sugName: { fontFamily: 'Quicksand-Bold', fontSize: 13, color: '#181C2E', marginTop: 8, minHeight: 34 },
     sugBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
-    sugPrice: { fontFamily: 'Quicksand-Bold', fontSize: 13, color: '#FE8C00' },
-    sugAdd: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#FE8C00', alignItems: 'center', justifyContent: 'center' },
+    sugPrice: { fontFamily: 'Quicksand-Bold', fontSize: 13, color: '#FD652A' },
+    sugAdd: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#FD652A', alignItems: 'center', justifyContent: 'center' },
 
     empty: { alignItems: 'center', marginTop: 30, paddingHorizontal: 10 },
     emptyArt: { width: 220, height: 220, borderRadius: 110, backgroundColor: '#FFF1E0', alignItems: 'center', justifyContent: 'center' },
@@ -239,8 +239,8 @@ const styles = StyleSheet.create({
 
     primaryBtn: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-        height: 54, paddingHorizontal: 26, marginTop: 20, borderRadius: 999, backgroundColor: '#FE8C00',
-        shadowColor: '#FE8C00', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+        height: 54, paddingHorizontal: 26, marginTop: 20, borderRadius: 999, backgroundColor: '#FD652A',
+        shadowColor: '#FD652A', shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
     },
     primaryBtnText: { fontFamily: 'Quicksand-Bold', fontSize: 16, color: '#fff' },
 

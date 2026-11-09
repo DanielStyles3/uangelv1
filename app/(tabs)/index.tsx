@@ -17,7 +17,7 @@ import {useCartStore} from "@/store/cart.store";
 import {Category, OrderItem} from "@/type";
 
 const GUTTER = 20;
-const ORANGE = '#FE8C00';
+const ORANGE = '#FD652A';
 const DARK = '#181C2E';
 const ROW_SIZE = 8;       // products per category row
 const TOP_RATED_SIZE = 10;

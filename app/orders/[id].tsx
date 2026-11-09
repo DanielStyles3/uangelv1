@@ -129,7 +129,7 @@ export default function OrderDetails() {
     if (loading && !order) {
         return (
             <SafeAreaView style={[styles.screen, styles.center]}>
-                <ActivityIndicator color="#FE8C00" size="large" />
+                <ActivityIndicator color="#FD652A" size="large" />
             </SafeAreaView>
         );
     }
@@ -296,7 +296,7 @@ export default function OrderDetails() {
                     <View style={styles.cardHead}>
                         <Text style={styles.cardTitle}>Payment</Text>
                         <TouchableOpacity onPress={shareReceipt} style={styles.shareBtn} hitSlop={8}>
-                            <Ionicons name="share-outline" size={16} color="#FE8C00" />
+                            <Ionicons name="share-outline" size={16} color="#FD652A" />
                             <Text style={styles.shareText}>Share receipt</Text>
                         </TouchableOpacity>
                     </View>
@@ -336,19 +336,19 @@ export default function OrderDetails() {
                 <Animated.View entering={FadeInDown.delay(320)} style={styles.card}>
                     <Text style={[styles.cardTitle, { marginBottom: 12 }]}>Delivery details</Text>
                     <View style={styles.infoRow}>
-                        <View style={styles.infoIcon}><Ionicons name="location" size={18} color="#FE8C00" /></View>
+                        <View style={styles.infoIcon}><Ionicons name="location" size={18} color="#FD652A" /></View>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.infoMain}>{order.delivery_address}</Text>
                             <Text style={styles.infoSub}>{order.city}, {order.state}</Text>
                         </View>
                     </View>
                     <View style={styles.infoRow}>
-                        <View style={styles.infoIcon}><Ionicons name="call" size={18} color="#FE8C00" /></View>
+                        <View style={styles.infoIcon}><Ionicons name="call" size={18} color="#FD652A" /></View>
                         <Text style={[styles.infoMain, { flex: 1 }]}>{formatNigerianPhone(order.phone)}</Text>
                     </View>
                     {order.note ? (
                         <View style={styles.infoRow}>
-                            <View style={styles.infoIcon}><Ionicons name="chatbubble-ellipses" size={18} color="#FE8C00" /></View>
+                            <View style={styles.infoIcon}><Ionicons name="chatbubble-ellipses" size={18} color="#FD652A" /></View>
                             <Text style={[styles.infoSub, { flex: 1 }]}>{order.note}</Text>
                         </View>
                     ) : null}
@@ -404,11 +404,11 @@ const styles = StyleSheet.create({
 
     trackWrap: { marginTop: 18, paddingHorizontal: 18 },
     trackLine: { position: 'absolute', top: 17, left: 18, right: 18, height: 4, borderRadius: 2, backgroundColor: '#EDEDF1' },
-    trackFill: { position: 'absolute', top: 17, left: 18, height: 4, borderRadius: 2, backgroundColor: '#FE8C00' },
+    trackFill: { position: 'absolute', top: 17, left: 18, height: 4, borderRadius: 2, backgroundColor: '#FD652A' },
     trackSteps: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: -18 },
     step: { width: 64, alignItems: 'center', gap: 6 },
     stepDot: { width: 38, height: 38, borderRadius: 19, backgroundColor: '#F3F3F6', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#fff' },
-    stepDotDone: { backgroundColor: '#FE8C00' },
+    stepDotDone: { backgroundColor: '#FD652A' },
     stepDotCurrent: { borderColor: '#FFE2BF', transform: [{ scale: 1.12 }] },
     stepLabel: { fontFamily: 'Quicksand-SemiBold', fontSize: 11, color: '#A3A3AD' },
     stepLabelDone: { color: '#181C2E', fontFamily: 'Quicksand-Bold' },
@@ -426,10 +426,10 @@ const styles = StyleSheet.create({
     rowLabel: { fontFamily: 'Quicksand-Medium', fontSize: 14, color: '#878787' },
     rowValue: { fontFamily: 'Quicksand-Bold', fontSize: 14, color: '#181C2E' },
     rowLabelBold: { fontFamily: 'Quicksand-Bold', fontSize: 16, color: '#181C2E' },
-    rowValueBold: { fontFamily: 'Quicksand-Bold', fontSize: 20, color: '#FE8C00' },
+    rowValueBold: { fontFamily: 'Quicksand-Bold', fontSize: 20, color: '#FD652A' },
     dashed: { borderTopWidth: 1, borderStyle: 'dashed', borderColor: '#DCDCE2', marginVertical: 2 },
     shareBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    shareText: { fontFamily: 'Quicksand-Bold', fontSize: 13, color: '#FE8C00' },
+    shareText: { fontFamily: 'Quicksand-Bold', fontSize: 13, color: '#FD652A' },
     payPill: { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, marginTop: 16 },
     payPillText: { fontFamily: 'Quicksand-Bold', fontSize: 12.5, flexShrink: 1 },
     ref: { fontFamily: 'Quicksand-Medium', fontSize: 11.5, color: '#A3A3AD', marginTop: 8 },
@@ -441,8 +441,8 @@ const styles = StyleSheet.create({
 
     actions: { flexDirection: 'row', gap: 12 },
     primaryBtn: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 54, borderRadius: 999, backgroundColor: '#FE8C00',
-        shadowColor: '#FE8C00', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 3,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 54, borderRadius: 999, backgroundColor: '#FD652A',
+        shadowColor: '#FD652A', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 3,
     },
     primaryBtnText: { fontFamily: 'Quicksand-Bold', fontSize: 16, color: '#fff' },
     ghostBtn: { height: 50, borderRadius: 999, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#F1414155', backgroundColor: '#FDECEC' },

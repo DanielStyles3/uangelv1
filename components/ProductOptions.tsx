@@ -5,7 +5,7 @@ import * as Haptics from "expo-haptics";
 import { formatNaira } from "@/lib/format";
 import { CartCustomization, OptionGroup } from "@/type";
 
-const ORANGE = "#FE8C00";
+const ORANGE = "#FD652A";
 const PINK = "#9D174D";
 
 /** What the customer has chosen: option value per 'single' group, text per 'text' group. */
