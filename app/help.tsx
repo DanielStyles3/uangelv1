@@ -58,7 +58,7 @@ const FAQS: { q: string; a: string }[] = [
     },
     {
         q: 'I forgot my password.',
-        a: 'On the Sign in screen tap "Forgot password?" and we\'ll email you a reset link.',
+        a: 'On the Sign in screen tap "Forgot password?". We\'ll email you a 6-digit code; enter it in the app with your new password.',
     },
     {
         q: 'How do I delete my account?',

@@ -1,4 +1,5 @@
 import {Stack} from "expo-router";
+import {StatusBar} from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from 'expo-font';
 import { useCallback, useEffect, useState } from "react";
@@ -65,6 +66,8 @@ export default Sentry.wrap(function RootLayout() {
 
   return (
     <>
+      {/* Dark clock/battery icons on our white screens (auth + splash set "light" while they're shown). */}
+      <StatusBar style="dark" />
       {ready && <Stack screenOptions={{ headerShown: false }} />}
       {!splashDone && <AnimatedSplash ready={ready} onFinish={finishSplash} />}
     </>

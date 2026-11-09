@@ -1,4 +1,3 @@
-import * as Linking from "expo-linking";
 import { supabase } from "@/lib/supabase";
 import {
     Category,
@@ -66,14 +65,22 @@ export const signOut = async () => {
     if (error) throw new Error(error.message);
 }
 
-/** Emails a reset link that opens the app's /reset-password screen. */
+/** Emails a 6-digit password reset code (Supabase "Reset password" template uses {{ .Token }}). */
 export const sendPasswordReset = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        // fastfood://reset-password in builds, exp://.../--/reset-password in Expo Go.
-        // Both schemes are in the project's Auth redirect allow list.
-        redirectTo: Linking.createURL('/reset-password'),
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) throw new Error(error.message);
+}
+
+/** Checks the emailed code, then sets the new password (the code signs the user in). */
+export const resetPasswordWithCode = async (email: string, code: string, password: string) => {
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'recovery' });
+    if (error) {
+        throw new Error(/expired|invalid/i.test(error.message)
+            ? 'That code is wrong or has expired. Check the email or send a new code.'
+            : error.message);
+    }
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) throw new Error(updateError.message);
 }
 
 /**

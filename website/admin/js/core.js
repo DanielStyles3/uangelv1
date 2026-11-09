@@ -941,6 +941,58 @@
     form.addEventListener('submit', function (e) { e.preventDefault(); $('.modal-actions .btn-primary', m.el).click(); });
   }
 
+  // True while the code modal is verifying, so its PASSWORD_RECOVERY event doesn't open a second modal.
+  var resettingWithCode = false;
+
+  /** Enter the 6-digit code from the reset email plus a new password. */
+  function showResetCodeModal(em) {
+    var form = h('<form novalidate class="stack">' +
+      '<p class="muted">We emailed a 6-digit code to <strong>' + escapeHtml(em) + '</strong>. Enter it below with your new password. Check spam if it doesn’t arrive in a minute.</p>' +
+      '<div class="field"><label for="reset-code">Code from the email</label>' +
+      '<input id="reset-code" class="input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" style="font-size:22px;letter-spacing:8px;font-weight:700;text-align:center" required></div>' +
+      '<div class="field"><label for="reset-pw">New password</label>' +
+      '<input id="reset-pw" class="input" type="password" autocomplete="new-password" minlength="6" required></div>' +
+      '<div class="field"><label for="reset-pw2">Confirm new password</label>' +
+      '<input id="reset-pw2" class="input" type="password" autocomplete="new-password" minlength="6" required></div>' +
+      '<div class="alert alert-error" role="alert" hidden></div></form>');
+    var codeInput = $('#reset-code', form);
+    codeInput.addEventListener('input', function () { codeInput.value = codeInput.value.replace(/\D/g, '').slice(0, 6); });
+    var m = modal({
+      title: 'Reset your password',
+      body: form,
+      actions: [
+        { label: 'Cancel', variant: 'ghost' },
+        { label: 'Reset password', variant: 'primary', onClick: function (close) {
+          var a = $('.alert', form);
+          var code = codeInput.value.trim(), p1 = $('#reset-pw', form).value, p2 = $('#reset-pw2', form).value;
+          a.hidden = true;
+          if (!/^\d{6}$/.test(code)) { a.textContent = 'Enter the 6-digit code from the email.'; a.hidden = false; return; }
+          if (p1.length < 6) { a.textContent = 'Use at least 6 characters.'; a.hidden = false; return; }
+          if (p1 !== p2) { a.textContent = 'The passwords don’t match.'; a.hidden = false; return; }
+          resettingWithCode = true;
+          return Admin.sb.auth.verifyOtp({ email: em, token: code, type: 'recovery' }).then(function (res) {
+            if (res.error) {
+              resettingWithCode = false;
+              a.textContent = /expired|invalid/i.test(res.error.message) ? 'That code is wrong or has expired. Check the email or request a new code.' : errMessage(res.error);
+              a.hidden = false;
+              return;
+            }
+            return Admin.sb.auth.updateUser({ password: p1 }).then(function (up) {
+              resettingWithCode = false;
+              if (up.error) { a.textContent = errMessage(up.error); a.hidden = false; return; }
+              close();
+              toast('Password updated');
+              $('#login-password').value = '';
+              return enterWithUser(res.data.user);
+            });
+          }).catch(function (err) { resettingWithCode = false; a.textContent = errMessage(err); a.hidden = false; });
+        } }
+      ]
+    });
+    form.addEventListener('submit', function (e) { e.preventDefault(); $('.modal-actions .btn-primary', m.el).click(); });
+    setTimeout(function () { codeInput.focus(); }, 50);
+  }
+
   function bindLogin() {
     var form = $('#login-form');
     var email = $('#login-email');
@@ -1005,10 +1057,11 @@
       if (!Admin.sb) { loginAlert('Couldn’t connect to the server.'); return; }
       var btn = $('#forgot-btn');
       btn.disabled = true;
-      Admin.sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin + '/admin/' }).then(function (res) {
+      Admin.sb.auth.resetPasswordForEmail(em).then(function (res) {
         btn.disabled = false;
         if (res.error) { loginAlert(friendlyAuthError(res.error)); return; }
-        loginAlert('If an account exists for ' + em + ', a password reset link is on its way. Check your inbox.', 'success');
+        loginAlert('If an account exists for ' + em + ', a 6-digit code is on its way. Check your inbox.', 'success');
+        showResetCodeModal(em);
       }).catch(function (err) {
         btn.disabled = false;
         loginAlert(friendlyAuthError(err));
@@ -1066,7 +1119,7 @@
             showLogin('Your session ended. Please sign in again.', 'info');
           }
         }, 0);
-      } else if (event === 'PASSWORD_RECOVERY') {
+      } else if (event === 'PASSWORD_RECOVERY' && !resettingWithCode) {
         setTimeout(showRecoveryModal, 300);
       }
     });

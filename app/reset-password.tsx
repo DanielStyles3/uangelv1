@@ -69,7 +69,7 @@ export default function ResetPassword() {
                     <Text className="paragraph-medium text-gray-200">
                         {linkError || 'This reset link is invalid or has expired.'} Please request a new one.
                     </Text>
-                    <CustomButton title="Request a new link" onPress={() => router.replace('/forgot-password')} />
+                    <CustomButton title="Get a reset code" onPress={() => router.replace('/forgot-password')} />
                 </View>
             )}
 
