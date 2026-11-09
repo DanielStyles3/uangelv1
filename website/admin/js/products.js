@@ -70,6 +70,12 @@
 
   function subOf(p) { return S.catById[p.category_id] || null; }
   function mainOf(p) { var s = subOf(p); return s ? (s.parent_id ? S.catById[s.parent_id] : s) : null; }
+  /** Show the "Sizes & options" shortcut on cakes and on anything that already has options. */
+  function hasOptionsUI(p) {
+    if ((S.optGroups || []).some(function (g) { return g.menu_id === p.id; })) return true;
+    var m = mainOf(p);
+    return !!(m && /cake/i.test(m.name));
+  }
   function colorOf(p) { var m = mainOf(p); return (m && m.color) || '#FE8C00'; }
   function photoOf(p) { var s = subOf(p); return p.image_url || (s && s.image_url) || null; }
   function linksFor(id) { return S.links.filter(function (l) { return l.menu_id === id; }).map(function (l) { return l.customization_id; }); }
@@ -159,7 +165,9 @@
         '<small>' + esc(main ? main.name : 'No category') + (sub && sub.parent_id ? ' › ' + esc(sub.name) : '') + '</small>' +
         '<div class="pp-row"><span class="pp-price">' + esc(naira(p.price)) + '</span><span class="pp-sold">' + n + ' sold · 30d</span></div>' +
         '<div class="pp-row"><button type="button" class="pp-switch" role="switch" aria-checked="' + on + '" data-stock="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' in stock"><i></i>' + (on ? 'In stock' : 'Sold out') + '</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(p.id) + '">Edit</button></div></div></article>';
+          '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(p.id) + '">Edit</button></div>' +
+        (hasOptionsUI(p) ? '<button type="button" class="btn btn-ghost btn-sm pp-optbtn" data-options="' + esc(p.id) + '" style="margin-top:6px;width:100%;justify-content:center">Sizes &amp; options</button>' : '') +
+        '</div></article>';
   }
 
   function onImgError(e) {
@@ -194,6 +202,7 @@
     if (b.hasAttribute('data-new-addon')) return openAddon(null);
     if ((v = b.getAttribute('data-edit'))) { var p = S.products.find(function (x) { return x.id === v; }); if (p) openProduct(p); return; }
     if ((v = b.getAttribute('data-stock'))) { var ps = S.products.find(function (x) { return x.id === v; }); if (ps) toggleStock(ps, b); return; }
+    if ((v = b.getAttribute('data-options'))) { var po = S.products.find(function (x) { return x.id === v; }); if (po) openOptions(po, function () { renderResults(); }); return; }
     if (b.hasAttribute('data-chip')) { ui.chip = b.getAttribute('data-chip'); ui.limit = PAGE; renderAll(); return; }
     if (b.hasAttribute('data-more')) { ui.limit += PAGE; renderResults(); return; }
     if ((v = b.getAttribute('data-aedit'))) { var c = S.customs.find(function (x) { return x.id === v; }); if (c) openAddon(c); return; }
@@ -290,7 +299,7 @@
       '<div class="field"><span class="cg-lbl">Customer options <span class="cg-opt">(e.g. cake size, flavour, message)</span></span>' +
         (editing
           ? '<div class="pp-optsum" data-optsum>' + optSummary(p.id) + '</div>' +
-            '<button type="button" class="btn btn-ghost btn-sm" data-edit-options style="align-self:flex-start">🎨 Edit customer options</button>'
+            '<button type="button" class="btn btn-ghost btn-sm" data-edit-options style="align-self:flex-start">Edit sizes &amp; options</button>'
           : '<span class="cg-help">Save the product first, then you can add options like size and flavour.</span>') +
       '</div>' +
       '<details class="pp-more-fields"' + (draft.rating || draft.calories || draft.protein ? ' open' : '') + '><summary>Rating &amp; nutrition (optional)</summary><div class="pp-three">' +
@@ -540,7 +549,7 @@
     function paint() {
       var others = S.products.filter(function (x) { return x.id !== p.id && (S.optGroups || []).some(function (g) { return g.menu_id === x.id; }); });
       body.innerHTML =
-        '<p class="pp-note" style="margin:0">Questions customers answer before adding <b>' + esc(p.name) + '</b> to the cart. “Choose one” options can add to the price; required ones must be answered. Changes save straight away.</p>' +
+        '<p class="pp-note" style="margin:0">Questions customers answer before adding <b>' + esc(p.name) + '</b> to the cart, like <b>Size</b> or <b>Flavour</b>. Add any choices you want; each can add to the base price of <b>' + esc(naira(p.price)) + '</b>. Use ◀ ▶ to change the order customers see. Changes save straight away.</p>' +
         (groups.length ? groups.map(function (g, i) {
           return '<div class="pp-og">' +
             '<div class="pp-og-h"><b>' + esc(g.name) + '</b>' +
@@ -552,9 +561,12 @@
               '<button type="button" class="btn btn-ghost btn-sm" data-gedit="' + g.id + '">Edit</button>' +
               '<button type="button" class="btn btn-ghost btn-sm" data-gdel="' + g.id + '" style="color:var(--red)">Delete</button></div>' +
             (g.kind === 'single'
-              ? '<div class="pp-ov">' + g.option_values.map(function (v) {
-                  return '<span class="pp-ovc">' + (v.swatch ? '<i style="background:' + esc(v.swatch) + '"></i>' : '') + esc(v.name) +
-                    ' <small>' + (Number(v.price) ? '+' + esc(naira(v.price)) : 'included') + (v.hint ? ' · ' + esc(v.hint) : '') + '</small>' +
+              ? '<div class="pp-ov">' + g.option_values.map(function (v, vi) {
+                  return '<span class="pp-ovc">' +
+                    (g.option_values.length > 1 ? '<button type="button" data-vmove="' + v.id + '" data-g="' + g.id + '" data-dir="-1" aria-label="Move ' + esc(v.name) + ' left"' + (vi === 0 ? ' disabled' : '') + '>◀</button>' : '') +
+                    (v.swatch ? '<i style="background:' + esc(v.swatch) + '"></i>' : '') + esc(v.name) +
+                    ' <small>' + (Number(v.price) ? '+' + esc(naira(v.price)) + ' = ' + esc(naira(Number(p.price) + Number(v.price))) : 'included') + (v.hint ? ' · ' + esc(v.hint) : '') + '</small>' +
+                    (g.option_values.length > 1 ? '<button type="button" data-vmove="' + v.id + '" data-g="' + g.id + '" data-dir="1" aria-label="Move ' + esc(v.name) + ' right"' + (vi === g.option_values.length - 1 ? ' disabled' : '') + '>▶</button>' : '') +
                     '<button type="button" data-vedit="' + v.id + '" data-g="' + g.id + '" aria-label="Edit ' + esc(v.name) + '">✎</button>' +
                     '<button type="button" data-vdel="' + v.id + '" aria-label="Delete ' + esc(v.name) + '">×</button></span>';
                 }).join('') + '<button type="button" class="btn btn-ghost btn-sm" data-vadd="' + g.id + '">' + I.plus + 'Add choice</button></div>'
@@ -565,7 +577,9 @@
           '<button type="button" class="btn btn-ghost btn-sm" data-gadd="text">' + I.plus + 'Add a “customer types” question</button>' +
           (others.length && !groups.length ? '<select class="select" data-copy aria-label="Copy options from another product"><option value="">Copy options from…</option>' +
             others.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') +
-        '</div>';
+        '</div>' +
+        (groups.length ? '<div class="pp-og-add" style="border-top:1px solid var(--line, #E6E6EA);padding-top:14px"><button type="button" class="btn btn-ghost btn-sm" data-apply>Use these options on other products…</button>' +
+          '<span class="cg-help" style="margin:0">e.g. give every cake the same sizes in one go.</span></div>' : '');
     }
 
     function ask(title, fields, initial) {
@@ -643,7 +657,8 @@
         var cur = b.hasAttribute('data-vedit') ? g.option_values.find(function (x) { return x.id === v; }) : null;
         var c = await ask(cur ? 'Edit choice' : 'New choice for “' + g.name + '”', [
           { name: 'name', label: 'Choice', ph: 'e.g. 8 inch' },
-          { name: 'price', label: 'Extra price (₦)', mode: 'decimal', ph: '0', help: '0 means it’s included in the product price.' },
+          { name: 'price', label: 'Extra price (₦)', mode: 'decimal', ph: '0',
+            help: 'Added to the base price of ' + naira(p.price) + '. 0 means it’s included. Example: for a size that should cost ' + naira(Number(p.price) + 7000) + ' in total, enter 7000.' },
           { name: 'hint', label: 'Small note (optional)', ph: 'e.g. serves 15–20' },
           { name: 'swatch', label: 'Colour swatch (optional, for colour choices)', ph: '#F9A8C8' }
         ], cur ? { name: cur.name, price: Number(cur.price) || '', hint: cur.hint, swatch: cur.swatch } : {});
@@ -658,8 +673,73 @@
       }
       if ((v = b.getAttribute('data-vdel'))) {
         if (await A.confirm('Delete this choice?', { danger: true, confirmLabel: 'Delete' })) await run(A.sb.from('option_values').delete().eq('id', v), 'Deleted');
+        return;
       }
+      if ((v = b.getAttribute('data-vmove'))) {
+        g = groups.find(function (x) { return x.id === b.getAttribute('data-g'); }); if (!g) return;
+        var vi = g.option_values.findIndex(function (x) { return x.id === v; }), vj = vi + Number(b.getAttribute('data-dir'));
+        if (vi < 0 || vj < 0 || vj >= g.option_values.length) return;
+        var vorder = g.option_values.slice(); vorder.splice(vj, 0, vorder.splice(vi, 1)[0]);
+        var vres = await Promise.all(vorder.map(function (x, k) { return A.sb.from('option_values').update({ sort_order: k + 1 }).eq('id', x.id); }));
+        var vbad = vres.find(function (x) { return x.error; }); if (vbad) A.toast('Couldn’t reorder: ' + errMsg(vbad.error), 'error');
+        await reload();
+        return;
+      }
+      if (b.hasAttribute('data-apply')) { applyToOthers(); return; }
     });
+
+    /** Copy this product's options onto other products (replacing theirs). */
+    function applyToOthers() {
+      var main = mainOf(p);
+      var pool = S.products.filter(function (x) { return x.id !== p.id; });
+      var same = main ? pool.filter(function (x) { var mm = mainOf(x); return mm && mm.id === main.id; }) : [];
+      var list = same.length ? same : pool;
+      var f = document.createElement('form'); f.className = 'cg-form'; f.noValidate = true;
+      f.innerHTML =
+        '<p class="pp-note" style="margin:0">Give these products the same options as <b>' + esc(p.name) + '</b> (' + groups.map(function (x) { return esc(x.name); }).join(', ') + '). ' +
+          '<b>Their current options are replaced.</b> Prices of the choices are copied as they are.</p>' +
+        '<label style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" data-all checked> Select all</label>' +
+        '<div style="display:flex;flex-direction:column;gap:8px;max-height:46vh;overflow:auto">' + list.map(function (x) {
+          var has = (S.optGroups || []).some(function (gg) { return gg.menu_id === x.id; });
+          return '<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="t" value="' + esc(x.id) + '" checked> ' + esc(x.name) +
+            ' <small class="cg-help" style="margin:0">' + esc(naira(x.price)) + (has ? ' · has options' : '') + '</small></label>';
+        }).join('') + '</div>';
+      f.querySelector('[data-all]').addEventListener('change', function (e) {
+        Array.prototype.forEach.call(f.querySelectorAll('input[name="t"]'), function (c) { c.checked = e.target.checked; });
+      });
+      var busy = false;
+      var mm = A.modal({ title: 'Use these options on other products', body: f, actions: [
+        { label: 'Cancel', variant: 'ghost', onClick: function (close) { close(); } },
+        { label: 'Apply', variant: 'primary', onClick: async function (close) {
+          if (busy) return;
+          var ids = Array.prototype.filter.call(f.querySelectorAll('input[name="t"]'), function (c) { return c.checked; }).map(function (c) { return c.value; });
+          if (!ids.length) { A.toast('Tick at least one product.', 'error'); return; }
+          if (!await A.confirm('Replace the options on ' + ids.length + ' product' + (ids.length === 1 ? '' : 's') + '?', { confirmLabel: 'Replace options' })) return;
+          busy = true;
+          var btn = mm.el.querySelector('.modal-actions .btn-primary'); A.setLoading(btn, true, 'Applying…');
+          var failed = 0;
+          for (var k = 0; k < ids.length; k++) {
+            var del = await A.sb.from('option_groups').delete().eq('menu_id', ids[k]);
+            if (del.error) { failed++; continue; }
+            for (var q = 0; q < groups.length; q++) {
+              var sg = groups[q];
+              var ins = await A.sb.from('option_groups').insert({ menu_id: ids[k], name: sg.name, kind: sg.kind, required: sg.required, max_length: sg.max_length, placeholder: sg.placeholder, sort_order: sg.sort_order }).select('id').single();
+              if (ins.error) { failed++; break; }
+              if (sg.option_values.length) {
+                var vi2 = await A.sb.from('option_values').insert(sg.option_values.map(function (ov) { return { group_id: ins.data.id, name: ov.name, price: ov.price, hint: ov.hint, swatch: ov.swatch, sort_order: ov.sort_order }; }));
+                if (vi2.error) { failed++; break; }
+              }
+            }
+          }
+          // Refresh the product list's option summary.
+          var all = await A.sb.from('option_groups').select('id,menu_id,name,required').order('sort_order');
+          if (!all.error) S.optGroups = all.data || [];
+          A.setLoading(btn, false); busy = false; close();
+          if (failed) A.toast('Done, but ' + failed + ' product' + (failed === 1 ? '' : 's') + ' couldn’t be updated. Try again.', 'error');
+          else A.toast('Options applied to ' + ids.length + ' product' + (ids.length === 1 ? '' : 's') + '.', 'success');
+        } }
+      ] });
+    }
     body.addEventListener('change', async function (e) {
       if (!e.target.matches('[data-copy]') || !e.target.value) return;
       var from = S.products.find(function (x) { return x.id === e.target.value; });
