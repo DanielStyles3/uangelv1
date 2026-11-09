@@ -248,6 +248,14 @@ ul, ol { padding: 0; list-style: none; }
 .footer-col h3 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
 .footer-col a { text-decoration: none; font-weight: 600; font-size: 14.5px; color: var(--ink-2); width: fit-content; }
 .footer-col a:hover { color: var(--orange-ink); }
+.footer-col .contact-link { display: inline-flex; align-items: center; gap: 10px; min-height: 36px; }
+.ci { width: 32px; height: 32px; border-radius: 10px; flex: none; display: inline-flex; align-items: center; justify-content: center; transition: transform .2s ease; }
+.ci svg { width: 17px; height: 17px; }
+.ci-call { background: #FFF1EA; color: #FD652A; }
+.ci-wa { background: #E7F7EE; color: #1FA855; }
+.ci-mail { background: #EEF0F5; color: #181C2E; }
+.ci-ig { background: #FCE9F5; color: #D6249F; }
+.contact-link:hover .ci { transform: translateY(-2px); }
 .footer-bottom { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--muted); }
 .to-top { text-decoration: none; font-weight: 700; color: var(--ink-2); }
 
