@@ -99,9 +99,9 @@
     <section class="hero" id="top" aria-labelledby="hero-title">
       <div class="hero-inner container">
         <div>
-          <span class="tag-green">♥ Every menu item purchased feeds someone in need</span>
-          <h1 class="hero-title" id="hero-title">Good food that <span>feeds someone in need.</span></h1>
-          <p class="hero-sub">U Angel Foods serves high-quality food and beverages to the public, and uses the proceeds to fund our outreach programs that feed and care for those in need. Not through donations, but through excellence in business.</p>
+          <span class="tag-green" data-hero="tag">♥ Every menu item purchased feeds someone in need</span>
+          <h1 class="hero-title" id="hero-title"><span data-hero="title" style="color:inherit">Good food that</span> <span data-hero="highlight">feeds someone in need.</span></h1>
+          <p class="hero-sub" data-hero="subtitle">U Angel Foods serves high-quality food and beverages to the public, and uses the proceeds to fund our outreach programs that feed and care for those in need. Not through donations, but through excellence in business.</p>
           <div class="hero-ctas">
             <a class="btn btn-orange btn-lg" href="#get">Get the app →</a>
             <a class="btn btn-line btn-lg" href="#purpose">See how it works</a>
@@ -113,11 +113,18 @@
           </ul>
         </div>
         <div class="hero-art" aria-label="U Angel Foods products">
-          <figure class="pcard pcard-cake"><img src="assets/photos/cake.jpg" alt="An orange U Angel Foods birthday cake" width="1199" height="1280" fetchpriority="high"><figcaption>Birthday cakes 🎂</figcaption></figure>
-          <figure class="pcard pcard-drinks"><img src="assets/photos/drinks.jpg" alt="Three U Angel branded fruit-infused drink cans in front of a plant" width="960" height="1016"><figcaption>Fruit-infused drinks 🥤</figcaption></figure>
-          <figure class="pcard pcard-juice"><img src="assets/photos/juice.jpg" alt="A hand holding an orange-infused U Angel drink can" width="720" height="1280"><figcaption>Served chilled 🍊</figcaption></figure>
+          <figure class="pcard pcard-cake" data-hero-photo="0"><img src="assets/photos/cake.jpg" alt="An orange U Angel Foods birthday cake" width="1199" height="1280" fetchpriority="high"><figcaption>Birthday cakes</figcaption></figure>
+          <figure class="pcard pcard-drinks" data-hero-photo="1"><img src="assets/photos/drinks.jpg" alt="Three U Angel branded fruit-infused drink cans in front of a plant" width="960" height="1016"><figcaption>Fruit-infused drinks</figcaption></figure>
+          <figure class="pcard pcard-juice" data-hero-photo="2"><img src="assets/photos/juice.jpg" alt="A hand holding an orange-infused U Angel drink can" width="720" height="1280"><figcaption>Served chilled</figcaption></figure>
           <div class="heart-badge" aria-hidden="true"><b>♥</b>U Are An<br>Angel</div>
         </div>
+      </div>
+    </section>
+
+    <!-- ============ BANNERS (same as the app's Home banners; edited in Admin › Promotions) ============ -->
+    <section class="promo-strip" id="offers" aria-label="Current offers" hidden>
+      <div class="container">
+        <div class="promo-track" data-promos></div>
       </div>
     </section>
 
@@ -291,5 +298,6 @@
   </footer>
 
   <script src="js/main.js" defer></script>
+  <script src="js/live-content.js" defer></script>
 </body>
 </html>

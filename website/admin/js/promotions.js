@@ -245,7 +245,7 @@
         dispose();
         m.close();
         var st = status(res.data);
-        A.toast(st[0] === 'live' ? 'Saved. The banner is live in the app.' : 'Saved. ' + st[1] + '.', 'success');
+        A.toast(st[0] === 'live' ? 'Saved. The banner is live in the app and on the website.' : 'Saved. ' + st[1] + '.', 'success');
         renderList();
       } finally {
         busy = false;
@@ -262,7 +262,7 @@
   }
 
   async function remove(p, close) {
-    if (!await A.confirm('Delete the banner “' + p.title + '”? It disappears from the app.\n\nTip: switch it off instead if you might use it again.', { danger: true, confirmLabel: 'Delete banner' })) return;
+    if (!await A.confirm('Delete the banner “' + p.title + '”? It disappears from the app and the website.\n\nTip: switch it off instead if you might use it again.', { danger: true, confirmLabel: 'Delete banner' })) return;
     var res = await A.sb.from('promotions').delete().eq('id', p.id);
     if (res.error) { A.toast('Couldn’t delete: ' + errMsg(res.error), 'error'); return; }
     S.rows = S.rows.filter(function (x) { return x.id !== p.id; });
@@ -276,9 +276,9 @@
   async function render(el) {
     S = { el: el, rows: [], cats: [], products: [] };
     el.innerHTML =
-      '<div class="page-head"><div><h1>Promotions</h1><p data-sub>Banners at the top of the app’s Home screen.</p></div>' +
+      '<div class="page-head"><div><h1>Promotions</h1><p data-sub>Banners in the app and on the website.</p></div>' +
         '<div class="actions"><button type="button" class="btn btn-primary" data-new>' + I.plus + 'New banner</button></div></div>' +
-      '<p class="pp-note">These banners slide at the top of the app’s Home screen, in this order. Switch one off to hide it, or give it dates so it starts and ends by itself.</p>' +
+      '<p class="pp-note">These banners slide at the top of the app’s Home screen and show under the headline on uangelfoods.com, in this order. Tap a banner to change its photo or text. Switch one off to hide it, or give it dates so it starts and ends by itself.</p>' +
       '<div data-list>' + A.skeletonBlocks(3, 'pr-sk') + '</div>';
 
     el.addEventListener('click', function (e) {

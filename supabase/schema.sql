@@ -1346,3 +1346,20 @@ as $$
        and coalesce(paid_at, created_at) <  timestamptz '2026-12-16 00:00:00+01';
 $$;
 grant execute on function public.campaign_progress() to anon, authenticated;
+-- ---------------------------------------------------------------------------
+-- Website content the admin can edit (Admin › Website). Key 'website_hero':
+-- { tag, title, highlight, subtitle, photos: [{ url, caption } x3] }
+-- ---------------------------------------------------------------------------
+create table if not exists public.site_settings (
+    key        text primary key,
+    value      jsonb not null default '{}'::jsonb,
+    updated_at timestamptz not null default now()
+);
+alter table public.site_settings enable row level security;
+drop policy if exists "Site settings are public" on public.site_settings;
+create policy "Site settings are public" on public.site_settings for select to anon, authenticated using (true);
+drop policy if exists "Admins manage site settings" on public.site_settings;
+create policy "Admins manage site settings" on public.site_settings for all to authenticated
+    using ((select public.is_admin())) with check ((select public.is_admin()));
+grant select on public.site_settings to anon, authenticated;
+grant insert, update, delete on public.site_settings to authenticated;
