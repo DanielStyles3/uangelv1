@@ -1363,3 +1363,30 @@ create policy "Admins manage site settings" on public.site_settings for all to a
     using ((select public.is_admin())) with check ((select public.is_admin()));
 grant select on public.site_settings to anon, authenticated;
 grant insert, update, delete on public.site_settings to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Optional per-product delivery fee (e.g. a test product). Used only when EVERY
+-- item in the order has one; otherwise the category rule (2000 / 5000) applies.
+-- ---------------------------------------------------------------------------
+alter table public.menu add column if not exists delivery_fee numeric check (delivery_fee is null or delivery_fee >= 0);
+
+create or replace function public.delivery_fee_for(p_menu_ids uuid[])
+returns numeric language sql stable set search_path to '' as $$
+    with recursive items as (
+        select m.id, m.category_id, m.delivery_fee from public.menu m where m.id = any (coalesce(p_menu_ids, '{}'))
+    ), up as (
+        select c.id, c.parent_id, c.name, 1 as depth
+          from items m join public.categories c on c.id = m.category_id
+        union all
+        select c.id, c.parent_id, c.name, up.depth + 1
+          from up join public.categories c on c.id = up.parent_id
+         where up.depth < 10
+    )
+    select case
+        when exists (select 1 from items) and not exists (select 1 from items where delivery_fee is null)
+            then (select max(delivery_fee) from items)
+        when exists (select 1 from up where up.parent_id is null and up.name in ('Groceries & Essentials', 'The Local Market'))
+            then 5000::numeric
+        else 2000::numeric
+    end;
+$$;
