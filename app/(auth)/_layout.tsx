@@ -16,6 +16,8 @@ import Animated, {
 } from "react-native-reanimated";
 
 import useAuthStore from "@/store/auth.store";
+import useFetch from "@/lib/useFetch";
+import {getAuthScreenContent} from "@/lib/api";
 import {SPLASH_BACKGROUND} from "@/components/AnimatedSplash";
 
 // NOTE: layout here uses StyleSheet (not className) on purpose: NativeWind doesn't apply
@@ -31,7 +33,9 @@ const CARDS: { source: ImageSourcePropType; w: number; h: number; rotate: number
     { source: require('../../assets/images/auth/drinks.jpg'), w: 140, h: 172, rotate: 3,   x: 0,     y: 6,  z: 2, float: 2300, delay: 0 },
 ];
 
-const PhotoCard = ({ card, reduceMotion }: { card: (typeof CARDS)[number]; reduceMotion: boolean }) => {
+const PhotoCard = ({ card, uri, reduceMotion }: { card: (typeof CARDS)[number]; uri?: string; reduceMotion: boolean }) => {
+    // Admin photo (Admin › Website & app); the bundled photo shows until it loads or if it fails.
+    const [failed, setFailed] = useState(false);
     const enter = useSharedValue(reduceMotion ? 1 : 0);
     const drift = useSharedValue(0);
 
@@ -64,7 +68,13 @@ const PhotoCard = ({ card, reduceMotion }: { card: (typeof CARDS)[number]; reduc
                 zIndex: card.z,
             }, animated]}
         >
-            <Image source={card.source} style={styles.cardImage} resizeMode="cover" />
+            <Image
+                source={uri && !failed ? { uri } : card.source}
+                defaultSource={card.source as number}
+                onError={() => setFailed(true)}
+                style={styles.cardImage}
+                resizeMode="cover"
+            />
         </Animated.View>
     );
 };
@@ -116,6 +126,9 @@ export default function AuthLayout() {
     const insets = useSafeAreaInsets();
     const pathname = usePathname();
     const reduceMotion = useReducedMotion();
+    // Order matches CARDS: [left, right, centre].
+    const { data: authContent } = useFetch({ fn: getAuthScreenContent });
+    const photos = (authContent?.photos ?? []).filter((u): u is string => typeof u === 'string' && /^https:\/\//.test(u));
 
     const sheetY = useSharedValue(reduceMotion ? 0 : 80);
     useEffect(() => {
@@ -154,7 +167,7 @@ export default function AuthLayout() {
                         />
 
                         <View style={styles.collage}>
-                            {CARDS.map((card, i) => <PhotoCard key={i} card={card} reduceMotion={reduceMotion} />)}
+                            {CARDS.map((card, i) => <PhotoCard key={i} card={card} uri={photos[i]} reduceMotion={reduceMotion} />)}
                         </View>
                     </View>
 

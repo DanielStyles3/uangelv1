@@ -8,7 +8,7 @@ import CartButton from "@/components/CartButton";
 import CustomButton from "@/components/CustomButton";
 import PromoCarousel, {PromoSlide} from "@/components/PromoCarousel";
 import ProductImage from "@/components/ProductImage";
-import {getCampaignProgress, getCategories, getHomeProducts, getOrders, getProductsNeedingChoices, getPromotions, HomeProduct} from "@/lib/api";
+import {getCampaignProgress, getCategories, getChristmasBanner,getHomeProducts, getOrders, getProductsNeedingChoices, getPromotions, HomeProduct} from "@/lib/api";
 import {CAMPAIGN_FLYER, CAMPAIGN_GOAL, campaignDaysLeft, campaignLive} from "@/constants/campaign";
 import {formatNaira} from "@/lib/format";
 import useFetch from "@/lib/useFetch";
@@ -44,6 +44,7 @@ export default function Index() {
   const { data: orders, refetch: refetchOrders } = useFetch({ fn: getOrders, skip: !user });
   const { data: promos, refetch: refetchPromos } = useFetch({ fn: getPromotions });
   const { data: preorders, refetch: refetchPreorders } = useFetch({ fn: getCampaignProgress, skip: !campaignLive() });
+  const { data: xmas, refetch: refetchXmas } = useFetch({ fn: getChristmasBanner, skip: !campaignLive() });
   const [refreshing, setRefreshing] = useState(false);
 
   const firstName = user?.name?.trim().split(/\s+/)[0];
@@ -106,17 +107,20 @@ export default function Index() {
   }, [categories, promos]);
 
   const slides: PromoSlide[] = useMemo(() => {
-    const christmas: PromoSlide[] = campaignLive() ? [{
-      id: 'christmas', eyebrow: '🎄 Christmas pre-order', title: `Help us reach ${CAMPAIGN_GOAL.toLocaleString('en-NG')} pre-orders`,
-      cta: 'Pre-order now', color: '#C8102E', ctaBackground: '#F5B301', ctaTextColor: '#181C2E', eyebrowColor: '#FDE68A',
-      image: CAMPAIGN_FLYER, onPress: () => router.push('/christmas'),
+    // Text/photo come from Admin › Promotions (Christmas banner); built-in values are the fallback.
+    const christmas: PromoSlide[] = campaignLive() && xmas?.enabled !== false ? [{
+      id: 'christmas',
+      eyebrow: xmas?.eyebrow?.trim() || 'Christmas pre-order',
+      title: xmas?.title?.trim() || `Help us reach ${CAMPAIGN_GOAL.toLocaleString('en-NG')} pre-orders`,
+      cta: xmas?.cta?.trim() || 'Pre-order now', color: '#C8102E', ctaBackground: '#F5B301', ctaTextColor: '#181C2E', eyebrowColor: '#FDE68A',
+      image: xmas?.image_url ? { uri: xmas.image_url } : CAMPAIGN_FLYER, onPress: () => router.push('/christmas'),
       progress: {
         fraction: (preorders ?? 0) / CAMPAIGN_GOAL,
         label: `${(preorders ?? 0).toLocaleString('en-NG')} so far · ${campaignDaysLeft()} day${campaignDaysLeft() === 1 ? '' : 's'} left`,
       },
     }] : [];
     return [...christmas, ...baseSlides];
-  }, [preorders, baseSlides]);
+  }, [preorders, baseSlides, xmas]);
 
   // Cakes etc. need a size/flavour first: open their page instead of adding straight away.
   const addToCart = async (p: HomeProduct) => {
@@ -126,7 +130,7 @@ export default function Index() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetch(), refetchProducts(), refetchPromos(), campaignLive() ? refetchPreorders() : Promise.resolve(), user ? refetchOrders() : Promise.resolve()]);
+    await Promise.all([refetch(), refetchProducts(), refetchPromos(), campaignLive() ? Promise.all([refetchPreorders(), refetchXmas()]) : Promise.resolve(), user ? refetchOrders() : Promise.resolve()]);
     setRefreshing(false);
   };
 

@@ -46,7 +46,106 @@
 
   /* ---------------- Data ---------------- */
 
+  /* ---------------- Christmas banner (site_settings 'christmas_banner') ---------------- */
+
+  var XMAS_KEY = 'christmas_banner';
+  var XMAS_COLOR = '#C8102E';
+  var XMAS_DEFAULT = { enabled: true, eyebrow: 'Christmas pre-order', title: 'Help us reach 10,000 pre-orders', cta: 'Pre-order now', image_url: 'https://uangelfoods.com/assets/campaign/xmas-10000-preorders.jpg' };
+
+  function xmasHtml() {
+    var x = S.xmas;
+    return '<div class="card" style="padding:14px;margin-bottom:18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap">' +
+      '<button type="button" class="pr-preview" data-xmas-edit aria-label="Edit the Christmas banner" style="flex:1 1 280px;max-width:420px">' +
+        bannerHtml({ eyebrow: x.eyebrow, title: x.title, cta: x.cta, color: XMAS_COLOR }, x.image_url) + '</button>' +
+      '<div style="flex:1 1 220px;display:flex;flex-direction:column;gap:8px">' +
+        '<b>Christmas pre-order banner</b>' +
+        '<span class="cg-help" style="margin:0">Always first in the app, with the live pre-order progress bar. Also controls the Christmas section on the website. Ends by itself after 15 December.</span>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
+          '<button type="button" class="pp-switch" role="switch" aria-checked="' + (x.enabled !== false) + '" data-xmas-toggle aria-label="Show the Christmas banner"><i></i>' + (x.enabled !== false ? 'On' : 'Off') + '</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-xmas-edit>Edit</button>' +
+        '</div>' +
+      '</div></div>';
+  }
+
+  async function saveXmas(value) {
+    var res = await A.sb.from('site_settings').upsert({ key: XMAS_KEY, value: value, updated_at: new Date().toISOString() }).select('value').single();
+    if (res.error) throw res.error;
+    S.xmas = Object.assign({}, XMAS_DEFAULT, res.data.value);
+  }
+
+  async function toggleXmas(btn) {
+    btn.disabled = true;
+    try {
+      await saveXmas(Object.assign({}, S.xmas, { enabled: S.xmas.enabled === false }));
+      A.toast(S.xmas.enabled === false ? 'Christmas banner hidden in the app and on the website.' : 'Christmas banner is showing again.', 'success');
+      renderList();
+    } catch (e) { A.toast('Couldn’t update: ' + errMsg(e), 'error'); btn.disabled = false; }
+  }
+
+  function openXmasEditor() {
+    var d = Object.assign({}, S.xmas, { file: null, objUrl: null });
+    var form = document.createElement('form');
+    form.className = 'cg-form';
+    form.noValidate = true;
+    form.innerHTML =
+      '<div class="field"><span class="cg-lbl">Preview</span><div data-preview></div></div>' +
+      '<div class="field"><span class="cg-lbl">Photo</span>' +
+        '<div class="cg-drop"><span>The campaign flyer works well here.</span>' +
+          '<div class="cg-drop-btns"><label class="btn btn-ghost btn-sm" for="xm-file" tabindex="0" role="button">Choose photo</label></div>' +
+          '<input type="file" id="xm-file" class="cg-file" accept="image/jpeg,image/png,image/webp">' +
+          '<span class="cg-err" data-err="photo" role="alert"></span></div></div>' +
+      '<div class="field"><label for="xm-title">Headline</label><input id="xm-title" name="title" class="input" maxlength="60" value="' + esc(d.title) + '"></div>' +
+      '<div class="pp-two"><div class="field"><label for="xm-eyebrow">Small heading</label><input id="xm-eyebrow" name="eyebrow" class="input" maxlength="30" value="' + esc(d.eyebrow) + '"></div>' +
+        '<div class="field"><label for="xm-cta">Button text</label><input id="xm-cta" name="cta" class="input" maxlength="24" value="' + esc(d.cta) + '"></div></div>' +
+      '<p class="cg-help" style="margin:0">Tapping it opens the Christmas page in the app.</p>' +
+      '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
+    var input = form.querySelector('#xm-file');
+    function paint() { form.querySelector('[data-preview]').innerHTML = bannerHtml({ eyebrow: d.eyebrow, title: d.title, cta: d.cta, color: XMAS_COLOR }, d.objUrl || d.image_url); }
+    function dispose() { if (d.objUrl) URL.revokeObjectURL(d.objUrl); }
+    paint();
+    input.addEventListener('change', function () {
+      var file = input.files && input.files[0]; input.value = '';
+      var err = form.querySelector('[data-err="photo"]'); err.textContent = '';
+      if (!file) return;
+      if (IMG_TYPES.indexOf(file.type) === -1) { err.textContent = 'Please choose a JPEG, PNG or WebP image.'; return; }
+      if (file.size > 5 * 1024 * 1024) { err.textContent = 'That image is larger than 5 MB.'; return; }
+      dispose(); d.file = file; d.objUrl = URL.createObjectURL(file); paint();
+    });
+    form.addEventListener('input', function (e) { var n = e.target.name; if (n === 'title' || n === 'eyebrow' || n === 'cta') { d[n] = e.target.value; paint(); } });
+    var busy = false, m;
+    async function save() {
+      if (busy) return;
+      busy = true;
+      var btn = m.el.querySelector('.modal-actions .btn-primary');
+      A.setLoading(btn, true, 'Saving…');
+      try {
+        var url = d.image_url;
+        if (d.file) {
+          try { url = await A.uploadImage(d.file, 'promotions'); }
+          catch (e) { A.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
+        }
+        await saveXmas({
+          enabled: S.xmas.enabled !== false,
+          eyebrow: d.eyebrow.trim() || XMAS_DEFAULT.eyebrow, title: d.title.trim() || XMAS_DEFAULT.title,
+          cta: d.cta.trim() || XMAS_DEFAULT.cta, image_url: url
+        });
+        dispose(); m.close();
+        A.toast('Saved. The Christmas banner is updated in the app and on the website.', 'success');
+        renderList();
+      } catch (e) { A.toast('Couldn’t save: ' + errMsg(e), 'error'); }
+      finally { busy = false; if (m.isOpen()) A.setLoading(btn, false); }
+    }
+    form.addEventListener('submit', function (e) { e.preventDefault(); save(); });
+    m = A.modal({ title: 'Christmas banner', body: form, className: 'cg-drawer', onClose: dispose, actions: [
+      { label: 'Cancel', variant: 'ghost', onClick: function (close) { dispose(); close(); } },
+      { label: 'Save changes', variant: 'primary', onClick: function () { save(); } }
+    ] });
+  }
+
   async function load() {
+    var xr = await A.sb.from('site_settings').select('value').eq('key', XMAS_KEY).maybeSingle();
+    S.xmas = Object.assign({}, XMAS_DEFAULT, (xr && !xr.error && xr.data && xr.data.value) || {});
+    S.xmasLive = Date.now() < Date.UTC(2026, 11, 15, 22, 59); // same end as the app (constants/campaign.ts)
     var r = await Promise.all([
       A.sb.from('promotions').select(COLS).order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
       A.sb.from('categories').select('id,name,parent_id,kind,sort_order').is('parent_id', null).order('sort_order'),
@@ -63,14 +162,16 @@
   function renderList() {
     var box = S.el.querySelector('[data-list]');
     var live = S.rows.filter(function (p) { return status(p)[0] === 'live'; }).length;
-    S.el.querySelector('[data-sub]').textContent = live + ' live banner' + (live === 1 ? '' : 's') + ' · ' + S.rows.length + ' in total';
+    var xOn = S.xmasLive && S.xmas.enabled !== false ? 1 : 0;
+    S.el.querySelector('[data-sub]').textContent = (live + xOn) + ' live banner' + (live + xOn === 1 ? '' : 's') + (xOn ? ' (including Christmas)' : '') + ' · ' + (S.rows.length + (S.xmasLive ? 1 : 0)) + ' in total';
+    var pinned = S.xmasLive ? xmasHtml() : '';
     if (!S.rows.length) {
-      box.innerHTML = '<div class="card pr-empty">' + A.emptyState('No banners yet',
+      box.innerHTML = pinned + '<div class="card pr-empty">' + A.emptyState('No banners yet',
         'Until you add one, the app shows its two built-in banners (drinks and cakes). Add a banner to promote a category, a product or your catering service.', I.image) +
         '<div style="text-align:center;padding-bottom:22px"><button type="button" class="btn btn-primary" data-new>' + I.plus + 'New banner</button></div></div>';
       return;
     }
-    box.innerHTML = (live > MAX_LIVE ? '<p class="cg-warn">' + live + ' banners are live. Customers rarely swipe past ' + MAX_LIVE + ', so consider switching some off.</p>' : '') +
+    box.innerHTML = pinned + (live > MAX_LIVE ? '<p class="cg-warn">' + live + ' banners are live. Customers rarely swipe past ' + MAX_LIVE + ', so consider switching some off.</p>' : '') +
       '<div class="pr-list">' + S.rows.map(function (p, i) {
         var st = status(p);
         return '<article class="card pr-row' + (st[0] === 'live' ? '' : ' dim') + '">' +
@@ -286,6 +387,8 @@
       if (!b || b.disabled || !S.loaded) return;
       var v;
       if (b.hasAttribute('data-new')) return openEditor(null);
+      if (b.hasAttribute('data-xmas-edit')) return openXmasEditor();
+      if (b.hasAttribute('data-xmas-toggle')) return toggleXmas(b);
       if ((v = b.getAttribute('data-edit'))) { var p = S.rows.find(function (x) { return x.id === v; }); if (p) openEditor(p); return; }
       if ((v = b.getAttribute('data-toggle'))) { var t = S.rows.find(function (x) { return x.id === v; }); if (t) toggle(t, b); return; }
       if ((v = b.getAttribute('data-move'))) move(v, Number(b.getAttribute('data-dir')));

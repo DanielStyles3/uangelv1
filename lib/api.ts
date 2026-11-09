@@ -193,6 +193,19 @@ export const getPromotions = async (): Promise<Promotion[]> => {
     return (data ?? []) as Promotion[];
 }
 
+/** Admin-editable content (Admin › Website & app / Promotions). Null if missing or offline. */
+export type ChristmasBanner = { enabled?: boolean; eyebrow?: string; title?: string; cta?: string; image_url?: string };
+export type AuthScreenContent = { photos?: string[] };
+
+export const getSiteSetting = async <T,>(key: string): Promise<T | null> => {
+    const { data, error } = await supabase.from('site_settings').select('value').eq('key', key).maybeSingle();
+    if (error || !data) return null;
+    return data.value as T;
+}
+
+export const getChristmasBanner = () => getSiteSetting<ChristmasBanner>('christmas_banner');
+export const getAuthScreenContent = () => getSiteSetting<AuthScreenContent>('app_auth');
+
 /** Christmas pre-order campaign: paid orders so far (0 if unavailable). */
 export const getCampaignProgress = async (): Promise<number> => {
     const { data, error } = await supabase.rpc('campaign_progress');

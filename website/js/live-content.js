@@ -45,6 +45,27 @@
     });
   }).catch(function () { /* keep defaults */ });
 
+  // ---- Christmas campaign (Admin › Promotions › Christmas banner) ----
+  get('site_settings?select=value&key=eq.christmas_banner').then(function (rows) {
+    var x = rows && rows[0] && rows[0].value;
+    if (!x) return;
+    if (x.enabled === false) {
+      Array.prototype.forEach.call(document.querySelectorAll('[data-xmas], [data-xmas-link], #xbar'), function (el) { el.hidden = true; el.style.display = 'none'; });
+      return;
+    }
+    var h = document.getElementById('xmas-title');
+    // Keep the designed heading ("…by 15 December", bold number) unless the admin changed it.
+    if (h && typeof x.title === 'string' && x.title.trim() && x.title.trim() !== 'Help us reach 10,000 pre-orders') h.textContent = x.title.trim();
+    var eyebrow = document.querySelector('#christmas .eyebrow');
+    if (eyebrow && typeof x.eyebrow === 'string' && x.eyebrow.trim()) eyebrow.textContent = x.eyebrow.trim();
+    var cta = document.querySelector('#christmas .hero-ctas a');
+    if (cta && typeof x.cta === 'string' && x.cta.trim()) cta.textContent = x.cta.trim() + ' →';
+    var img = document.querySelector('#christmas .flyer img'), url = safeUrl(x.image_url);
+    if (img && url && img.getAttribute('src') !== url && !/xmas-10000-preorders\.jpg$/.test(url)) {
+      img.removeAttribute('width'); img.removeAttribute('height'); img.src = url;
+    }
+  }).catch(function () { /* keep defaults */ });
+
   // ---- Banners (live ones only; RLS already hides switched-off / out-of-date banners) ----
   var strip = document.getElementById('offers');
   var track = strip && strip.querySelector('[data-promos]');

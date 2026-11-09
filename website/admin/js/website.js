@@ -30,7 +30,7 @@
     var files = [null, null, null], objUrls = [null, null, null];
 
     el.innerHTML =
-      '<div class="page-head"><div><h1>Website</h1><p>The top of uangelfoods.com: headline, intro and photos.</p></div>' +
+      '<div class="page-head"><div><h1>Website &amp; app</h1><p>The top of uangelfoods.com, and the photos on the app’s Sign in and Sign up screens.</p></div>' +
         '<div class="actions"><a class="btn btn-ghost" href="/" target="_blank" rel="noopener">View website</a></div></div>' +
       '<p class="pp-note">Changes show on the website as soon as you save. The coloured banners under this section are the same as the app’s and are edited in <a href="#/promotions">Promotions</a>.</p>' +
       '<div data-body>' + A.skeletonBlocks(2, 'pr-sk') + '</div>';
@@ -158,7 +158,113 @@
       }
     }
     form.addEventListener('submit', function (e) { e.preventDefault(); save(); });
+
+    renderAuthPhotos(body);
   }
 
-  A.registerSection({ id: 'website', label: 'Website', icon: ICON, order: 5.6, render: render });
+  /* ---------------- App: Sign in / Sign up photos (site_settings 'app_auth') ---------------- */
+
+  var AUTH_KEY = 'app_auth';
+  var AUTH_SLOTS = ['Left photo', 'Right photo', 'Centre photo (front)'];
+  var AUTH_DEFAULT = [
+    'https://uangelfoods.com/assets/photos/cake.jpg',
+    'https://uangelfoods.com/assets/photos/juice.jpg',
+    'https://uangelfoods.com/assets/photos/drinks.jpg'
+  ];
+
+  async function renderAuthPhotos(container) {
+    var wrap = document.createElement('div');
+    wrap.style.marginTop = '28px';
+    wrap.innerHTML =
+      '<div class="page-head" style="margin-bottom:8px"><div><h2 style="margin:0;font-size:20px">App: Sign in &amp; Sign up</h2>' +
+        '<p>The three floating photos on the orange top of the app’s Sign in and Sign up screens.</p></div></div>' +
+      '<div data-auth>' + A.skeletonBlocks(1, 'pr-sk') + '</div>';
+    container.appendChild(wrap);
+
+    var res = await A.sb.from('site_settings').select('value').eq('key', AUTH_KEY).maybeSingle();
+    if (!wrap.isConnected) return;
+    var photos = AUTH_DEFAULT.slice();
+    if (!res.error && res.data && res.data.value && Array.isArray(res.data.value.photos)) {
+      res.data.value.photos.slice(0, 3).forEach(function (u, i) { if (typeof u === 'string' && u) photos[i] = u; });
+    }
+    var files = [null, null, null], objUrls = [null, null, null];
+
+    var box = wrap.querySelector('[data-auth]');
+    box.innerHTML =
+      '<form class="card cg-form" style="padding:22px;max-width:860px" novalidate>' +
+        '<div style="background:#FD652A;border-radius:18px;padding:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px">' +
+          AUTH_SLOTS.map(function (label, i) {
+            return '<div style="display:flex;flex-direction:column;gap:8px;align-items:stretch">' +
+              '<div style="aspect-ratio:4/5;border-radius:16px;overflow:hidden;border:4px solid #fff;background:#fff"><img data-aimg="' + i + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></div>' +
+              '<label class="btn btn-ghost btn-sm" style="justify-content:center;background:#fff" tabindex="0" role="button" for="au-file-' + i + '">Change</label>' +
+              '<input type="file" id="au-file-' + i + '" class="cg-file" accept="image/jpeg,image/png,image/webp" data-afile="' + i + '">' +
+              '<span style="color:#fff;font-size:12px;font-weight:700;text-align:center">' + esc(label) + '</span>' +
+              '<span class="cg-err" data-aerr="' + i + '" role="alert" style="color:#fff"></span>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+        '<p class="cg-help" style="margin:0">Portrait photos work best. Customers see the new photos the next time they open Sign in.</p>' +
+        '<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">' +
+          '<button type="button" class="btn btn-ghost" data-areset>Restore original</button>' +
+          '<button type="submit" class="btn btn-primary" data-asave>Save photos</button>' +
+        '</div>' +
+      '</form>';
+
+    var form = box.querySelector('form');
+    function paint() { photos.forEach(function (u, i) { form.querySelector('[data-aimg="' + i + '"]').src = objUrls[i] || u; }); }
+    paint();
+
+    form.addEventListener('change', function (e) {
+      var i = e.target.getAttribute('data-afile');
+      if (i === null) return;
+      i = Number(i);
+      var file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      var err = form.querySelector('[data-aerr="' + i + '"]');
+      err.textContent = '';
+      if (!file) return;
+      if (IMG_TYPES.indexOf(file.type) === -1) { err.textContent = 'Use a JPEG, PNG or WebP.'; return; }
+      if (file.size > 5 * 1024 * 1024) { err.textContent = 'Larger than 5 MB.'; return; }
+      if (objUrls[i]) URL.revokeObjectURL(objUrls[i]);
+      files[i] = file; objUrls[i] = URL.createObjectURL(file);
+      paint();
+    });
+    Array.prototype.forEach.call(form.querySelectorAll('label[for^="au-file-"]'), function (l) {
+      l.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); form.querySelector('#' + l.getAttribute('for')).click(); } });
+    });
+
+    var busy = false;
+    async function save() {
+      if (busy) return;
+      busy = true;
+      var btn = form.querySelector('[data-asave]');
+      A.setLoading(btn, true, 'Saving…');
+      try {
+        for (var i = 0; i < 3; i++) {
+          if (!files[i]) continue;
+          try { photos[i] = await A.uploadImage(files[i], 'app-auth'); }
+          catch (e) { A.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
+          files[i] = null;
+        }
+        var r = await A.sb.from('site_settings').upsert({ key: AUTH_KEY, value: { photos: photos }, updated_at: new Date().toISOString() }).select('key').single();
+        if (r.error) { A.toast('Couldn’t save: ' + errMsg(r.error), 'error'); return; }
+        A.toast('Saved. The app’s Sign in and Sign up screens are updated.', 'success');
+      } finally {
+        busy = false;
+        A.setLoading(btn, false);
+      }
+    }
+    form.addEventListener('submit', function (e) { e.preventDefault(); save(); });
+    form.querySelector('[data-areset]').addEventListener('click', async function () {
+      if (!await A.confirm('Put back the original Sign in photos?', { confirmLabel: 'Restore original' })) return;
+      photos = AUTH_DEFAULT.slice();
+      files = [null, null, null];
+      objUrls.forEach(function (u) { if (u) URL.revokeObjectURL(u); });
+      objUrls = [null, null, null];
+      paint();
+      save();
+    });
+  }
+
+  A.registerSection({ id: 'website', label: 'Website & app', icon: ICON, order: 5.6, render: render });
 })();
