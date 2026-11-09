@@ -1,26 +1,35 @@
-import { useState } from "react";
-import { Alert, Image, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ReactNode, useState } from "react";
+import { Alert, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import Animated, { FadeIn, FadeInDown, ZoomIn } from "react-native-reanimated";
 
 import StatePicker from "@/components/StatePicker";
-import { images } from "@/constants";
+import ProductImage from "@/components/ProductImage";
 import { createServiceRequest, getCategory, getSubcategories } from "@/lib/api";
 import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
 import useFetch from "@/lib/useFetch";
 import useAuthStore from "@/store/auth.store";
 
+type IconName = keyof typeof Ionicons.glyphMap;
+
 const ORANGE = "#FD652A";
 const INK = "#181C2E";
+const GREY = "#5B5B66";
+const LINE = "#E8E8EE";
+const BG = "#F6F6F8";
 const PURPLE = "#6B21A8";
-const CUSTOM = "Customised event";
+const isCustomName = (n?: string | null) => !!n && n.trim().toLowerCase() === "customised event";
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const NEEDS: [string, string][] = [["🍲", "Food"], ["🥤", "Drinks"], ["🎂", "Cake"], ["🎈", "Decor"], ["🪑", "Chairs & canopies"], ["🧑‍🍳", "Waiters"], ["🎤", "MC / DJ"], ["🍢", "Food stands"]];
-const TIMES = ["Morning", "Afternoon", "Evening"];
-const PLACES = ["Indoor", "Outdoor", "Not sure yet"];
-const STEP_TITLES = ["Your event", "Guests & budget", "Where is it?", "Your details"];
+const NEEDS: [IconName, string][] = [
+    ["restaurant", "Food"], ["wine", "Drinks"], ["gift", "Cake"], ["balloon", "Decor"],
+    ["umbrella", "Chairs & canopies"], ["people", "Waiters"], ["mic", "MC / DJ"], ["storefront", "Food stands"],
+];
+const TIMES: [IconName, string, string][] = [["sunny", "Morning", "Before 12pm"], ["partly-sunny", "Afternoon", "12pm – 4pm"], ["moon", "Evening", "After 4pm"]];
+const PLACES: [IconName, string][] = [["home", "Indoor"], ["leaf", "Outdoor"], ["help-circle", "Not sure yet"]];
+const STEP_TITLES = ["Your event", "Guests & budget", "Venue", "Your details"];
 
 const digitsOnly = (s: string) => s.replace(/[^\d]/g, "");
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -58,34 +67,73 @@ function Calendar({ value, onChange }: { value: Date | null; onChange: (d: Date)
                         const date = new Date(view.getFullYear(), view.getMonth(), d);
                         const past = date < today;
                         const sel = !!value && value.getTime() === date.getTime();
+                        const isToday = date.getTime() === today.getTime();
                         return (
-                            <TouchableOpacity key={i} style={[styles.calCell, sel && styles.calSel]} disabled={past}
+                            <TouchableOpacity key={i} style={styles.calCell} disabled={past}
                                 onPress={() => { Haptics.selectionAsync().catch(() => {}); onChange(date); }}
                                 accessibilityLabel={date.toDateString()} accessibilityState={{ selected: sel, disabled: past }}>
-                                <Text style={[styles.calDay, past && { color: "#CFCFD6" }, sel && { color: "#fff" }]}>{d}</Text>
+                                <View style={[styles.calDot, sel && styles.calSel, isToday && !sel && styles.calToday]}>
+                                    <Text style={[styles.calDay, past && { color: "#CFCFD6" }, sel && { color: "#fff" }]}>{d}</Text>
+                                </View>
                             </TouchableOpacity>
                         );
                     })}
                 </View>
             ))}
-            <Text style={styles.calNote}>
-                {value ? value.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Pick the date of your event."}
-            </Text>
+            <View style={[styles.calNote, value && { backgroundColor: "#FFF1EA" }]}>
+                <Ionicons name="calendar" size={15} color={value ? ORANGE : GREY} />
+                <Text style={[styles.calNoteText, value && { color: INK }]}>
+                    {value ? value.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Pick the date of your event"}
+                </Text>
+            </View>
         </View>
     );
 }
 
-const Chip = ({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) => (
-    <TouchableOpacity style={[styles.chip, on && styles.chipOn]} onPress={onPress} accessibilityRole="radio" accessibilityState={{ checked: on }}>
-        <Text style={styles.chipText}>{label}</Text>
-    </TouchableOpacity>
-);
-
-const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <View style={{ gap: 8 }}>
-        <Text style={styles.label}>{label}</Text>
+const Section = ({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) => (
+    <View style={{ gap: 10 }}>
+        <View style={{ gap: 2 }}>
+            <Text style={styles.label}>{title}</Text>
+            {hint ? <Text style={styles.labelHint}>{hint}</Text> : null}
+        </View>
         {children}
     </View>
+);
+
+/** Input with a leading icon. */
+const IconInput = ({ icon, ...props }: { icon: IconName } & TextInputProps) => {
+    const [focused, setFocused] = useState(false);
+    return (
+        <View style={[styles.inputBox, focused && styles.inputFocused, props.multiline && { alignItems: "flex-start", paddingTop: 12 }]}>
+            <Ionicons name={icon} size={18} color={focused ? ORANGE : "#9A9AA3"} />
+            <TextInput
+                placeholderTextColor="#A0A0AB"
+                {...props}
+                onFocus={(e) => { setFocused(true); props.onFocus?.(e); }}
+                onBlur={(e) => { setFocused(false); props.onBlur?.(e); }}
+                style={[styles.inputText, props.multiline && { minHeight: 84, textAlignVertical: "top" }]}
+            />
+        </View>
+    );
+};
+
+/** Tappable option card with an icon (time of day, venue, needs). */
+const OptionCard = ({ icon, label, sub, on, onPress, style, check }: {
+    icon: IconName; label: string; sub?: string; on: boolean; onPress: () => void; style?: object; check?: boolean;
+}) => (
+    <TouchableOpacity style={[styles.opt, on && styles.optOn, style]} onPress={onPress} activeOpacity={0.85}
+        accessibilityRole={check ? "checkbox" : "radio"} accessibilityState={{ checked: on }}>
+        <View style={[styles.optIcon, on && { backgroundColor: ORANGE }]}>
+            <Ionicons name={icon} size={18} color={on ? "#fff" : ORANGE} />
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.optLabel} numberOfLines={1}>{label}</Text>
+            {sub ? <Text style={styles.optSub} numberOfLines={1}>{sub}</Text> : null}
+        </View>
+        {check && (
+            <View style={[styles.check, on && styles.checkOn]}>{on && <Ionicons name="checkmark" size={12} color="#fff" />}</View>
+        )}
+    </TouchableOpacity>
 );
 
 /**
@@ -95,6 +143,7 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
 export default function ServiceRequestScreen() {
     const { categoryId, subcategoryId } = useLocalSearchParams<{ categoryId: string; subcategoryId?: string }>();
     const { user, isAuthenticated } = useAuthStore();
+    const insets = useSafeAreaInsets();
 
     const { data: category } = useFetch({ fn: getCategory, params: { id: categoryId ?? "" }, skip: !categoryId });
     const { data: eventTypes } = useFetch({ fn: getSubcategories, params: { parentId: categoryId ?? "" }, skip: !categoryId });
@@ -128,10 +177,11 @@ export default function ServiceRequestScreen() {
     const hasOptions = !!chosenType?.child_count && (options?.length ?? 0) > 0;
     const option = hasOptions ? options?.find((o) => o.id === optionId) : undefined;
     const picked = hasOptions ? option : chosenType;            // the most specific choice
-    const isCustom = picked?.name === CUSTOM;
-    const eventName = isCustom ? (form.customName.trim() || CUSTOM) : (picked?.name ?? "");
+    const isCustom = isCustomName(picked?.name);
+    const eventName = isCustom ? (form.customName.trim() || picked?.name || "Customised Event") : (picked?.name ?? "");
     const guests = Number(digitsOnly(form.guests)) || 0;
     const budget = Number(digitsOnly(form.budget)) || 0;
+    const heroImage = option?.image_url || chosenType?.image_url || category?.image_url || null;
 
     // Cheap checks, so no memo needed (the React Compiler couldn't preserve one here).
     const valid = [
@@ -144,8 +194,9 @@ export default function ServiceRequestScreen() {
     if (!isAuthenticated) return <Redirect href="/sign-in" />;
 
     const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((prev) => ({ ...prev, [key]: value }));
+    const tap = () => Haptics.selectionAsync().catch(() => {});
     const toggleNeed = (n: string) => {
-        Haptics.selectionAsync().catch(() => {});
+        tap();
         set("needs", form.needs.includes(n) ? form.needs.filter((x) => x !== n) : [...form.needs, n]);
     };
 
@@ -156,12 +207,13 @@ export default function ServiceRequestScreen() {
             "Please enter the venue address, city/area and state.",
             !form.fullName.trim() ? "Please enter your full name." : "Please enter a valid Nigerian phone number, e.g. 0803 123 4567.",
         ][step];
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
         Alert.alert(STEP_TITLES[step], msg);
     };
 
     const next = () => {
         if (!valid[step]) return explainMissing();
-        Haptics.selectionAsync().catch(() => {});
+        tap();
         if (step < 3) setStep(step + 1); else submit();
     };
 
@@ -201,31 +253,44 @@ export default function ServiceRequestScreen() {
         }
     };
 
+    /* ---------------- Sent ---------------- */
     if (submitted) {
+        const first = form.fullName.trim().split(" ")[0];
         return (
-            <SafeAreaView style={styles.screen}>
+            <SafeAreaView style={[styles.screen, { backgroundColor: BG }]}>
                 <ScrollView contentContainerStyle={styles.done}>
-                    <Image source={images.success} style={{ width: 140, height: 140 }} resizeMode="contain" />
-                    <Text style={styles.doneTitle}>Request sent!</Text>
-                    <Text style={styles.doneText}>
-                        Thank you{form.fullName ? `, ${form.fullName.trim().split(" ")[0]}` : ""}. Here’s what happens next for your {eventName.toLowerCase()}:
-                    </Text>
-                    <View style={styles.timeline}>
-                        {[
-                            ["We call you within 24 hours", `on ${formatNigerianPhone(form.phone)}.`],
-                            ["You get a quote", "on WhatsApp, with menu options."],
-                            ["Confirm", "and we handle the rest on the day."],
-                        ].map(([b, t], i) => (
+                    <Animated.View entering={ZoomIn.springify().damping(12)} style={styles.doneBadge}>
+                        <Ionicons name="checkmark" size={46} color="#fff" />
+                    </Animated.View>
+                    <Animated.View entering={FadeInDown.delay(150)} style={{ alignItems: "center", gap: 6 }}>
+                        <Text style={styles.doneTitle}>Request sent!</Text>
+                        <Text style={styles.doneText}>Thank you{first ? `, ${first}` : ""}. We’ve got your {eventName.toLowerCase()} request.</Text>
+                    </Animated.View>
+
+                    <Animated.View entering={FadeInDown.delay(260)} style={styles.doneCard}>
+                        <Text style={styles.doneCardTitle}>WHAT HAPPENS NEXT</Text>
+                        {([
+                            ["call", "We call you within 24 hours", `on ${formatNigerianPhone(form.phone)}`],
+                            ["logo-whatsapp", "You get a quote", "on WhatsApp, with menu options"],
+                            ["checkmark-done", "You confirm", "and we handle everything on the day"],
+                        ] as [IconName, string, string][]).map(([icon, b, t], i, all) => (
                             <View key={b} style={styles.tlRow}>
-                                <View style={styles.tlNum}><Text style={styles.tlNumText}>{i + 1}</Text></View>
-                                <Text style={styles.tlText}><Text style={{ fontFamily: "Quicksand-Bold" }}>{b}</Text> {t}</Text>
+                                <View style={{ alignItems: "center" }}>
+                                    <View style={styles.tlIcon}><Ionicons name={icon} size={16} color={ORANGE} /></View>
+                                    {i < all.length - 1 && <View style={styles.tlLine} />}
+                                </View>
+                                <View style={{ flex: 1, paddingBottom: i < all.length - 1 ? 14 : 0 }}>
+                                    <Text style={styles.tlTitle}>{b}</Text>
+                                    <Text style={styles.tlText}>{t}</Text>
+                                </View>
                             </View>
                         ))}
-                    </View>
+                    </Animated.View>
+
                     <TouchableOpacity style={[styles.btn, { backgroundColor: ORANGE }]} onPress={() => router.replace("/requests")}>
                         <Text style={[styles.btnText, { color: "#fff" }]}>View my requests</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.btn, { backgroundColor: "#F5F5F7" }]} onPress={() => router.replace("/")}>
+                    <TouchableOpacity style={[styles.btn, { backgroundColor: "#fff", borderWidth: 1, borderColor: LINE }]} onPress={() => router.replace("/")}>
                         <Text style={styles.btnText}>Back to home</Text>
                     </TouchableOpacity>
                 </ScrollView>
@@ -233,175 +298,241 @@ export default function ServiceRequestScreen() {
         );
     }
 
-    const typeChips = (eventTypes ?? []).map((t) => (
-        <Chip key={t.id} label={`${t.emoji ? `${t.emoji} ` : ""}${t.name}`} on={t.id === typeId}
-            onPress={() => { Haptics.selectionAsync().catch(() => {}); setTypeId(t.id); setOptionId(undefined); }} />
-    ));
-
+    /* ---------------- Form ---------------- */
     return (
-        <SafeAreaView style={styles.screen}>
+        <SafeAreaView style={styles.screen} edges={["top"]}>
             <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
-                {/* Header + progress */}
-                <View style={styles.head}>
+                {/* Hero: photo of the chosen type + title */}
+                <View style={styles.hero}>
+                    {heroImage ? <ProductImage imageUrl={heroImage} className="size-full" resizeMode="cover" /> : null}
+                    <View style={styles.heroShade} />
                     <TouchableOpacity style={styles.back} onPress={() => (step ? setStep(step - 1) : router.back())} accessibilityLabel="Back">
                         <Ionicons name="chevron-back" size={20} color={INK} />
                     </TouchableOpacity>
-                    <Text style={styles.headTitle} numberOfLines={1}>{eventName ? `${eventName} request` : category ? `${category.name} request` : "Request a quote"}</Text>
+                    <View style={styles.heroText}>
+                        <Text style={styles.heroEyebrow}>{(category?.parent_id ? "Catering" : category?.name ?? "Catering").toUpperCase()} REQUEST</Text>
+                        <Text style={styles.heroTitle} numberOfLines={2}>{eventName || "Tell us about your event"}</Text>
+                    </View>
                 </View>
-                <View style={styles.prog}>
-                    {[0, 1, 2, 3].map((i) => <View key={i} style={[styles.progBar, i <= step && { backgroundColor: ORANGE }]} />)}
-                </View>
-                <Text style={styles.stepLabel}>Step <Text style={{ color: INK }}>{step + 1}</Text> of 4 · {STEP_TITLES[step]}</Text>
 
-                <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-                    {step === 0 && (
-                        <>
-                            <View>
-                                <Text style={styles.q}>What are you planning?</Text>
-                                <Text style={styles.qSub}>Pick one, then choose the date.</Text>
-                            </View>
-                            <View style={styles.chips}>{typeChips}</View>
-                            {hasOptions && (
-                                <Field label={`Which kind of ${chosenType!.name.toLowerCase()}?`}>
-                                    <View style={styles.chips}>
-                                        {options!.map((o) => (
-                                            <Chip key={o.id} label={`${o.emoji ? `${o.emoji} ` : ""}${o.name}`} on={o.id === optionId}
-                                                onPress={() => { Haptics.selectionAsync().catch(() => {}); setOptionId(o.id); }} />
+                {/* Stepper */}
+                <View style={styles.stepper}>
+                    {STEP_TITLES.map((t, i) => {
+                        const done = i < step, cur = i === step;
+                        return (
+                            <TouchableOpacity key={t} style={styles.stepItem} disabled={i >= step} onPress={() => setStep(i)} accessibilityLabel={`Step ${i + 1}: ${t}`}>
+                                <View style={styles.stepTrack}>
+                                    <View style={[styles.stepBar, { opacity: i === 0 ? 0 : 1 }, i <= step && styles.stepBarOn]} />
+                                    <View style={[styles.stepDot, (done || cur) && styles.stepDotOn]}>
+                                        {done ? <Ionicons name="checkmark" size={12} color="#fff" /> : <Text style={[styles.stepNum, cur && { color: "#fff" }]}>{i + 1}</Text>}
+                                    </View>
+                                    <View style={[styles.stepBar, { opacity: i === STEP_TITLES.length - 1 ? 0 : 1 }, i < step && styles.stepBarOn]} />
+                                </View>
+                                <Text style={[styles.stepLabel, (done || cur) && { color: INK }]} numberOfLines={1}>{t}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+
+                <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                    <Animated.View key={step} entering={FadeIn.duration(220)} style={{ gap: 22 }}>
+                        {step === 0 && (
+                            <>
+                                <Section title="What are you planning?" hint="Pick one, then choose the date.">
+                                    <View style={styles.typeGrid}>
+                                        {(eventTypes ?? []).map((t) => {
+                                            const on = t.id === typeId;
+                                            return (
+                                                <TouchableOpacity key={t.id} style={[styles.typeTile, on && styles.typeTileOn]} activeOpacity={0.88}
+                                                    onPress={() => { tap(); setTypeId(t.id); setOptionId(undefined); }}
+                                                    accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={t.name}>
+                                                    <View style={styles.typePhoto}>
+                                                        <ProductImage imageUrl={t.image_url} className="size-full" resizeMode="cover" />
+                                                        {on && <View style={styles.typeCheck}><Ionicons name="checkmark" size={14} color="#fff" /></View>}
+                                                    </View>
+                                                    <Text style={[styles.typeName, on && { color: ORANGE }]} numberOfLines={2}>{t.name}</Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                </Section>
+
+                                {hasOptions && (
+                                    <Animated.View entering={FadeInDown.springify().damping(16)}>
+                                        <Section title={`Which kind of ${chosenType!.name.toLowerCase()}?`}>
+                                            <View style={styles.chips}>
+                                                {options!.map((o) => {
+                                                    const on = o.id === optionId;
+                                                    return (
+                                                        <TouchableOpacity key={o.id} style={[styles.chip, on && styles.chipOn]} onPress={() => { tap(); setOptionId(o.id); }}
+                                                            accessibilityRole="radio" accessibilityState={{ checked: on }}>
+                                                            {on && <Ionicons name="checkmark-circle" size={15} color={ORANGE} />}
+                                                            <Text style={[styles.chipText, on && { color: ORANGE }]}>{o.name}</Text>
+                                                        </TouchableOpacity>
+                                                    );
+                                                })}
+                                            </View>
+                                        </Section>
+                                    </Animated.View>
+                                )}
+
+                                {isCustom && (
+                                    <Animated.View entering={FadeInDown.springify().damping(16)} style={styles.customBox}>
+                                        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                                            <Ionicons name="sparkles" size={16} color={PURPLE} />
+                                            <Text style={styles.customTitle}>Tell us about your event</Text>
+                                        </View>
+                                        <IconInput icon="create-outline" value={form.customName} onChangeText={(v) => set("customName", v)} maxLength={60}
+                                            placeholder="e.g. Naming ceremony, graduation party" accessibilityLabel="What are you celebrating?" />
+                                    </Animated.View>
+                                )}
+
+                                <Section title="Date"><Calendar value={form.date} onChange={(d) => set("date", d)} /></Section>
+                                <Section title="Time of day">
+                                    <View style={styles.row3}>
+                                        {TIMES.map(([icon, t, sub]) => (
+                                            <TouchableOpacity key={t} style={[styles.timeCard, form.time === t && styles.optOn]} onPress={() => { tap(); set("time", t); }}
+                                                accessibilityRole="radio" accessibilityState={{ checked: form.time === t }}>
+                                                <Ionicons name={icon} size={22} color={form.time === t ? ORANGE : "#9A9AA3"} />
+                                                <Text style={styles.timeLabel}>{t}</Text>
+                                                <Text style={styles.timeSub}>{sub}</Text>
+                                            </TouchableOpacity>
                                         ))}
                                     </View>
-                                </Field>
-                            )}
-                            {isCustom && (
-                                <View style={styles.customBox}>
-                                    <Text style={styles.customTitle}>Tell us about your event</Text>
-                                    <TextInput style={styles.input} value={form.customName} onChangeText={(v) => set("customName", v)} maxLength={60}
-                                        placeholder="e.g. Naming ceremony, graduation party" placeholderTextColor="#A0A0AB" accessibilityLabel="What are you celebrating?" />
-                                </View>
-                            )}
-                            <Field label="Date"><Calendar value={form.date} onChange={(d) => set("date", d)} /></Field>
-                            <Field label="Time of day">
-                                <View style={styles.chips}>{TIMES.map((t) => <Chip key={t} label={t} on={form.time === t} onPress={() => set("time", t)} />)}</View>
-                            </Field>
-                        </>
-                    )}
+                                </Section>
+                            </>
+                        )}
 
-                    {step === 1 && (
-                        <>
-                            <View>
-                                <Text style={styles.q}>How many guests, and your budget?</Text>
-                                <Text style={styles.qSub}>An estimate is fine. We’ll confirm on the call.</Text>
-                            </View>
-                            <Field label="Guests">
-                                <View style={styles.stepper}>
-                                    <TouchableOpacity style={styles.stepBtn} onPress={() => set("guests", String(Math.max(1, guests - 10)))} accessibilityLabel="10 fewer guests">
-                                        <Ionicons name="remove" size={20} color={INK} />
-                                    </TouchableOpacity>
-                                    <TextInput style={[styles.input, styles.stepInput]} value={form.guests} onChangeText={(v) => set("guests", digitsOnly(v))}
-                                        keyboardType="numeric" placeholder="0" placeholderTextColor="#A0A0AB" accessibilityLabel="Number of guests" />
-                                    <TouchableOpacity style={styles.stepBtn} onPress={() => set("guests", String(guests + 10))} accessibilityLabel="10 more guests">
-                                        <Ionicons name="add" size={20} color={INK} />
-                                    </TouchableOpacity>
-                                </View>
-                                <View style={styles.chips}>
-                                    {[50, 100, 200, 300, 500].map((n) => <Chip key={n} label={String(n)} on={guests === n} onPress={() => set("guests", String(n))} />)}
-                                </View>
-                            </Field>
-                            <Field label="Budget (₦)">
-                                <TextInput style={styles.input} value={budget ? budget.toLocaleString("en-NG") : ""} onChangeText={(v) => set("budget", digitsOnly(v))}
-                                    keyboardType="numeric" placeholder="e.g. 1,500,000" placeholderTextColor="#A0A0AB" accessibilityLabel="Budget in naira" />
-                                {budget > 0 && guests > 0 && (
-                                    <Text style={styles.hint}>About {formatNaira(Math.round(budget / guests))} per guest</Text>
-                                )}
-                            </Field>
-                            <Field label="What do you need?">
-                                <View style={styles.needs}>
-                                    {NEEDS.map(([e, n]) => {
-                                        const on = form.needs.includes(n);
-                                        return (
-                                            <TouchableOpacity key={n} style={[styles.need, on && styles.chipOn]} onPress={() => toggleNeed(n)}
-                                                accessibilityRole="checkbox" accessibilityState={{ checked: on }}>
-                                                <Text style={{ fontSize: 16 }}>{e}</Text>
-                                                <Text style={styles.chipText} numberOfLines={1}>{n}</Text>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </View>
-                            </Field>
-                        </>
-                    )}
-
-                    {step === 2 && (
-                        <>
-                            <View>
-                                <Text style={styles.q}>Where is the event?</Text>
-                                <Text style={styles.qSub}>So we can plan delivery and set-up.</Text>
-                            </View>
-                            <Field label="Venue / street address">
-                                <TextInput style={styles.input} value={form.address} onChangeText={(v) => set("address", v)} autoCapitalize="words"
-                                    placeholder="e.g. Eko Hotel, Victoria Island" placeholderTextColor="#A0A0AB" />
-                            </Field>
-                            <Field label="City / area">
-                                <TextInput style={styles.input} value={form.city} onChangeText={(v) => set("city", v)} autoCapitalize="words"
-                                    placeholder="e.g. Lekki" placeholderTextColor="#A0A0AB" />
-                            </Field>
-                            <StatePicker value={form.state} onChange={(v) => set("state", v)} />
-                            <Field label="Indoor or outdoor?">
-                                <View style={styles.chips}>{PLACES.map((p) => <Chip key={p} label={p} on={form.place === p} onPress={() => set("place", p)} />)}</View>
-                            </Field>
-                        </>
-                    )}
-
-                    {step === 3 && (
-                        <>
-                            <View>
-                                <Text style={styles.q}>Almost done</Text>
-                                <Text style={styles.qSub}>Check your request, then send it.</Text>
-                            </View>
-                            <Field label="Your name">
-                                <TextInput style={styles.input} value={form.fullName} onChangeText={(v) => set("fullName", v)} autoCapitalize="words" placeholder="Your name" placeholderTextColor="#A0A0AB" />
-                            </Field>
-                            <Field label="Phone (we’ll call you)">
-                                <TextInput style={styles.input} value={form.phone} onChangeText={(v) => set("phone", v)} keyboardType="phone-pad" placeholder="0803 123 4567" placeholderTextColor="#A0A0AB" />
-                            </Field>
-                            <Field label="Email (optional)">
-                                <TextInput style={styles.input} value={form.email} onChangeText={(v) => set("email", v)} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" placeholderTextColor="#A0A0AB" />
-                            </Field>
-                            <Field label="Anything else? (optional)">
-                                <TextInput style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]} value={form.details} onChangeText={(v) => set("details", v)}
-                                    multiline maxLength={1000} placeholder="Theme, menu ideas, dietary needs…" placeholderTextColor="#A0A0AB" />
-                            </Field>
-                            <Field label="Your request">
-                                <View style={styles.review}>
-                                    {([
-                                        ["Event", eventName, 0],
-                                        ["When", form.date ? `${form.date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}, ${form.time.toLowerCase()}` : "—", 0],
-                                        ["Guests", String(guests), 1],
-                                        ["Budget", formatNaira(budget), 1],
-                                        ["Needs", form.needs.join(", ") || "—", 1],
-                                        ["Venue", `${[form.address, form.city, form.state].filter(Boolean).join(", ")} · ${form.place.toLowerCase()}`, 2],
-                                    ] as [string, string, number][]).map(([k, v, to], i) => (
-                                        <View key={k} style={[styles.reviewRow, i > 0 && styles.reviewDivider]}>
-                                            <Text style={styles.reviewKey}>{k}</Text>
-                                            <Text style={styles.reviewVal}>{v}</Text>
-                                            <TouchableOpacity onPress={() => setStep(to)} hitSlop={8} accessibilityLabel={`Edit ${k}`}>
-                                                <Text style={styles.edit}>Edit</Text>
-                                            </TouchableOpacity>
+                        {step === 1 && (
+                            <>
+                                <Section title="How many guests?" hint="An estimate is fine. We’ll confirm on the call.">
+                                    <View style={styles.guestCard}>
+                                        <TouchableOpacity style={styles.guestBtn} onPress={() => { tap(); set("guests", String(Math.max(1, guests - 10))); }} accessibilityLabel="10 fewer guests">
+                                            <Ionicons name="remove" size={22} color={INK} />
+                                        </TouchableOpacity>
+                                        <View style={{ flex: 1, alignItems: "center" }}>
+                                            <TextInput style={styles.guestInput} value={form.guests} onChangeText={(v) => set("guests", digitsOnly(v))}
+                                                keyboardType="numeric" placeholder="0" placeholderTextColor="#C4C4CC" accessibilityLabel="Number of guests" />
+                                            <Text style={styles.guestUnit}>guests</Text>
                                         </View>
-                                    ))}
-                                </View>
-                            </Field>
-                        </>
-                    )}
+                                        <TouchableOpacity style={[styles.guestBtn, { backgroundColor: ORANGE, borderColor: ORANGE }]} onPress={() => { tap(); set("guests", String(guests + 10)); }} accessibilityLabel="10 more guests">
+                                            <Ionicons name="add" size={22} color="#fff" />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View style={styles.chips}>
+                                        {[50, 100, 200, 300, 500].map((n) => (
+                                            <TouchableOpacity key={n} style={[styles.chip, guests === n && styles.chipOn]} onPress={() => { tap(); set("guests", String(n)); }}>
+                                                <Text style={[styles.chipText, guests === n && { color: ORANGE }]}>{n}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </Section>
+
+                                <Section title="Your budget">
+                                    <View style={styles.budgetBox}>
+                                        <Text style={styles.naira}>₦</Text>
+                                        <TextInput style={styles.budgetInput} value={budget ? budget.toLocaleString("en-NG") : ""} onChangeText={(v) => set("budget", digitsOnly(v))}
+                                            keyboardType="numeric" placeholder="1,500,000" placeholderTextColor="#C4C4CC" accessibilityLabel="Budget in naira" />
+                                    </View>
+                                    {budget > 0 && guests > 0 && (
+                                        <View style={styles.hint}>
+                                            <Ionicons name="calculator" size={14} color="#15803D" />
+                                            <Text style={styles.hintText}>About {formatNaira(Math.round(budget / guests))} per guest</Text>
+                                        </View>
+                                    )}
+                                </Section>
+
+                                <Section title="What do you need?" hint="Tick everything that applies.">
+                                    <View style={styles.grid2}>
+                                        {NEEDS.map(([icon, n]) => (
+                                            <OptionCard key={n} icon={icon} label={n} on={form.needs.includes(n)} onPress={() => toggleNeed(n)} style={styles.half} check />
+                                        ))}
+                                    </View>
+                                </Section>
+                            </>
+                        )}
+
+                        {step === 2 && (
+                            <>
+                                <Section title="Where is the event?" hint="So we can plan delivery and set-up.">
+                                    <IconInput icon="location-outline" value={form.address} onChangeText={(v) => set("address", v)} autoCapitalize="words"
+                                        placeholder="Venue or street address, e.g. Eko Hotel" accessibilityLabel="Venue address" />
+                                    <IconInput icon="map-outline" value={form.city} onChangeText={(v) => set("city", v)} autoCapitalize="words"
+                                        placeholder="City / area, e.g. Lekki" accessibilityLabel="City or area" />
+                                    <StatePicker value={form.state} onChange={(v) => set("state", v)} />
+                                </Section>
+                                <Section title="Indoor or outdoor?">
+                                    <View style={styles.row3}>
+                                        {PLACES.map(([icon, p]) => (
+                                            <TouchableOpacity key={p} style={[styles.timeCard, form.place === p && styles.optOn]} onPress={() => { tap(); set("place", p); }}
+                                                accessibilityRole="radio" accessibilityState={{ checked: form.place === p }}>
+                                                <Ionicons name={icon} size={22} color={form.place === p ? ORANGE : "#9A9AA3"} />
+                                                <Text style={styles.timeLabel} numberOfLines={1}>{p}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                </Section>
+                            </>
+                        )}
+
+                        {step === 3 && (
+                            <>
+                                <Section title="How can we reach you?">
+                                    <IconInput icon="person-outline" value={form.fullName} onChangeText={(v) => set("fullName", v)} autoCapitalize="words" placeholder="Your full name" accessibilityLabel="Your name" />
+                                    <IconInput icon="call-outline" value={form.phone} onChangeText={(v) => set("phone", v)} keyboardType="phone-pad" placeholder="Phone, e.g. 0803 123 4567" accessibilityLabel="Phone" />
+                                    <IconInput icon="mail-outline" value={form.email} onChangeText={(v) => set("email", v)} keyboardType="email-address" autoCapitalize="none" placeholder="Email (optional)" accessibilityLabel="Email" />
+                                    <IconInput icon="chatbox-ellipses-outline" value={form.details} onChangeText={(v) => set("details", v)} multiline maxLength={1000}
+                                        placeholder="Anything else? Theme, menu ideas, dietary needs… (optional)" accessibilityLabel="Other details" />
+                                </Section>
+
+                                <Section title="Your request">
+                                    <View style={styles.ticket}>
+                                        <View style={styles.ticketHead}>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.ticketEyebrow}>EVENT</Text>
+                                                <Text style={styles.ticketTitle} numberOfLines={2}>{eventName}</Text>
+                                            </View>
+                                            <TouchableOpacity onPress={() => setStep(0)} hitSlop={8}><Text style={styles.ticketEdit}>Edit</Text></TouchableOpacity>
+                                        </View>
+                                        <View style={styles.ticketCut}>
+                                            <View style={[styles.notch, { left: -10 }]} />
+                                            <View style={styles.dash} />
+                                            <View style={[styles.notch, { right: -10 }]} />
+                                        </View>
+                                        {([
+                                            ["calendar-outline", "When", form.date ? `${form.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })} · ${form.time}` : "—", 0],
+                                            ["people-outline", "Guests", `${guests} guests`, 1],
+                                            ["wallet-outline", "Budget", formatNaira(budget), 1],
+                                            ["list-outline", "Needs", form.needs.join(", ") || "—", 1],
+                                            ["location-outline", "Venue", `${[form.address, form.city, form.state].filter(Boolean).join(", ")} · ${form.place}`, 2],
+                                        ] as [IconName, string, string, number][]).map(([icon, k, v, to]) => (
+                                            <View key={k} style={styles.ticketRow}>
+                                                <Ionicons name={icon} size={17} color={ORANGE} />
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={styles.ticketKey}>{k}</Text>
+                                                    <Text style={styles.ticketVal}>{v}</Text>
+                                                </View>
+                                                <TouchableOpacity onPress={() => setStep(to)} hitSlop={8} accessibilityLabel={`Edit ${k}`}>
+                                                    <Text style={styles.ticketEdit}>Edit</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </Section>
+                            </>
+                        )}
+                    </Animated.View>
                 </ScrollView>
 
-                <View style={styles.foot}>
-                    {step > 0 && (
-                        <TouchableOpacity style={styles.footBack} onPress={() => setStep(step - 1)} accessibilityLabel="Previous step">
-                            <Ionicons name="chevron-back" size={20} color={INK} />
-                        </TouchableOpacity>
-                    )}
-                    <TouchableOpacity style={[styles.footGo, (!valid[step] || isSubmitting) && { backgroundColor: "#C9CAD3" }]} onPress={next} disabled={isSubmitting}>
-                        <Text style={styles.footGoText}>{isSubmitting ? "Sending…" : step === 3 ? "Send request" : "Continue"}</Text>
+                <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+                    <TouchableOpacity style={[styles.footGo, (!valid[step] || isSubmitting) && styles.footGoOff]} onPress={next} disabled={isSubmitting} activeOpacity={0.9}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.footGoText}>{isSubmitting ? "Sending…" : step === 3 ? "Send request" : "Continue"}</Text>
+                            {step < 3 && <Text style={styles.footGoSub}>Next: {STEP_TITLES[step + 1]}</Text>}
+                        </View>
+                        <View style={styles.footArrow}>
+                            <Ionicons name={step === 3 ? "paper-plane" : "arrow-forward"} size={18} color={(!valid[step] || isSubmitting) ? "#9A9AA3" : ORANGE} />
+                        </View>
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
@@ -411,57 +542,120 @@ export default function ServiceRequestScreen() {
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: "#fff" },
-    head: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10 },
-    back: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#F5F5F7", alignItems: "center", justifyContent: "center" },
-    headTitle: { flex: 1, fontFamily: "Quicksand-Bold", fontSize: 17, color: INK },
-    prog: { flexDirection: "row", gap: 6, paddingHorizontal: 16 },
-    progBar: { flex: 1, height: 5, borderRadius: 3, backgroundColor: "#ECECF1" },
-    stepLabel: { fontFamily: "Quicksand-Bold", fontSize: 12, color: "#878787", paddingHorizontal: 16, paddingTop: 8 },
-    body: { padding: 16, paddingBottom: 32, gap: 18 },
-    q: { fontFamily: "Quicksand-Bold", fontSize: 21, color: INK },
-    qSub: { fontFamily: "Quicksand-Medium", fontSize: 13.5, color: "#878787", marginTop: 4 },
-    label: { fontFamily: "Quicksand-Bold", fontSize: 14, color: INK },
+
+    hero: { height: 150, marginHorizontal: 16, marginTop: 6, borderRadius: 24, overflow: "hidden", backgroundColor: "#991B1B", justifyContent: "flex-end" },
+    heroShade: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundImage: "linear-gradient(to bottom, rgba(10,12,24,0.15) 0%, rgba(10,12,24,0.75) 100%)" },
+    back: { position: "absolute", top: 12, left: 12, width: 38, height: 38, borderRadius: 19, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+    heroText: { padding: 16, gap: 2 },
+    heroEyebrow: { fontFamily: "Quicksand-Bold", fontSize: 11, letterSpacing: 1.4, color: "rgba(255,255,255,0.85)" },
+    heroTitle: { fontFamily: "Quicksand-Bold", fontSize: 22, lineHeight: 27, color: "#fff" },
+
+    stepper: { flexDirection: "row", paddingHorizontal: 10, paddingTop: 14, paddingBottom: 6 },
+    stepItem: { flex: 1, alignItems: "center", gap: 6 },
+    stepTrack: { flexDirection: "row", alignItems: "center", alignSelf: "stretch" },
+    stepBar: { flex: 1, height: 3, borderRadius: 2, backgroundColor: LINE },
+    stepBarOn: { backgroundColor: ORANGE },
+    stepDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: "#F0F0F4", alignItems: "center", justifyContent: "center" },
+    stepDotOn: { backgroundColor: ORANGE },
+    stepNum: { fontFamily: "Quicksand-Bold", fontSize: 12, color: GREY },
+    stepLabel: { fontFamily: "Quicksand-Bold", fontSize: 11, color: "#A0A0AB" },
+
+    body: { padding: 16, paddingBottom: 32 },
+    label: { fontFamily: "Quicksand-Bold", fontSize: 17, color: INK },
+    labelHint: { fontFamily: "Quicksand-Medium", fontSize: 13, color: GREY },
+
+    typeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    typeTile: { width: "31.5%", borderRadius: 18, padding: 5, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#fff", gap: 6 },
+    typeTileOn: { borderColor: ORANGE, borderWidth: 2, backgroundColor: "#FFF4EE" },
+    typePhoto: { height: 72, borderRadius: 13, overflow: "hidden", backgroundColor: "#FFF3E6" },
+    typeCheck: { position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: ORANGE, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#fff" },
+    typeName: { fontFamily: "Quicksand-Bold", fontSize: 12, lineHeight: 15, color: INK, textAlign: "center", paddingHorizontal: 2, paddingBottom: 4, minHeight: 34 },
+
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: { borderWidth: 1.5, borderColor: "#ECECF1", backgroundColor: "#fff", borderRadius: 999, paddingHorizontal: 13, paddingVertical: 9 },
-    chipOn: { borderColor: ORANGE, backgroundColor: "#FFF3E6" },
-    chipText: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: INK, flexShrink: 1 },
-    input: { borderWidth: 1.5, borderColor: "#ECECF1", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 11, fontFamily: "Quicksand-Medium", fontSize: 15, color: INK, backgroundColor: "#fff" },
-    customBox: { backgroundColor: "#F2E8FB", borderRadius: 16, padding: 12, gap: 8 },
+    chip: { flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#fff", borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
+    chipOn: { borderColor: ORANGE, backgroundColor: "#FFF4EE" },
+    chipText: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: INK },
+
+    customBox: { backgroundColor: "#F5EDFC", borderRadius: 18, padding: 14, gap: 10 },
     customTitle: { fontFamily: "Quicksand-Bold", fontSize: 14, color: PURPLE },
-    cal: { borderWidth: 1.5, borderColor: "#ECECF1", borderRadius: 16, padding: 10 },
+
+    cal: { borderWidth: 1.5, borderColor: LINE, borderRadius: 20, padding: 12, backgroundColor: "#fff" },
     calHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 8 },
-    calNav: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#F5F5F7", alignItems: "center", justifyContent: "center" },
+    calNav: { width: 32, height: 32, borderRadius: 16, backgroundColor: BG, alignItems: "center", justifyContent: "center" },
     calTitle: { fontFamily: "Quicksand-Bold", fontSize: 15, color: INK },
     calRow: { flexDirection: "row" },
-    calDow: { flex: 1, textAlign: "center", fontFamily: "Quicksand-Bold", fontSize: 11, color: "#878787", paddingBottom: 4 },
-    calCell: { flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center", borderRadius: 999 },
+    calDow: { flex: 1, textAlign: "center", fontFamily: "Quicksand-Bold", fontSize: 11, color: "#A0A0AB", paddingBottom: 4 },
+    calCell: { flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center" },
+    calDot: { width: "86%", aspectRatio: 1, borderRadius: 999, alignItems: "center", justifyContent: "center" },
     calSel: { backgroundColor: ORANGE },
+    calToday: { borderWidth: 1.5, borderColor: ORANGE },
     calDay: { fontFamily: "Quicksand-SemiBold", fontSize: 14, color: INK },
-    calNote: { fontFamily: "Quicksand-SemiBold", fontSize: 12.5, color: "#878787", marginTop: 6, textAlign: "center" },
-    stepper: { flexDirection: "row", alignItems: "center", gap: 12 },
-    stepBtn: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: "#ECECF1", alignItems: "center", justifyContent: "center" },
-    stepInput: { width: 100, textAlign: "center", fontFamily: "Quicksand-Bold", fontSize: 18 },
-    hint: { fontFamily: "Quicksand-Bold", fontSize: 12.5, color: "#16A34A", backgroundColor: "#E8F7EE", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, overflow: "hidden", alignSelf: "flex-start" },
-    needs: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    need: { width: "48%", flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1.5, borderColor: "#ECECF1", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 10 },
-    review: { borderWidth: 1.5, borderColor: "#ECECF1", borderRadius: 16 },
-    reviewRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
-    reviewDivider: { borderTopWidth: 1, borderTopColor: "#ECECF1" },
-    reviewKey: { width: 62, fontFamily: "Quicksand-SemiBold", fontSize: 13, color: "#878787" },
-    reviewVal: { flex: 1, fontFamily: "Quicksand-Bold", fontSize: 13, color: INK },
-    edit: { fontFamily: "Quicksand-Bold", fontSize: 12.5, color: ORANGE },
-    foot: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14, borderTopWidth: 1, borderTopColor: "#ECECF1", backgroundColor: "#fff" },
-    footBack: { width: 52, borderRadius: 999, backgroundColor: "#F5F5F7", alignItems: "center", justifyContent: "center" },
-    footGo: { flex: 1, borderRadius: 999, backgroundColor: ORANGE, paddingVertical: 15, alignItems: "center" },
-    footGoText: { fontFamily: "Quicksand-Bold", fontSize: 15, color: "#fff" },
-    done: { flexGrow: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 14 },
-    doneTitle: { fontFamily: "Quicksand-Bold", fontSize: 24, color: INK },
-    doneText: { fontFamily: "Quicksand-Medium", fontSize: 15, color: "#4B4F63", textAlign: "center" },
-    timeline: { alignSelf: "stretch", gap: 10, marginVertical: 6 },
-    tlRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
-    tlNum: { width: 24, height: 24, borderRadius: 12, backgroundColor: ORANGE, alignItems: "center", justifyContent: "center" },
-    tlNumText: { fontFamily: "Quicksand-Bold", fontSize: 12, color: "#fff" },
-    tlText: { flex: 1, fontFamily: "Quicksand-Medium", fontSize: 14, color: INK, lineHeight: 20 },
-    btn: { alignSelf: "stretch", borderRadius: 999, paddingVertical: 15, alignItems: "center" },
+    calNote: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8, borderRadius: 12, paddingVertical: 9, backgroundColor: BG },
+    calNoteText: { fontFamily: "Quicksand-Bold", fontSize: 13, color: GREY },
+
+    row3: { flexDirection: "row", gap: 8 },
+    timeCard: { flex: 1, alignItems: "center", gap: 3, paddingVertical: 14, paddingHorizontal: 6, borderRadius: 18, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#fff" },
+    timeLabel: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: INK, marginTop: 2 },
+    timeSub: { fontFamily: "Quicksand-SemiBold", fontSize: 11, color: GREY },
+
+    opt: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 16, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#fff" },
+    optOn: { borderColor: ORANGE, borderWidth: 2, backgroundColor: "#FFF4EE" },
+    optIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#FFF1EA", alignItems: "center", justifyContent: "center" },
+    optLabel: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: INK },
+    optSub: { fontFamily: "Quicksand-SemiBold", fontSize: 11.5, color: GREY },
+    check: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: "#D6D6DD", alignItems: "center", justifyContent: "center" },
+    checkOn: { backgroundColor: ORANGE, borderColor: ORANGE },
+    grid2: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+    half: { width: "48.6%" },
+
+    guestCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 22, backgroundColor: BG },
+    guestBtn: { width: 50, height: 50, borderRadius: 25, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+    guestInput: { fontFamily: "Quicksand-Bold", fontSize: 34, color: INK, textAlign: "center", minWidth: 100, paddingVertical: 0 },
+    guestUnit: { fontFamily: "Quicksand-Bold", fontSize: 12, color: GREY, marginTop: -2 },
+
+    budgetBox: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1.5, borderColor: LINE, borderRadius: 18, paddingHorizontal: 16, backgroundColor: "#fff" },
+    naira: { fontFamily: "Quicksand-Bold", fontSize: 24, color: ORANGE },
+    budgetInput: { flex: 1, fontFamily: "Quicksand-Bold", fontSize: 24, color: INK, paddingVertical: 12 },
+    hint: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: "#E8F7EE", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7 },
+    hintText: { fontFamily: "Quicksand-Bold", fontSize: 12.5, color: "#15803D" },
+
+    inputBox: { flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1.5, borderColor: LINE, borderRadius: 16, paddingHorizontal: 14, backgroundColor: "#fff", minHeight: 52 },
+    inputFocused: { borderColor: ORANGE, backgroundColor: "#FFFBF8" },
+    inputText: { flex: 1, fontFamily: "Quicksand-SemiBold", fontSize: 15, color: INK, paddingVertical: 12 },
+
+    ticket: { borderRadius: 22, backgroundColor: "#fff", borderWidth: 1.5, borderColor: LINE, overflow: "hidden" },
+    ticketHead: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: INK, padding: 16 },
+    ticketEyebrow: { fontFamily: "Quicksand-Bold", fontSize: 10.5, letterSpacing: 1.2, color: "#FFB08A" },
+    ticketTitle: { fontFamily: "Quicksand-Bold", fontSize: 18, color: "#fff", marginTop: 2 },
+    ticketCut: { height: 20, justifyContent: "center", backgroundColor: "#fff" },
+    notch: { position: "absolute", top: 0, width: 20, height: 20, borderRadius: 10, backgroundColor: "#fff", borderWidth: 1.5, borderColor: LINE },
+    dash: { marginHorizontal: 18, borderTopWidth: 1.5, borderStyle: "dashed", borderColor: LINE },
+    ticketRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
+    ticketKey: { fontFamily: "Quicksand-SemiBold", fontSize: 11.5, color: GREY },
+    ticketVal: { fontFamily: "Quicksand-Bold", fontSize: 14, lineHeight: 19, color: INK, marginTop: 1 },
+    ticketEdit: { fontFamily: "Quicksand-Bold", fontSize: 13, color: ORANGE },
+
+    foot: { paddingHorizontal: 16, paddingTop: 10, borderTopWidth: 1, borderTopColor: LINE, backgroundColor: "#fff" },
+    footGo: {
+        flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 999, backgroundColor: ORANGE, paddingLeft: 24, paddingRight: 8, height: 60,
+        shadowColor: ORANGE, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
+    },
+    footGoOff: { backgroundColor: "#C9CAD3", shadowOpacity: 0 },
+    footGoText: { fontFamily: "Quicksand-Bold", fontSize: 16, color: "#fff" },
+    footGoSub: { fontFamily: "Quicksand-SemiBold", fontSize: 11.5, color: "rgba(255,255,255,0.85)" },
+    footArrow: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+
+    done: { flexGrow: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 },
+    doneBadge: { width: 96, height: 96, borderRadius: 48, backgroundColor: "#2F9B65", alignItems: "center", justifyContent: "center", shadowColor: "#2F9B65", shadowOpacity: 0.4, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
+    doneTitle: { fontFamily: "Quicksand-Bold", fontSize: 26, color: INK },
+    doneText: { fontFamily: "Quicksand-Medium", fontSize: 15, lineHeight: 21, color: GREY, textAlign: "center" },
+    doneCard: { alignSelf: "stretch", backgroundColor: "#fff", borderRadius: 22, padding: 18, gap: 12, borderWidth: 1, borderColor: LINE },
+    doneCardTitle: { fontFamily: "Quicksand-Bold", fontSize: 11, letterSpacing: 1.2, color: GREY },
+    tlRow: { flexDirection: "row", gap: 12 },
+    tlIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: "#FFF1EA", alignItems: "center", justifyContent: "center" },
+    tlLine: { flex: 1, width: 2, backgroundColor: "#FFD9C8", marginTop: 4 },
+    tlTitle: { fontFamily: "Quicksand-Bold", fontSize: 14.5, color: INK },
+    tlText: { fontFamily: "Quicksand-Medium", fontSize: 13, color: GREY, marginTop: 1 },
+    btn: { alignSelf: "stretch", borderRadius: 999, paddingVertical: 16, alignItems: "center" },
     btnText: { fontFamily: "Quicksand-Bold", fontSize: 15, color: INK },
 });
