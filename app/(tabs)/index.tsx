@@ -221,7 +221,7 @@ export default function Index() {
             {/* Top rated across the whole shop */}
             {topRated.length > 0 && (
               <ProductRow
-                title="Top rated"
+                title="Top Rated"
                 items={topRated}
                 onSeeAll={() => router.push('/search')}
                 onAdd={addToCart}

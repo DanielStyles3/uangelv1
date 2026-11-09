@@ -1301,7 +1301,7 @@ revoke all on function public.admin_stats() from public, anon;
 grant execute on function public.admin_stats() to authenticated;
 -- ---------------------------------------------------------------------------
 -- Event requests (new 4-step form): time of day, indoor/outdoor and what the
--- customer needs. "Customised event" under Catering › Events lets customers name
+-- customer needs. "Customised Event" under Catering › Events lets customers name
 -- their own event (saved in event_type).
 -- ---------------------------------------------------------------------------
 alter table public.service_requests add column if not exists event_time text;
@@ -1318,7 +1318,7 @@ alter table public.service_requests add constraint service_requests_needs_check
     check (cardinality(needs) <= 12);
 
 insert into public.categories (name, description, parent_id, emoji, sort_order, kind)
-select 'Customised event', 'Something else? Tell us what you are planning.', e.id, '✨', 7, 'service'
+select 'Customised Event', 'Something else? Tell us what you are planning.', e.id, '✨', 7, 'service'
   from public.categories e join public.categories c on c.id = e.parent_id
  where e.name = 'Events' and c.name = 'Catering' and c.parent_id is null
 on conflict on constraint categories_parent_name_key do nothing;
