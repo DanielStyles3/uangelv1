@@ -43,6 +43,11 @@
                           "destination":  "/admin/",
                           "permanent":  true,
                           "source":  "/admin"
+                      },
+                      {
+                          "source":  "/download",
+                          "destination":  "https://expo.dev/artifacts/eas/RObDfGOJZCYkBCOXzrYvZRKBOyQ5OLtQyzug9DNcISQ.apk",
+                          "permanent":  false
                       }
                   ]
 }

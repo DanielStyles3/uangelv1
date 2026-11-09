@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleProp, StyleSheet, Text, TextStyle, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
@@ -32,9 +32,9 @@ const FOUNDATIONS: { icon: IconName; title: string; text: string }[] = [
 const BENEFITS = [
     'Nutritious meals for the less privileged through our outreach programs',
     'Empowered communities through jobs and local partnerships',
-    'Restored dignity via a personalized approach to social care',
+    'Restored dignity through a personalised approach to social care',
     'Affordable, high-quality food for the general public',
-    'A replicable model for community transformation without dependence on donations.',
+    'A replicable model for community transformation without dependence on donations',
     'Supporting ministries and strengthening The Body of CHRIST',
 ];
 
@@ -42,7 +42,7 @@ const LEGACY = [
     'A child receiving food.',
     'A family receiving support.',
     'A person discovering human compassion.',
-    'A customer choosing to return because of the pleasant experience we invoke',
+    'A customer choosing to return because of the pleasant experience we create.',
     'A business creating employment.',
     'A community choosing generosity.',
 ];
@@ -54,6 +54,14 @@ const CLOSING = [
     'Compassion that acts.',
     'And a life that brings glory to JESUS CHRIST.',
 ];
+
+/**
+ * Paragraph text. Android can measure long Quicksand paragraphs a line short (the last line
+ * then disappears under the next card); the simple break strategy + a little bottom room avoids it.
+ */
+const P = ({ style, children }: { style: StyleProp<TextStyle>; children: ReactNode }) => (
+    <Text style={[style, { paddingBottom: 2 }]} textBreakStrategy="simple">{children}</Text>
+);
 
 const Section = ({ index, title, children }: { index: number; title: string; children: ReactNode }) => (
     <Animated.View entering={FadeInDown.delay(index * 80)} style={styles.section}>
@@ -89,9 +97,9 @@ const About = () => {
                         <View style={styles.iconBadge}>
                             <Ionicons name="eye-outline" size={22} color={ORANGE} />
                         </View>
-                        <Text style={styles.body}>
+                        <P style={styles.body}>
                             To build a sustainable food ecosystem that uplifts communities—where every meal purchased helps provide nourishment, dignity, and hope to the less privileged.
-                        </Text>
+                        </P>
                     </View>
                 </Section>
 
@@ -100,30 +108,30 @@ const About = () => {
                         <View style={styles.iconBadge}>
                             <Ionicons name="flag-outline" size={22} color={ORANGE} />
                         </View>
-                        <Text style={styles.body}>
-                            To serve high-quality food and beverages to the public while using the proceeds to fund our outreach programs that feed and care for those in need, without relying on donations, but through excellence in business.
-                        </Text>
+                        <P style={styles.body}>
+                            To serve high-quality food and beverages to the public while using the proceeds to fund our outreach programs that feed and care for those in need: not by relying on donations, but through excellence in business.
+                        </P>
                     </View>
                 </Section>
 
                 {/* About us */}
                 <Section index={3} title="ABOUT US">
                     <View style={styles.card}>
-                        <Text style={[styles.body, styles.mb]}>
+                        <P style={[styles.body, styles.mb]}>
                             U Angel Foods is a social enterprise founded by Ecclesia Nation with the goal of transforming lives.
-                        </Text>
-                        <Text style={styles.body}>
-                            As a social enterprise, we operate at the intersection of for-profit and non-profit organisations. Our mission is simple: to build a profitable business whose profits are channelled towards caring for the less privileged, supporting outreaches, establishing soup kitchens, and creating employment opportunities for GOD&apos;S people.
-                        </Text>
+                        </P>
+                        <P style={styles.body}>
+                            As a social enterprise, we operate at the intersection of for-profit and non-profit organisations. Our mission is simple: to build a profitable business whose profits are channelled towards caring for the less privileged, supporting outreaches, establishing soup kitchens, and creating employment opportunities for GOD’s people.
+                        </P>
                     </View>
                 </Section>
 
                 {/* Social impact model */}
                 <Section index={4} title="OUR SOCIAL IMPACT MODEL">
                     <View style={styles.card}>
-                        <Text style={[styles.body, styles.mb]}>
+                        <P style={[styles.body, styles.mb]}>
                             We are committed to solving real problems—not with handouts, but with a sustainable, empowering approach. Here’s how it works:
-                        </Text>
+                        </P>
                         {IMPACT_STEPS.map((step, i) => {
                             const isLast = i === IMPACT_STEPS.length - 1;
                             return (
@@ -151,7 +159,7 @@ const About = () => {
                             WE DON&apos;T WANT TO BUILD A CAMPAIGN. WE WANT TO BUILD A SYSTEM.
                         </Text>
                     </View>
-                    <Text style={[styles.body, styles.mb]}>U Angel Foods is built on the foundation of:</Text>
+                    <P style={[styles.body, styles.mb]}>U Angel Foods is built on the foundation of:</P>
                     <View style={styles.grid}>
                         {FOUNDATIONS.map((item) => (
                             <View key={item.title} style={styles.gridCard}>
@@ -179,9 +187,9 @@ const About = () => {
 
                 {/* Legacy */}
                 <Section index={7} title="OUR LEGACY">
-                    <Text style={[styles.body, styles.mb]}>
+                    <P style={[styles.body, styles.mb]}>
                         One day, we want to look back and know that this name represented millions—perhaps billions—of moments where someone&apos;s dignity was restored.
-                    </Text>
+                    </P>
                     <View style={styles.card}>
                         {LEGACY.map((line, i) => (
                             <View key={line} style={[styles.legacyRow, i > 0 && styles.legacyDivider]}>
@@ -195,12 +203,15 @@ const About = () => {
                 {/* Honouring our father */}
                 <Section index={8} title="HONOURING OUR FATHER">
                     <View style={styles.card}>
-                        <Text style={[styles.body, styles.mb]}>
+                        <P style={[styles.body, styles.mb]}>
                             At U Angel Foods, our name carries a story of honour, gratitude, and spiritual heritage.
-                        </Text>
-                        <Text style={styles.body}>
-                            The name U Angel Foods was inspired by THE HOLY SPIRIT and given in honour of our spiritual father, the highly esteemed Prophet Uebert Angel—a bondservant servant of GOD whose life, ministry, and commitment to the advancement of the Kingdom of GOD have inspired countless people around the world.
-                        </Text>
+                        </P>
+                        <P style={[styles.body, styles.mb]}>
+                            The name U Angel Foods was inspired by THE HOLY SPIRIT and given in honour of our spiritual father, the highly esteemed Prophet Uebert Angel, a bondservant of GOD.
+                        </P>
+                        <P style={styles.body}>
+                            He has inspired countless people around the world through his life, ministry and commitment to the advancement of the Kingdom of GOD.
+                        </P>
                     </View>
 
                     <View style={styles.closing}>
@@ -218,7 +229,7 @@ const About = () => {
                     <View style={styles.card}>
                         {[
                             'Orders are confirmed once payment succeeds.',
-                            'Delivery is scheduled and you are notified. We deliver only; there is no pick-up.',
+                            'We schedule your delivery and keep you updated. We deliver only; there is no pick-up.',
                             'Preparation times shown are estimates.',
                         ].map((line, i) => (
                             <View key={line} style={[styles.checkRow, i > 0 && styles.checkRowSpaced]}>
@@ -231,17 +242,17 @@ const About = () => {
 
                 <Section index={10} title="CANCELLATION AND REFUNDS">
                     <View style={styles.card}>
-                        <Text style={styles.body}>
+                        <P style={styles.body}>
                             If we cancel your order, you will be refunded. If there is a problem with your order, contact us as soon as possible and we will put it right.
-                        </Text>
+                        </P>
                     </View>
                 </Section>
 
                 <Section index={11} title="LIABILITY">
                     <View style={styles.card}>
-                        <Text style={styles.body}>
-                            We take care to provide a reliable service but cannot promise it will always be error-free and for that we sincerely apologize. However, we will always make amends, our goal is to attain the highest level of efficiency possible.
-                        </Text>
+                        <P style={styles.body}>
+                            We take great care to provide a reliable service, but we cannot promise it will always be error-free. If something goes wrong, we sincerely apologise and will always put it right. Our goal is the highest possible standard of service.
+                        </P>
                     </View>
                 </Section>
 

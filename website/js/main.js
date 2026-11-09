@@ -3,8 +3,9 @@
 (function () {
   'use strict';
   var CAMPAIGN_END = Date.UTC(2026, 11, 15, 22, 59); // 15 Dec 2026, 23:59 Lagos time
-  // TODO: put the app download link here (e.g. the .apk file). The "Get the app" button and QR code use it.
-  var APP_URL = '';
+  // Stable download link: /download redirects to the newest APK (see vercel.json → redirects).
+  // After each new app build, update that redirect; the button and QR code never change.
+  var APP_URL = 'https://uangelfoods.com/download';
   var doc = document.documentElement;
 
   // "Get the app" button + QR code
