@@ -1,0 +1,71 @@
+import { StatusBar } from 'expo-status-bar';
+import { ReactNode } from 'react';
+import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import logo from '@/assets/images/uangel-logo-white.png';
+import { colors, fonts } from '@/lib/theme';
+
+/** Orange header with the logo, then a white rounded sheet holding the form. */
+export default function AuthShell({ title, subtitle, top, children }: {
+    title: string;
+    subtitle: string;
+    top?: ReactNode;
+    children: ReactNode;
+}) {
+    const insets = useSafeAreaInsets();
+    return (
+        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <StatusBar style="light" />
+            <ScrollView
+                style={styles.flex}
+                contentContainerStyle={styles.scroll}
+                keyboardShouldPersistTaps="handled"
+                bounces={false}
+            >
+                <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+                    <View style={styles.circle} />
+                    {top}
+                    <Image source={logo} style={styles.logo} resizeMode="contain" accessibilityLabel="U Angel Foods" />
+                    <Text style={styles.kicker}>U ANGEL AFFILIATES</Text>
+                </View>
+                <View style={[styles.sheet, { paddingBottom: insets.bottom + 28 }]}>
+                    <View style={styles.titles}>
+                        <Text style={styles.title}>{title}</Text>
+                        <Text style={styles.subtitle}>{subtitle}</Text>
+                    </View>
+                    {children}
+                </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
+    );
+}
+
+const styles = StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.orange },
+    scroll: { flexGrow: 1 },
+    header: { alignItems: 'center', paddingBottom: 34, overflow: 'hidden' },
+    circle: {
+        position: 'absolute',
+        width: 260,
+        height: 260,
+        borderRadius: 130,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        right: -90,
+        top: -110,
+    },
+    logo: { width: 120, height: 120 },
+    kicker: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1.6, color: 'rgba(255,255,255,0.88)', marginTop: 4 },
+    sheet: {
+        flexGrow: 1,
+        backgroundColor: colors.white,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        paddingHorizontal: 24,
+        paddingTop: 26,
+        gap: 18,
+    },
+    titles: { gap: 4 },
+    title: { fontFamily: fonts.bold, fontSize: 26, color: colors.navy },
+    subtitle: { fontFamily: fonts.semibold, fontSize: 14.5, lineHeight: 21, color: colors.grey },
+});

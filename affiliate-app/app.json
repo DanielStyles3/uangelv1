@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "U Angel Affiliates",
+    "slug": "u-angel-affiliates",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/app-icon.png",
+    "scheme": "uangelaffiliates",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.uangelfoods.affiliates"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/app-adaptive-icon.png",
+        "backgroundColor": "#FD652A"
+      },
+      "package": "com.uangelfoods.affiliates",
+      "versionCode": 1
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/images/app-favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash/blank.png",
+          "imageWidth": 240,
+          "resizeMode": "contain",
+          "backgroundColor": "#FD652A"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": [
+              "armeabi-v7a",
+              "arm64-v8a"
+            ]
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "supabaseUrl": "https://rembodejacmfbeohvmhl.supabase.co",
+      "supabaseKey": "sb_publishable_gQ92ZGE8a1mKL3SLLWB0Dw_knNnJDVg",
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "ea57673e-e675-4dfd-b76d-832f69058cf3"
+      }
+    },
+    "owner": "danielstyles"
+  }
+}
