@@ -40,7 +40,7 @@ export default function AuthScreen({ title, subtitle, onBack, children, footer }
             {/* Android is edge-to-edge: pad for the keyboard and let the ScrollView bring the field into view. */}
             <KeyboardAvoidingView style={styles.flex} behavior="padding">
                 <ScrollView
-                    contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + (onBack ? 10 : 26), paddingBottom: insets.bottom + 26 }}
+                    contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + (onBack ? 16 : 34), paddingBottom: insets.bottom + 34 }}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator={false}
                 >
@@ -118,19 +118,19 @@ const styles = StyleSheet.create({
     blob: { position: "absolute", borderRadius: 9999 },
     ring: { position: "absolute", borderRadius: 9999, borderWidth: 2, borderColor: "rgba(255,255,255,0.28)" },
 
-    header: { paddingHorizontal: 24, gap: 10 },
-    topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 },
+    header: { paddingHorizontal: 26, gap: 14 },
+    topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
     back: { width: 46, height: 46, borderRadius: 23, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
-    logo: { width: 92, height: 92, marginLeft: -8 },
+    logo: { width: 92, height: 92, marginLeft: -8, marginBottom: 6 },
     logoSmall: { width: 58, height: 58 },
     title: { fontFamily: "Quicksand-Bold", fontSize: 42, lineHeight: 45, color: "#fff" },
     subtitle: { fontFamily: "Quicksand-Bold", fontSize: 16, color: NAVY },
 
     card: {
-        marginHorizontal: 16, marginTop: 26, backgroundColor: "#fff", borderRadius: 34, paddingHorizontal: 20, paddingVertical: 24, gap: 14,
+        marginHorizontal: 18, marginTop: 36, backgroundColor: "#fff", borderRadius: 34, paddingHorizontal: 22, paddingVertical: 30, gap: 20,
         shadowColor: "#782800", shadowOpacity: 0.35, shadowRadius: 26, shadowOffset: { width: 0, height: 18 }, elevation: 14,
     },
-    footer: { flexGrow: 1, justifyContent: "flex-end", paddingHorizontal: 24, paddingTop: 26, gap: 12 },
+    footer: { flexGrow: 1, justifyContent: "flex-end", paddingHorizontal: 26, paddingTop: 36, gap: 16 },
 
     button: { height: 58, borderRadius: 999, backgroundColor: NAVY, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
     buttonText: { fontFamily: "Quicksand-Bold", fontSize: 17, color: "#fff" },
