@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import { Redirect, Stack, useSegments } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui';
 import { AffiliateContext } from '@/lib/affiliate';
+import { useAuth } from '@/lib/auth';
 import { AffiliateSummary, getSummary, signOut } from '@/lib/api';
 import { errorMessage } from '@/lib/format';
 import { colors, fonts } from '@/lib/theme';
@@ -17,10 +18,21 @@ type Phase =
 export const unstable_settings = { initialRouteName: '(tabs)' };
 
 export default function AppLayout() {
+    const { session } = useAuth();
+    const segments = useSegments();
     const [phase, setPhase] = useState<Phase>({ kind: 'loading' });
     const [retrying, setRetrying] = useState(false);
+    const signedIn = !!session;
+    // A different sign-in state: start from "loading" so no previous account's data shows
+    // (adjusted while rendering, not in an effect).
+    const [prevSignedIn, setPrevSignedIn] = useState(signedIn);
+    if (prevSignedIn !== signedIn) {
+        setPrevSignedIn(signedIn);
+        setPhase({ kind: 'loading' });
+    }
 
     useEffect(() => {
+        if (!signedIn) return;
         let alive = true;
         getSummary()
             .then((summary) => alive && setPhase({ kind: 'ready', summary }))
@@ -28,7 +40,7 @@ export default function AppLayout() {
         return () => {
             alive = false;
         };
-    }, []);
+    }, [signedIn]);
 
     const refresh = useCallback(async () => {
         const summary = await getSummary();
@@ -48,6 +60,9 @@ export default function AppLayout() {
 
     const summary = phase.kind === 'ready' ? phase.summary : null;
     const value = useMemo(() => ({ summary, refresh }), [summary, refresh]);
+
+    // Signed out → Sign in.
+    if (!signedIn) return <Redirect href="/sign-in" />;
 
     if (phase.kind === 'loading') {
         return (
@@ -70,17 +85,17 @@ export default function AppLayout() {
     }
 
     const joined = !!summary;
+    const onJoin = (segments as string[]).includes('join');
+    // Not an affiliate yet → Join. Already joined but on Join → Earnings.
+    if (!joined && !onJoin) return <Redirect href="/join" />;
+    if (joined && onJoin) return <Redirect href="/" />;
 
     return (
         <AffiliateContext.Provider value={value}>
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-                <Stack.Protected guard={joined}>
-                    <Stack.Screen name="(tabs)" />
-                    <Stack.Screen name="withdraw" />
-                </Stack.Protected>
-                <Stack.Protected guard={!joined}>
-                    <Stack.Screen name="join" />
-                </Stack.Protected>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="withdraw" />
+                <Stack.Screen name="join" />
             </Stack>
         </AffiliateContext.Provider>
     );

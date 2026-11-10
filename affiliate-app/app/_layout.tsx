@@ -13,7 +13,7 @@ import { colors } from '@/lib/theme';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
-    const { session, ready: authReady } = useAuth();
+    const { ready: authReady } = useAuth();
     const [splashDone, setSplashDone] = useState(false);
     const finishSplash = useCallback(() => setSplashDone(true), []);
 
@@ -24,13 +24,12 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
             {/* Dark icons on our light screens (orange screens and the splash switch to "light"). */}
             <StatusBar style="dark" />
             {ready ? (
+                // The app opens at "/" (the Earnings tab). Each group's layout redirects:
+                // (app) → /sign-in when signed out, /join when not an affiliate yet;
+                // (auth) → / once signed in.
                 <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-                    <Stack.Protected guard={!!session}>
-                        <Stack.Screen name="(app)" />
-                    </Stack.Protected>
-                    <Stack.Protected guard={!session}>
-                        <Stack.Screen name="(auth)" />
-                    </Stack.Protected>
+                    <Stack.Screen name="(app)" />
+                    <Stack.Screen name="(auth)" />
                 </Stack>
             ) : null}
             {!splashDone ? <AnimatedSplash ready={ready} onFinish={finishSplash} /> : null}
