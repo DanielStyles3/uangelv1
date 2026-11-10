@@ -80,25 +80,5 @@
     }).catch(function () { /* keep defaults */ });
   }
 
-  // ---- Banners (live ones only; RLS already hides switched-off / out-of-date banners) ----
-  var strip = document.getElementById('offers');
-  var track = strip && strip.querySelector('[data-promos]');
-  if (!track) return;
-  get('promotions?select=id,eyebrow,title,cta,image_url,color&order=sort_order.asc&limit=8').then(function (rows) {
-    rows = (rows || []).filter(function (p) { return p.title && safeUrl(p.image_url); });
-    if (!rows.length) return;
-    track.innerHTML = rows.map(function (p) {
-      var c = HEX.test(p.color) ? p.color : '#FD652A';
-      return '<a class="promo-card" href="#get" style="--promo:' + c + '">' +
-        '<span class="promo-copy">' +
-          (p.eyebrow ? '<small>' + esc(p.eyebrow) + '</small>' : '') +
-          '<b>' + esc(p.title) + '</b>' +
-          '<span class="promo-cta" style="color:' + c + '">' + esc(p.cta || 'Order in the app') + ' →</span>' +
-        '</span>' +
-        '<span class="promo-photo"><img src="' + esc(safeUrl(p.image_url)) + '" alt="" loading="lazy" decoding="async"></span>' +
-      '</a>';
-    }).join('');
-    track.classList.toggle('single', rows.length === 1);
-    strip.hidden = false;
-  }).catch(function () { /* no banners: section stays hidden */ });
+  // App banners (Admin › Promotions) are shown in the app only, not on the website.
 })();

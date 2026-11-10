@@ -32,7 +32,7 @@
     el.innerHTML =
       '<div class="page-head"><div><h1>Website &amp; app</h1><p>The top of uangelfoods.com, and the photos on the app’s Sign in and Sign up screens.</p></div>' +
         '<div class="actions"><a class="btn btn-ghost" href="/" target="_blank" rel="noopener">View website</a></div></div>' +
-      '<p class="pp-note">Changes show on the website as soon as you save. The coloured banners under this section are the same as the app’s and are edited in <a href="#/promotions">Promotions</a>.</p>' +
+      '<p class="pp-note">Changes show on the website as soon as you save. The app’s Home banners are separate and are edited in <a href="#/promotions">Promotions</a>.</p>' +
       '<div data-body>' + A.skeletonBlocks(2, 'pr-sk') + '</div>';
 
     var res = await A.sb.from('site_settings').select('value').eq('key', KEY).maybeSingle();
