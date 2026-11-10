@@ -1,46 +1,50 @@
-import { Ionicons } from "@expo/vector-icons";
-import {View, Text, Alert} from 'react-native'
-import {Link, router} from "expo-router";
-import {useState} from "react";
-import * as Sentry from '@sentry/react-native'
+import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { router } from "expo-router";
+import { useState } from "react";
+import * as Sentry from "@sentry/react-native";
 
 import AuthInput from "@/components/AuthInput";
-import CustomButton from "@/components/CustomButton";
-import {signIn} from "@/lib/api";
+import AuthScreen, { AuthButton, AuthGhostButton, authStyles } from "@/components/AuthScreen";
+import { signIn } from "@/lib/api";
 import useAuthStore from "@/store/auth.store";
 
 const SignIn = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [form, setForm] = useState({ email: '', password: '' });
+    const [form, setForm] = useState({ email: "", password: "" });
     const { fetchAuthenticatedUser } = useAuthStore();
 
     const submit = async () => {
         const { email, password } = form;
 
-        if(!email || !password) return Alert.alert('Error', 'Please enter valid email address & password.');
+        if (!email || !password) return Alert.alert("Error", "Please enter valid email address & password.");
 
-        setIsSubmitting(true)
+        setIsSubmitting(true);
 
         try {
             await signIn({ email: email.trim(), password });
             await fetchAuthenticatedUser();
 
-            router.replace('/');
-        } catch(error: any) {
-            Alert.alert('Error', error.message);
+            router.replace("/");
+        } catch (error: any) {
+            Alert.alert("Error", error.message);
             Sentry.captureException(error);
         } finally {
             setIsSubmitting(false);
         }
-    }
+    };
 
     return (
-        <View style={{ paddingHorizontal: 24, paddingTop: 22, gap: 18 }}>
-            <View style={{ gap: 4, marginBottom: 2 }}>
-                <Text className="h1-bold text-dark-100">Welcome back <Ionicons name="hand-left" size={24} color="#FD652A" /></Text>
-                <Text className="paragraph-medium text-gray-200">Sign in to order your favourites.</Text>
-            </View>
-
+        <AuthScreen
+            title={"Welcome\nback."}
+            subtitle="Sign in to order your favourites."
+            footer={
+                <>
+                    <Text style={authStyles.onOrange}>New to U Angel Foods?</Text>
+                    <AuthGhostButton title="Create an account" onPress={() => router.push("/sign-up")} />
+                    <Text style={authStyles.onOrangeSmall}>Every order feeds someone in need</Text>
+                </>
+            }
+        >
             <AuthInput
                 label="Email"
                 icon="mail-outline"
@@ -52,7 +56,7 @@ const SignIn = () => {
                 textContentType="emailAddress"
                 returnKeyType="next"
             />
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: 10 }}>
                 <AuthInput
                     label="Password"
                     icon="lock-closed-outline"
@@ -65,27 +69,14 @@ const SignIn = () => {
                     returnKeyType="go"
                     onSubmitEditing={submit}
                 />
-                <Link href="/forgot-password" className="paragraph-semibold text-primary text-right">
-                    Forgot password?
-                </Link>
+                <TouchableOpacity onPress={() => router.push("/forgot-password")} hitSlop={10} style={{ alignSelf: "flex-end" }} accessibilityRole="link">
+                    <Text style={authStyles.link}>Forgot password?</Text>
+                </TouchableOpacity>
             </View>
 
-            <View style={{ marginTop: 6 }}>
-                <CustomButton
-                    title="Sign in"
-                    isLoading={isSubmitting}
-                    onPress={submit}
-                    style="!py-4 shadow-lg shadow-primary/40"
-                    textStyle="!text-base"
-                />
-            </View>
+            <AuthButton title="Sign in" loading={isSubmitting} onPress={submit} />
+        </AuthScreen>
+    );
+};
 
-            <View style={{ flexDirection: "row", justifyContent: "center", gap: 6 }}>
-                <Text className="paragraph-medium text-gray-200">New to U Angel Foods?</Text>
-                <Link href="/sign-up" replace className="paragraph-bold text-primary">Create account</Link>
-            </View>
-        </View>
-    )
-}
-
-export default SignIn
+export default SignIn;

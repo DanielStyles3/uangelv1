@@ -1,11 +1,11 @@
 import { ComponentRef, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { Link } from "expo-router";
+import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import AuthInput from "@/components/AuthInput";
-import CustomButton from "@/components/CustomButton";
+import AuthScreen, { AuthButton } from "@/components/AuthScreen";
 import { resetPasswordWithCode, sendPasswordReset } from "@/lib/api";
 import useAuthStore from "@/store/auth.store";
 
@@ -99,15 +99,11 @@ export default function ForgotPassword() {
         }
     };
 
+    const goBack = () => (router.canGoBack() ? router.back() : router.replace("/sign-in"));
+
     if (step === "email") {
         return (
-            <View style={styles.wrap}>
-                <View style={{ gap: 4 }}>
-                    <Text className="h1-bold text-dark-100">Forgot password?</Text>
-                    <Text className="paragraph-medium text-gray-200">
-                        Enter the email you signed up with and we&apos;ll send you a 6-digit code.
-                    </Text>
-                </View>
+            <AuthScreen title={"Forgot\npassword?"} subtitle="We’ll email you a 6-digit code." onBack={goBack}>
                 <AuthInput
                     label="Email"
                     icon="mail-outline"
@@ -120,23 +116,16 @@ export default function ForgotPassword() {
                     returnKeyType="send"
                     onSubmitEditing={sendCode}
                 />
-                <CustomButton title="Send code" isLoading={busy} onPress={sendCode} style="!py-4 shadow-lg shadow-primary/40" textStyle="!text-base" />
-                <View style={styles.footer}>
-                    <Text className="paragraph-medium text-gray-200">Remembered it?</Text>
-                    <Link href="/sign-in" replace className="paragraph-bold text-primary">Sign in</Link>
-                </View>
-            </View>
+                <AuthButton title="Send code" loading={busy} onPress={sendCode} />
+            </AuthScreen>
         );
     }
 
     return (
-        <View style={styles.wrap}>
-            <View style={{ gap: 4 }}>
-                <Text className="h1-bold text-dark-100">Check your email</Text>
-                <Text className="paragraph-medium text-gray-200">
-                    We sent a 6-digit code to <Text style={{ color: INK, fontFamily: "Quicksand-Bold" }}>{email.trim()}</Text>. It may take a minute; check spam too.
-                </Text>
-            </View>
+        <AuthScreen title={"Check\nyour email."} subtitle="Enter the code and a new password." onBack={() => { setStep("email"); setCode(""); }}>
+            <Text style={styles.sentTo}>
+                We sent a 6-digit code to <Text style={{ color: INK, fontFamily: "Quicksand-Bold" }}>{email.trim()}</Text>. It may take a minute; check spam too.
+            </Text>
 
             <CodeBoxes value={code} onChange={setCode} />
 
@@ -154,19 +143,18 @@ export default function ForgotPassword() {
             <AuthInput label="New password" icon="lock-closed-outline" placeholder="At least 6 characters" value={password} onChangeText={setPassword} secure textContentType="newPassword" autoComplete="new-password" />
             <AuthInput label="Confirm new password" icon="lock-closed-outline" placeholder="Type it again" value={confirm} onChangeText={setConfirm} secure textContentType="newPassword" returnKeyType="done" onSubmitEditing={save} />
 
-            <CustomButton title="Reset password" isLoading={busy} onPress={save} style="!py-4 shadow-lg shadow-primary/40" textStyle="!text-base" />
+            <AuthButton title="Reset password" loading={busy} onPress={save} />
 
             <View style={styles.tip}>
                 <Ionicons name="shield-checkmark-outline" size={18} color={ORANGE} />
                 <Text style={styles.tipText}>Never share this code. U Angel Foods will never ask you for it.</Text>
             </View>
-        </View>
+        </AuthScreen>
     );
 }
 
 const styles = StyleSheet.create({
-    wrap: { paddingHorizontal: 24, paddingTop: 22, gap: 18 },
-    footer: { flexDirection: "row", justifyContent: "center", gap: 6 },
+    sentTo: { fontFamily: "Quicksand-SemiBold", fontSize: 14, lineHeight: 20, color: "#5B5B66" },
 
     codeRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
     codeBox: { flex: 1, height: 58, borderRadius: 16, backgroundColor: "#F5F5F7", borderWidth: 1.5, borderColor: "#E4E4EA", alignItems: "center", justifyContent: "center" },

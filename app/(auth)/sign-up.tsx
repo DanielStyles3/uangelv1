@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import {ActivityIndicator, View, Text, Alert, StyleSheet, TouchableOpacity} from 'react-native'
-import {Link, router} from "expo-router";
+import {router} from "expo-router";
 import {useEffect, useState} from "react";
 import * as Sentry from '@sentry/react-native'
 import * as Haptics from "expo-haptics";
@@ -8,7 +8,7 @@ import Animated from "react-native-reanimated";
 import {useDebounce} from "use-debounce";
 
 import AuthInput from "@/components/AuthInput";
-import CustomButton from "@/components/CustomButton";
+import AuthScreen, {AuthButton, authStyles} from "@/components/AuthScreen";
 import {checkReferralCode, createUser} from "@/lib/api";
 import {popIn} from "@/lib/motion";
 import useAuthStore from "@/store/auth.store";
@@ -20,7 +20,6 @@ const cleanCode = (text: string) => text.replace(/[^A-Za-z0-9]/g, '').toUpperCas
 const SignUp = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [form, setForm] = useState({ name: '', email: '', password: '', referral: '' });
-    const [showReferral, setShowReferral] = useState(false);
     const { fetchAuthenticatedUser } = useAuthStore();
 
     // Live referral check: once typing stops (and the code is long enough) ask the server,
@@ -89,13 +88,22 @@ const SignUp = () => {
         }
     }
 
-    return (
-        <View style={{ paddingHorizontal: 24, paddingTop: 22, gap: 18 }}>
-            <View style={{ gap: 4, marginBottom: 2 }}>
-                <Text className="h1-bold text-dark-100">Create account <Ionicons name="sparkles" size={24} color="#FD652A" /></Text>
-                <Text className="paragraph-medium text-gray-200">Join U Angel Foods in less than a minute.</Text>
-            </View>
+    const goSignIn = () => (router.canGoBack() ? router.back() : router.replace('/sign-in'));
 
+    return (
+        <AuthScreen
+            title={"Join\nU Angel Foods."}
+            subtitle="It takes less than a minute."
+            onBack={goSignIn}
+            footer={
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                    <Text style={authStyles.onOrange}>Already have an account?</Text>
+                    <TouchableOpacity onPress={goSignIn} hitSlop={10} accessibilityRole="link">
+                        <Text style={authStyles.linkOnOrange}>Sign in</Text>
+                    </TouchableOpacity>
+                </View>
+            }
+        >
             <AuthInput
                 label="Full name"
                 icon="person-outline"
@@ -128,82 +136,60 @@ const SignUp = () => {
                     secure
                     autoComplete="new-password"
                     textContentType="newPassword"
-                    returnKeyType="go"
-                    onSubmitEditing={submit}
+                    returnKeyType="next"
                 />
                 {form.password.length > 0 && form.password.length < 6 && (
-                    <Text className="body-medium text-error ml-1">{6 - form.password.length} more character{6 - form.password.length === 1 ? '' : 's'} needed</Text>
+                    <Text style={[authStyles.hint, { color: '#B91C1C' }]}>{6 - form.password.length} more character{6 - form.password.length === 1 ? '' : 's'} needed</Text>
                 )}
             </View>
 
-            {showReferral ? (
-                <Animated.View entering={popIn()} style={{ gap: 10 }}>
-                    <AuthInput
-                        label="Referral code (optional)"
-                        icon="gift-outline"
-                        placeholder="e.g. ADA25"
-                        value={form.referral}
-                        onChangeText={(text) => setForm((prev) => ({ ...prev, referral: cleanCode(text) }))}
-                        autoCapitalize="characters"
-                        returnKeyType="go"
-                        onSubmitEditing={submit}
-                        maxLength={12}
-                        code
-                        tone={codeState === 'valid' ? 'success' : codeState === 'invalid' ? 'error' : undefined}
-                        right={
-                            codeState === 'checking' ? <ActivityIndicator size="small" color="#9A9AA3" />
-                            : codeState === 'valid' ? <Ionicons name="checkmark-circle" size={22} color="#15803D" />
-                            : codeState === 'invalid' ? <Ionicons name="close-circle" size={22} color="#DC2626" />
-                            : null
-                        }
-                    />
-                    {codeState === 'valid' ? (
-                        <Animated.View key="valid" entering={popIn()} style={[styles.note, styles.noteGreen]} accessibilityLiveRegion="polite">
-                            <View style={styles.tick}><Ionicons name="checkmark" size={15} color="#fff" /></View>
-                            <Text style={[styles.noteText, { color: '#166534' }]}>{check?.firstName || 'Your friend'} invited you. Code accepted.</Text>
-                        </Animated.View>
-                    ) : codeState === 'invalid' ? (
-                        <Animated.View key="invalid" entering={popIn()} style={[styles.note, styles.noteRed]} accessibilityLiveRegion="polite">
-                            <Ionicons name="alert-circle" size={22} color="#DC2626" />
-                            <Text style={[styles.noteText, { color: '#B91C1C' }]}>We don’t know the code “{code}”. Check it with your friend, or leave it empty.</Text>
-                        </Animated.View>
-                    ) : codeState === 'checking' ? (
-                        <Text style={styles.hint}>Checking your code…</Text>
-                    ) : codeState === 'offline' ? (
-                        <Text style={styles.hint}>We couldn’t check the code just now. We’ll check it again when you create your account.</Text>
-                    ) : codeState === 'short' ? (
-                        <Text style={styles.hint}>Codes are 4 to 12 letters and numbers.</Text>
-                    ) : null}
-                </Animated.View>
-            ) : (
-                <TouchableOpacity onPress={() => setShowReferral(true)} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
-                    <Ionicons name="gift-outline" size={16} color="#FD652A" />
-                    <Text className="paragraph-bold text-primary">Have a referral code?</Text>
-                </TouchableOpacity>
-            )}
-
-            <View style={{ marginTop: 6 }}>
-                <CustomButton
-                    title="Create account"
-                    isLoading={isSubmitting}
-                    onPress={submit}
-                    style="!py-4 shadow-lg shadow-primary/40"
-                    textStyle="!text-base"
+            <View style={{ gap: 10 }}>
+                <AuthInput
+                    label="Referral code (optional)"
+                    icon="gift-outline"
+                    placeholder="e.g. ADA25"
+                    value={form.referral}
+                    onChangeText={(text) => setForm((prev) => ({ ...prev, referral: cleanCode(text) }))}
+                    autoCapitalize="characters"
+                    returnKeyType="go"
+                    onSubmitEditing={submit}
+                    maxLength={12}
+                    code
+                    tone={codeState === 'valid' ? 'success' : codeState === 'invalid' ? 'error' : undefined}
+                    right={
+                        codeState === 'checking' ? <ActivityIndicator size="small" color="#9A9AA3" />
+                        : codeState === 'valid' ? <Ionicons name="checkmark-circle" size={22} color="#15803D" />
+                        : codeState === 'invalid' ? <Ionicons name="close-circle" size={22} color="#DC2626" />
+                        : null
+                    }
                 />
+                {codeState === 'valid' ? (
+                    <Animated.View key="valid" entering={popIn()} style={[styles.note, styles.noteGreen]} accessibilityLiveRegion="polite">
+                        <View style={styles.tick}><Ionicons name="checkmark" size={15} color="#fff" /></View>
+                        <Text style={[styles.noteText, { color: '#166534' }]}>{check?.firstName || 'Your friend'} invited you. Code accepted.</Text>
+                    </Animated.View>
+                ) : codeState === 'invalid' ? (
+                    <Animated.View key="invalid" entering={popIn()} style={[styles.note, styles.noteRed]} accessibilityLiveRegion="polite">
+                        <Ionicons name="alert-circle" size={22} color="#DC2626" />
+                        <Text style={[styles.noteText, { color: '#B91C1C' }]}>We don’t know the code “{code}”. Check it with your friend, or leave it empty.</Text>
+                    </Animated.View>
+                ) : codeState === 'checking' ? (
+                    <Text style={styles.hint}>Checking your code…</Text>
+                ) : codeState === 'offline' ? (
+                    <Text style={styles.hint}>We couldn’t check the code just now. We’ll check it again when you create your account.</Text>
+                ) : codeState === 'short' ? (
+                    <Text style={styles.hint}>Codes are 4 to 12 letters and numbers.</Text>
+                ) : null}
             </View>
 
-            <Text className="body-regular text-gray-200 text-center px-4">
+            <AuthButton title="Create account" loading={isSubmitting} onPress={submit} />
+
+            <Text style={authStyles.small}>
                 By creating an account you agree to receive order and delivery updates from U Angel Foods.
             </Text>
-
-            <View style={{ flexDirection: "row", justifyContent: "center", gap: 6 }}>
-                <Text className="paragraph-medium text-gray-200">Already have an account?</Text>
-                <Link href="/sign-in" replace className="paragraph-bold text-primary">Sign in</Link>
-            </View>
-        </View>
+        </AuthScreen>
     )
 }
-
 const styles = StyleSheet.create({
     note: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11 },
     noteGreen: { backgroundColor: '#E9F8EF' },
