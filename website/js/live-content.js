@@ -54,14 +54,14 @@
       return;
     }
     var h = document.getElementById('xmas-title');
-    // Keep the designed heading ("…by 15 December", bold number) unless the admin changed it.
+    // Keep the designed heading ("…by 25 December", bold number) unless the admin changed it.
     if (h && typeof x.title === 'string' && x.title.trim() && x.title.trim() !== 'Help us reach 10,000 pre-orders') h.textContent = x.title.trim();
     var eyebrow = document.querySelector('#christmas .eyebrow');
     if (eyebrow && typeof x.eyebrow === 'string' && x.eyebrow.trim()) eyebrow.textContent = x.eyebrow.trim();
     var cta = document.querySelector('#christmas .hero-ctas a');
     if (cta && typeof x.cta === 'string' && x.cta.trim()) cta.textContent = x.cta.trim() + ' →';
     var img = document.querySelector('#christmas .flyer img'), url = safeUrl(x.image_url);
-    if (img && url && img.getAttribute('src') !== url && !/xmas-10000-preorders\.jpg$/.test(url)) {
+    if (img && url && img.getAttribute('src') !== url && !/xmas-10000-preorders-25dec\.jpg$/.test(url)) {
       img.removeAttribute('width'); img.removeAttribute('height'); img.src = url;
     }
   }).catch(function () { /* keep defaults */ });

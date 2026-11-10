@@ -78,7 +78,7 @@ export default function Index() {
     return items.slice(0, 10);
   }, [orders]);
 
-  // Banners: the Christmas pre-order slide first (until 15 Dec), then the admin's
+  // Banners: the Christmas pre-order slide first (until 25 Dec), then the admin's
   // Promotions, or the two built-in ones when none are live.
   const baseSlides: PromoSlide[] = useMemo(() => {
     if (promos?.length) {

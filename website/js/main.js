@@ -2,7 +2,7 @@
    menu, header border on scroll, Christmas strip/section/countdown, footer year. */
 (function () {
   'use strict';
-  var CAMPAIGN_END = Date.UTC(2026, 11, 15, 22, 59); // 15 Dec 2026, 23:59 Lagos time
+  var CAMPAIGN_END = Date.UTC(2026, 11, 25, 22, 59); // 25 Dec 2026, 23:59 Lagos time
   // Stable download link: /download redirects to the newest APK (see vercel.json → redirects).
   // After each new app build, update that redirect; the button and QR code never change.
   var APP_URL = 'https://uangelfoods.com/download';

@@ -50,7 +50,7 @@
 
   var XMAS_KEY = 'christmas_banner';
   var XMAS_COLOR = '#C8102E';
-  var XMAS_DEFAULT = { enabled: true, eyebrow: 'Christmas pre-order', title: 'Help us reach 10,000 pre-orders', cta: 'Pre-order now', image_url: 'https://uangelfoods.com/assets/campaign/xmas-10000-preorders.jpg' };
+  var XMAS_DEFAULT = { enabled: true, eyebrow: 'Christmas pre-order', title: 'Help us reach 10,000 pre-orders', cta: 'Pre-order now', image_url: 'https://uangelfoods.com/assets/campaign/xmas-10000-preorders-25dec.jpg' };
 
   function xmasHtml() {
     var x = S.xmas;
@@ -59,7 +59,7 @@
         bannerHtml({ eyebrow: x.eyebrow, title: x.title, cta: x.cta, color: XMAS_COLOR }, x.image_url) + '</button>' +
       '<div style="flex:1 1 220px;display:flex;flex-direction:column;gap:8px">' +
         '<b>Christmas pre-order banner</b>' +
-        '<span class="cg-help" style="margin:0">Always first in the app, with the live pre-order progress bar. Also controls the Christmas section on the website. Ends by itself after 15 December.</span>' +
+        '<span class="cg-help" style="margin:0">Always first in the app, with the live pre-order progress bar. Also controls the Christmas section on the website. Ends by itself after 25 December.</span>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
           '<button type="button" class="pp-switch" role="switch" aria-checked="' + (x.enabled !== false) + '" data-xmas-toggle aria-label="Show the Christmas banner"><i></i>' + (x.enabled !== false ? 'On' : 'Off') + '</button>' +
           '<button type="button" class="btn btn-ghost btn-sm" data-xmas-edit>Edit</button>' +
@@ -145,7 +145,7 @@
   async function load() {
     var xr = await A.sb.from('site_settings').select('value').eq('key', XMAS_KEY).maybeSingle();
     S.xmas = Object.assign({}, XMAS_DEFAULT, (xr && !xr.error && xr.data && xr.data.value) || {});
-    S.xmasLive = Date.now() < Date.UTC(2026, 11, 15, 22, 59); // same end as the app (constants/campaign.ts)
+    S.xmasLive = Date.now() < Date.UTC(2026, 11, 25, 22, 59); // same end as the app (constants/campaign.ts)
     var r = await Promise.all([
       A.sb.from('promotions').select(COLS).order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
       A.sb.from('categories').select('id,name,parent_id,kind,sort_order').is('parent_id', null).order('sort_order'),

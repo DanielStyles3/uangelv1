@@ -24,9 +24,9 @@ const FLYER = SCREEN_W - GUTTER * 2 - 24;
 const CARD_W = (SCREEN_W - GUTTER * 2 - 12) / 2;
 
 const POINTS: { icon: IconName; tint: string; color: string; title: string; text: string }[] = [
-    { icon: "restaurant", tint: "#FDECEC", color: RED, title: "Your pre-order feeds someone", text: "Every pre-order helps provide food during the Xmas period for the less privileged." },
+    { icon: "restaurant", tint: "#FDECEC", color: RED, title: "Cooked food for the homeless", text: "We give cooked food to the homeless and handicapped during the Xmas period." },
+    { icon: "basket", tint: "#EAF7EF", color: "#15803D", title: "Food for orphans and widows", text: "We provide orphans and widows with uncooked food." },
     { icon: "car-sport", tint: "#FFF5DB", color: "#B45309", title: "Delivered next day", text: "All pre-orders are delivered the day after you order." },
-    { icon: "gift", tint: "#EAF7EF", color: "#15803D", title: "Make a difference together", text: "Let’s make this Christmas brighter for the less privileged." },
 ];
 
 function useCountdown() {
@@ -72,7 +72,7 @@ export default function Christmas() {
                         <Text style={styles.eyebrow}>CHRISTMAS 2026 CAMPAIGN</Text>
                     </View>
                     <Text style={styles.heroTitle}>Help us reach{"\n"}10,000 pre-orders</Text>
-                    <Text style={styles.heroText}>Between now and 15 December. Every order feeds someone in need.</Text>
+                    <Text style={styles.heroText}>Between now and 25 December. Every order feeds someone in need.</Text>
                     <Image
                         source={CAMPAIGN_FLYER}
                         style={styles.flyer}
