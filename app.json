@@ -17,7 +17,7 @@
         "backgroundColor": "#FD652A"
       },
       "package": "com.uangelfoods.app",
-      "versionCode":  9
+      "versionCode": 10
     },
     "web": {
       "bundler": "metro",
@@ -47,7 +47,17 @@
           "organization": "jsmpro"
         }
       ],
-      ["expo-build-properties", { "android": { "buildArchs": ["armeabi-v7a", "arm64-v8a"] } }]
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": [
+              "armeabi-v7a",
+              "arm64-v8a"
+            ]
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -59,9 +69,9 @@
         }
       },
       "eas": {
-        "projectId": "1157dfca-8ed6-4afe-ac39-935d45fb0703"
+        "projectId": "efb377bf-e1ca-4e5b-bfa7-9712e3f9e46a"
       }
     },
-    "owner": "danielstyles"
+    "owner": "styles12"
   }
 }

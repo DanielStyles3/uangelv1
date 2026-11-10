@@ -5,12 +5,13 @@ import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Enter } from '@/components/motion';
 import { Button, IconBubble, IconName, SectionLabel } from '@/components/ui';
 import { useAffiliate } from '@/lib/affiliate';
 import { becomeAffiliate, signOut } from '@/lib/api';
 import { displayName, useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/format';
-import { colors, fonts, shadow } from '@/lib/theme';
+import { colors, fonts } from '@/lib/theme';
 
 const STEPS: { icon: IconName; title: string; body: string; green?: boolean }[] = [
     {
@@ -62,7 +63,9 @@ export default function Join() {
     return (
         <View style={styles.screen}>
             <StatusBar style="light" />
-            <ScrollView contentContainerStyle={{ paddingBottom: 130 + insets.bottom }} bounces={false}>
+            {/* Solid strip behind the status bar, so scrolled content never shows under the clock. */}
+            <View style={[styles.statusStrip, { height: insets.top }]} />
+            <ScrollView contentContainerStyle={{ paddingBottom: 130 + insets.bottom }} bounces={false} showsVerticalScrollIndicator={false}>
                 <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
                     <View style={styles.circle} />
                     <View style={styles.headerTop}>
@@ -71,14 +74,14 @@ export default function Join() {
                             <Ionicons name="log-out-outline" size={20} color={colors.navy} />
                         </TouchableOpacity>
                     </View>
-                    <View style={styles.headerText}>
+                    <Enter index={0} style={styles.headerText}>
                         <Text style={styles.kicker}>U ANGEL AFFILIATES</Text>
                         <Text style={styles.h1}>Share the food.{'\n'}Earn. Feed someone.</Text>
                         <Text style={styles.lead}>Earn 5% on every order placed with your code, paid to your bank.</Text>
-                    </View>
+                    </Enter>
                 </View>
 
-                <View style={styles.howCard}>
+                <Enter index={1} style={styles.howCard}>
                     <SectionLabel>How it works</SectionLabel>
                     {STEPS.map((s) => (
                         <View key={s.title} style={styles.step}>
@@ -93,12 +96,12 @@ export default function Join() {
                             </View>
                         </View>
                     ))}
-                </View>
+                </Enter>
 
-                <View style={styles.heart}>
+                <Enter index={2} style={styles.heart}>
                     <Ionicons name="heart" size={18} color={colors.orange} />
                     <Text style={styles.heartText}>Every order you bring in helps feed someone in need.</Text>
-                </View>
+                </Enter>
 
                 <TouchableOpacity
                     style={styles.terms}
@@ -124,6 +127,7 @@ export default function Join() {
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.white },
+    statusStrip: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.orange, zIndex: 2 },
     header: { backgroundColor: colors.orange, paddingHorizontal: 20, paddingBottom: 72, gap: 18, overflow: 'hidden' },
     circle: {
         position: 'absolute',
@@ -147,11 +151,11 @@ const styles = StyleSheet.create({
         marginHorizontal: 20,
         backgroundColor: colors.white,
         borderRadius: 24,
+        borderWidth: 1,
+        borderColor: colors.cardBorder,
         padding: 18,
         gap: 14,
-        ...shadow,
-        shadowOpacity: 0.12,
-        shadowRadius: 20,
+        boxShadow: '0px 10px 24px rgba(24, 28, 46, 0.10)',
     },
     step: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
     stepText: { flex: 1, gap: 2 },
@@ -169,7 +173,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 14,
     },
-    heartText: { flex: 1, fontFamily: fonts.bold, fontSize: 13, color: colors.orangeText },
+    heartText: { flex: 1, fontFamily: fonts.bold, fontSize: 13, lineHeight: 18, color: colors.orangeText },
 
     terms: { marginTop: 16, marginHorizontal: 20, flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
     termsText: { flex: 1, fontFamily: fonts.semibold, fontSize: 13, lineHeight: 19, color: colors.grey },

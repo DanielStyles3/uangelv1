@@ -1,14 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { useState } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Fragment, useState } from 'react';
+import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 
-import { Button, Card, IconBubble, IconName, SectionLabel } from '@/components/ui';
+import { Enter, PressableScale } from '@/components/motion';
+import { Screen } from '@/components/Screen';
+import { Avatar, Button, Card, CardHeader, Chip, IconBubble, IconName } from '@/components/ui';
 import { useAffiliate } from '@/lib/affiliate';
 import { signOut } from '@/lib/api';
 import { displayName, useAuth } from '@/lib/auth';
-import { errorMessage, formatRate, initials } from '@/lib/format';
+import { errorMessage, formatRate } from '@/lib/format';
 import { colors, CONTACT, fonts } from '@/lib/theme';
 
 const HOW_IT_WORKS: { icon: IconName; text: string }[] = [
@@ -32,16 +33,15 @@ const HOW_IT_WORKS: { icon: IconName; text: string }[] = [
     },
 ];
 
-const TERMS = [
-    'No self-referrals: you can’t use your own code, or create extra accounts to use it.',
-    'No spam, misleading claims or paid ads using the U Angel Foods name without our permission.',
-    'Cancelled or refunded orders don’t earn, and earnings already made on them are removed.',
-    'We may put an account on hold and withhold earnings if we see abuse.',
-    'Rates and terms may change; we’ll tell you in the app before they do.',
+const TERMS: { icon: IconName; text: string }[] = [
+    { icon: 'people-circle-outline', text: 'No self-referrals: you can’t use your own code, or create extra accounts to use it.' },
+    { icon: 'megaphone-outline', text: 'No spam, misleading claims or paid ads using the U Angel Foods name without our permission.' },
+    { icon: 'close-circle-outline', text: 'Cancelled or refunded orders don’t earn, and earnings already made on them are removed.' },
+    { icon: 'shield-outline', text: 'We may put an account on hold and withhold earnings if we see abuse.' },
+    { icon: 'notifications-outline', text: 'Rates and terms may change; we’ll tell you in the app before they do.' },
 ];
 
 export default function Profile() {
-    const insets = useSafeAreaInsets();
     const { session } = useAuth();
     const { summary } = useAffiliate();
     const [busy, setBusy] = useState(false);
@@ -72,109 +72,131 @@ export default function Profile() {
         ]);
 
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}>
-            <Text style={styles.h1}>Profile</Text>
-
-            <Card style={styles.me}>
-                <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{initials(name)}</Text>
-                </View>
-                <View style={styles.flex}>
-                    <Text style={styles.name}>{name}</Text>
-                    <Text style={styles.email} numberOfLines={1}>{email}</Text>
+        <Screen title="Profile" kicker="Your account">
+            <Enter index={0}>
+                <Card style={styles.me}>
+                    <View style={styles.meTop}>
+                        <Avatar name={name} size={60} />
+                        <View style={styles.flex}>
+                            <Text style={styles.name} numberOfLines={1}>{name}</Text>
+                            <Text style={styles.email} numberOfLines={1}>{email}</Text>
+                        </View>
+                    </View>
                     {summary ? (
-                        <Text style={styles.code}>
-                            Code {summary.code} · {formatRate(summary.rate)} rate
-                        </Text>
+                        <View style={styles.chips}>
+                            <Chip large icon="pricetag-outline" label={`Code ${summary.code}`} tone="orange" />
+                            <Chip large icon="trending-up-outline" label={`${formatRate(summary.rate)} rate`} tone="green" />
+                        </View>
                     ) : null}
-                </View>
-            </Card>
+                </Card>
+            </Enter>
 
-            <Card>
-                <SectionLabel>How it works</SectionLabel>
-                {HOW_IT_WORKS.map((row) => (
-                    <View key={row.icon} style={styles.row}>
-                        <IconBubble name={row.icon} size={32} />
-                        <Text style={styles.rowText}>{row.text}</Text>
+            <Enter index={1}>
+                <Card style={styles.rowsCard}>
+                    <CardHeader title="How it works" icon="bulb-outline" />
+                    <Rows rows={HOW_IT_WORKS} />
+                </Card>
+            </Enter>
+
+            <Enter index={2}>
+                <Card style={styles.rowsCard}>
+                    <CardHeader title="Affiliate terms" icon="document-text-outline" />
+                    <Rows rows={TERMS} soft />
+                </Card>
+            </Enter>
+
+            <Enter index={3}>
+                <Card style={styles.rowsCard}>
+                    <CardHeader title="Questions? Talk to us" icon="chatbubbles-outline" />
+                    <View>
+                        <ContactRow
+                            icon="logo-whatsapp"
+                            color={colors.whatsapp}
+                            bg={colors.greenSoft}
+                            title="WhatsApp"
+                            value={CONTACT.whatsappDisplay}
+                            onPress={() => open(`https://wa.me/${CONTACT.whatsappIntl}`, `Message us on WhatsApp: ${CONTACT.whatsappDisplay}`)}
+                        />
+                        <View style={styles.line} />
+                        <ContactRow
+                            icon="mail-outline"
+                            color={colors.orangeDark}
+                            bg={colors.orangeSoft}
+                            title="Email"
+                            value={CONTACT.email}
+                            onPress={() => open(`mailto:${CONTACT.email}`, `Email us at ${CONTACT.email}`)}
+                        />
                     </View>
-                ))}
-            </Card>
+                </Card>
+            </Enter>
 
-            <Card>
-                <SectionLabel>Affiliate terms</SectionLabel>
-                {TERMS.map((t) => (
-                    <View key={t} style={styles.term}>
-                        <View style={styles.bullet} />
-                        <Text style={styles.rowText}>{t}</Text>
-                    </View>
-                ))}
-            </Card>
-
-            <Card style={styles.contactCard}>
-                <SectionLabel>Questions? Talk to us</SectionLabel>
-                <ContactRow
-                    icon="logo-whatsapp"
-                    color={colors.whatsapp}
-                    title="WhatsApp"
-                    value={CONTACT.whatsappDisplay}
-                    onPress={() => open(`https://wa.me/${CONTACT.whatsappIntl}`, `Message us on WhatsApp: ${CONTACT.whatsappDisplay}`)}
-                />
-                <ContactRow
-                    icon="mail-outline"
-                    color={colors.orange}
-                    title="Email"
-                    value={CONTACT.email}
-                    onPress={() => open(`mailto:${CONTACT.email}`, `Email us at ${CONTACT.email}`)}
-                />
-            </Card>
-
-            <Button title="Sign out" icon="log-out-outline" variant="secondary" loading={busy} onPress={confirmSignOut} />
-            <Text style={styles.version}>U Angel Affiliates · version {version}</Text>
-        </ScrollView>
+            <Enter index={4} style={styles.footer}>
+                <Button title="Sign out" icon="log-out-outline" variant="outline" loading={busy} onPress={confirmSignOut} />
+                <Text style={styles.version}>U Angel Affiliates · version {version}</Text>
+            </Enter>
+        </Screen>
     );
 }
 
-function ContactRow({ icon, color, title, value, onPress }: {
+function Rows({ rows, soft }: { rows: { icon: IconName; text: string }[]; soft?: boolean }) {
+    return (
+        <View>
+            {rows.map((row, i) => (
+                <Fragment key={row.text}>
+                    {i > 0 ? <View style={styles.line} /> : null}
+                    <View style={styles.row}>
+                        <IconBubble
+                            name={row.icon}
+                            size={34}
+                            bg={soft ? colors.chip : colors.orangeSoft}
+                            color={soft ? colors.grey : colors.orangeDark}
+                        />
+                        <Text style={styles.rowText}>{row.text}</Text>
+                    </View>
+                </Fragment>
+            ))}
+        </View>
+    );
+}
+
+function ContactRow({ icon, color, bg, title, value, onPress }: {
     icon: IconName;
     color: string;
+    bg: string;
     title: string;
     value: string;
     onPress: () => void;
 }) {
     return (
-        <TouchableOpacity style={styles.contact} onPress={onPress} activeOpacity={0.7}>
-            <Ionicons name={icon} size={22} color={color} />
+        <PressableScale style={styles.contact} onPress={onPress} scaleTo={0.98} accessibilityRole="button" accessibilityLabel={`${title}: ${value}`}>
+            <IconBubble name={icon} size={40} bg={bg} color={color} />
             <View style={styles.flex}>
                 <Text style={styles.contactTitle}>{title}</Text>
-                <Text style={styles.contactValue}>{value}</Text>
+                <Text style={styles.contactValue} numberOfLines={1}>{value}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.greyLight} />
-        </TouchableOpacity>
+        </PressableScale>
     );
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colors.bg },
-    content: { paddingHorizontal: 20, paddingBottom: 32, gap: 14 },
     flex: { flex: 1 },
-    h1: { fontFamily: fonts.bold, fontSize: 22, color: colors.navy },
 
-    me: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.orange, alignItems: 'center', justifyContent: 'center' },
-    avatarText: { fontFamily: fonts.bold, fontSize: 20, color: colors.white },
-    name: { fontFamily: fonts.bold, fontSize: 17, color: colors.navy },
-    email: { fontFamily: fonts.semibold, fontSize: 13, color: colors.grey },
-    code: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.orangeDark, marginTop: 2 },
+    me: { gap: 14 },
+    meTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    name: { fontFamily: fonts.bold, fontSize: 18, color: colors.navy },
+    email: { fontFamily: fonts.semibold, fontSize: 13, color: colors.grey, marginTop: 1 },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.line },
 
-    row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+    rowsCard: { gap: 6 },
+    row: { flexDirection: 'row', gap: 12, alignItems: 'center', paddingVertical: 12 },
     rowText: { flex: 1, fontFamily: fonts.semibold, fontSize: 13.5, lineHeight: 20, color: colors.navy },
-    term: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-    bullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.orange, marginTop: 7 },
+    line: { height: 1, backgroundColor: colors.line },
 
-    contactCard: { gap: 4 },
-    contact: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+    contact: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
     contactTitle: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.navy },
     contactValue: { fontFamily: fonts.semibold, fontSize: 13, color: colors.grey },
 
+    footer: { gap: 12, marginTop: 4 },
     version: { textAlign: 'center', fontFamily: fonts.medium, fontSize: 12, color: colors.greyLight },
 });

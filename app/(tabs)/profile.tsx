@@ -153,14 +153,15 @@ const Profile = () => {
 
                 <Section title="My activity">
                     <Row icon="receipt-outline" label="My orders" detail="Track, pay and view past orders" badge={stats?.orders} onPress={() => router.push('/orders')} />
-                    <Row icon="calendar-outline" label="Catering & event requests" detail="Your quote requests" badge={stats?.requests} onPress={() => router.push('/requests')} last />
+                    <Row icon="calendar-outline" label="Catering & event requests" detail="Your quote requests" badge={stats?.requests} onPress={() => router.push('/requests')} />
+                    <Row icon="gift-outline" label="Invite friends & earn" detail="Share your code, earn 5% of their orders" onPress={() => router.push('/invite')} last />
                 </Section>
 
                 <Section title="Account">
                     <Row icon="person-outline" label="Personal details" detail={phone ? `${user.name} · ${phone}` : 'Add your phone number'} onPress={() => router.push('/edit-profile')} />
                     <Row icon="location-outline" label="Delivery address" detail={address || 'Add your delivery address'} onPress={() => router.push('/delivery-address')} />
                     <Row icon="lock-closed-outline" label="Change password" onPress={() => router.push('/change-password')} />
-                    <Row icon="gift-outline" label="Referral code" detail="Joined with a friend’s code?" onPress={() => router.push('/referral-code')} last />
+                    <Row icon="ticket-outline" label="Referral code" detail="Joined with a friend’s code?" onPress={() => router.push('/referral-code')} last />
                 </Section>
 
                 <Section title="About & support">

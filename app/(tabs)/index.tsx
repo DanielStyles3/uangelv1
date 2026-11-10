@@ -3,9 +3,12 @@ import {ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Te
 import {Ionicons} from "@expo/vector-icons";
 import {ReactNode, useMemo, useState} from "react";
 import {router} from "expo-router";
+import Animated from "react-native-reanimated";
 
 import CartButton from "@/components/CartButton";
 import CustomButton from "@/components/CustomButton";
+import InviteCard from "@/components/InviteCard";
+import {riseIn} from "@/lib/motion";
 import PromoCarousel, {PromoSlide} from "@/components/PromoCarousel";
 import ProductImage from "@/components/ProductImage";
 import {getCampaignProgress, getCategories, getChristmasBanner,getHomeProducts, getOrders, getProductsNeedingChoices, getPromotions, HomeProduct} from "@/lib/api";
@@ -33,7 +36,7 @@ const openProduct = (id: string) => router.push({ pathname: '/menu/[id]', params
 /**
  * Home, top to bottom. Each category appears ONCE as a circle; below that the space
  * goes to products customers can add straight from Home.
- *   greeting + delivery area → search → promos → category circles → order again
+ *   greeting + delivery area → search → promos → invite friends → category circles → order again
  *   → top rated → one product row per category → catering & events banner
  */
 export default function Index() {
@@ -182,6 +185,13 @@ export default function Index() {
             <View style={{ marginTop: 20 }}>
               <PromoCarousel slides={slides} />
             </View>
+
+            {/* Invite friends, earn 5% — signed-in customers only */}
+            {user && (
+              <Animated.View entering={riseIn(1)} style={{ marginTop: 16 }}>
+                <InviteCard onPress={() => router.push('/invite')} />
+              </Animated.View>
+            )}
 
             {/* Categories — circles only; the one place categories are listed */}
             {productCategories.length > 0 && (

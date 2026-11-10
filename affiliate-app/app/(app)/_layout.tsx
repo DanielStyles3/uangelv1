@@ -92,10 +92,12 @@ export default function AppLayout() {
 
     return (
         <AffiliateContext.Provider value={value}>
+            {/* Share and Payouts slide in from the right over the tabs, which keep their state underneath. */}
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
                 <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="withdraw" />
-                <Stack.Screen name="join" />
+                <Stack.Screen name="share" options={{ animation: 'slide_from_right', contentStyle: { backgroundColor: colors.white } }} />
+                <Stack.Screen name="withdraw" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="join" options={{ animation: 'fade' }} />
             </Stack>
         </AffiliateContext.Provider>
     );

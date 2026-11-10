@@ -27,7 +27,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
                 // The app opens at "/" (the Earnings tab). Each group's layout redirects:
                 // (app) → /sign-in when signed out, /join when not an affiliate yet;
                 // (auth) → / once signed in.
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+                <Stack screenOptions={{ headerShown: false, animation: 'fade', contentStyle: { backgroundColor: colors.bg } }}>
                     <Stack.Screen name="(app)" />
                     <Stack.Screen name="(auth)" />
                 </Stack>

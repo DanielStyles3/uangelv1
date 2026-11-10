@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -18,6 +18,13 @@ interface AuthInputProps {
     textContentType?: TextInputProps["textContentType"];
     returnKeyType?: TextInputProps["returnKeyType"];
     onSubmitEditing?: () => void;
+    maxLength?: number;
+    /** Green (accepted) or red (problem) border and fill; wins over the orange focus ring. */
+    tone?: "success" | "error";
+    /** Big, spaced-out capitals for codes. */
+    code?: boolean;
+    /** Shown at the end of the field (e.g. a spinner or a tick). */
+    right?: ReactNode;
 }
 
 /**
@@ -37,6 +44,10 @@ const AuthInput = ({
     textContentType,
     returnKeyType,
     onSubmitEditing,
+    maxLength,
+    tone,
+    code = false,
+    right,
 }: AuthInputProps) => {
     const [focused, setFocused] = useState(false);
     const [hidden, setHidden] = useState(secure);
@@ -44,10 +55,10 @@ const AuthInput = ({
     return (
         <View style={styles.wrapper}>
             <Text style={styles.label}>{label}</Text>
-            <View style={[styles.box, focused && styles.boxFocused]}>
-                <Ionicons name={icon} size={20} color={focused ? ORANGE : "#9A9AA3"} />
+            <View style={[styles.box, focused && styles.boxFocused, tone === "success" && styles.boxSuccess, tone === "error" && styles.boxError]}>
+                <Ionicons name={icon} size={20} color={tone === "success" ? "#15803D" : tone === "error" ? "#B91C1C" : focused ? ORANGE : "#9A9AA3"} />
                 <TextInput
-                    style={styles.input}
+                    style={[styles.input, code && value.length > 0 && styles.inputCode]}
                     value={value}
                     onChangeText={onChangeText}
                     placeholder={placeholder}
@@ -60,10 +71,12 @@ const AuthInput = ({
                     textContentType={textContentType}
                     returnKeyType={returnKeyType}
                     onSubmitEditing={onSubmitEditing}
+                    maxLength={maxLength}
                     onFocus={() => setFocused(true)}
                     onBlur={() => setFocused(false)}
                     accessibilityLabel={label}
                 />
+                {right}
                 {secure && (
                     <Pressable
                         onPress={() => setHidden((h) => !h)}
@@ -105,6 +118,9 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFFFFF",
         borderColor: ORANGE,
     },
+    boxSuccess: { backgroundColor: "#F0FAF4", borderColor: "#15803D" },
+    boxError: { backgroundColor: "#FEF2F2", borderColor: "#DC2626" },
+    inputCode: { fontFamily: "Quicksand-Bold", fontSize: 18, letterSpacing: 4 },
     input: {
         flex: 1,
         height: "100%",

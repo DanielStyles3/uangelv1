@@ -18,6 +18,7 @@ export const colors = {
     green: '#15803D',
     greenSoft: '#E9F8EF',
     whatsapp: '#1FA855',
+    whatsappDark: '#166534',
     amber: '#B45309',
     amberSoft: '#FEF3C7',
     blue: '#1D4ED8',
@@ -26,6 +27,10 @@ export const colors = {
     redSoft: '#FDECEC',
     navyMuted: '#C9CBD6',
     peach: '#FFB08A',
+    cardBorder: '#EDEDF1',
+    orangeLight: '#FF7A45',
+    bar: '#FFD9C8',
+    track: '#F0F0F3',
 };
 
 export const fonts = {
@@ -41,6 +46,12 @@ export const shadow = {
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
 };
+
+/** Soft card shadow. boxShadow (not elevation) so it fades cleanly with entry animations on Android. */
+export const cardShadow = { boxShadow: '0px 6px 18px rgba(24, 28, 46, 0.06)' } as const;
+
+/** Calm spring shared by presses, the tab pill and entry animations. */
+export const SPRING = { mass: 1, damping: 20, stiffness: 180 } as const;
 
 export const CONTACT = {
     whatsappDisplay: '0704 905 5555',

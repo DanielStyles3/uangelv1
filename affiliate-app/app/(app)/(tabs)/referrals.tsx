@@ -1,13 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 
-import { Button, Chip, IconBubble } from '@/components/ui';
+import { Enter } from '@/components/motion';
+import { GUTTER, ScreenHeader, useHeaderScroll } from '@/components/Screen';
+import { Avatar, Button, Card, Chip, IconBubble, Notice } from '@/components/ui';
 import { useAffiliate } from '@/lib/affiliate';
 import { getReferrals, Referral } from '@/lib/api';
-import { errorMessage, formatDate, formatNaira, initials } from '@/lib/format';
+import { errorMessage, formatDate, formatNaira } from '@/lib/format';
 import { colors, fonts } from '@/lib/theme';
 
 type State = { items: Referral[]; now: number } | null;
@@ -20,9 +22,9 @@ const AVATARS = [
 ];
 
 export default function Referrals() {
-    const insets = useSafeAreaInsets();
     const router = useRouter();
-    const { summary } = useAffiliate();
+    const { summary, refresh } = useAffiliate();
+    const { scrollY, onScroll } = useHeaderScroll();
     const [state, setState] = useState<State>(null);
     const [error, setError] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState(false);
@@ -49,17 +51,29 @@ export default function Referrals() {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await load();
+        await Promise.all([load(), refresh().catch(() => {})]);
         setRefreshing(false);
     };
 
-    const header = (
-        <View style={styles.header}>
-            <Text style={styles.h1}>Your referrals</Text>
-            <Text style={styles.lead}>
-                Friends who signed up with your code{summary ? ` ${summary.code}` : ''}. You earn on their paid orders for 12 months from the day they joined.
-            </Text>
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+    const top = (
+        <View style={styles.top}>
+            {summary ? (
+                <Enter index={0}>
+                    <Card style={styles.stats}>
+                        <Stat value={String(summary.referrals)} label={Number(summary.referrals) === 1 ? 'Friend joined' : 'Friends joined'} />
+                        <View style={styles.statLine} />
+                        <Stat value={String(summary.active_referrals)} label="Still earning" />
+                        <View style={styles.statLine} />
+                        <Stat value={formatNaira(summary.total_earned)} label="Earned so far" />
+                    </Card>
+                </Enter>
+            ) : null}
+            <Enter index={1}>
+                <Text style={styles.lead}>
+                    Friends who signed up with your code{summary ? ` ${summary.code}` : ''}. You earn on their paid orders for 12 months from the day they joined.
+                </Text>
+            </Enter>
+            {error ? <Notice tone="red" icon="cloud-offline-outline" text={error} /> : null}
         </View>
     );
 
@@ -70,78 +84,107 @@ export default function Referrals() {
             </View>
         )
     ) : (
-        <View style={styles.emptyCard}>
-            <IconBubble name="people-outline" size={56} />
-            <Text style={styles.emptyTitle}>No referrals yet</Text>
-            <Text style={styles.emptyBody}>
-                Share your code or link on WhatsApp, Instagram or your status. Your friend must sign up in the U Angel Foods app
-                with your code before their first order, then they appear here.
-            </Text>
-            <Button title="Share my code" icon="share-social-outline" onPress={() => router.push('/')} style={styles.emptyBtn} />
-        </View>
+        <Enter index={2}>
+            <Card style={styles.emptyCard}>
+                <IconBubble name="people-outline" size={60} />
+                <Text style={styles.emptyTitle}>No referrals yet</Text>
+                <Text style={styles.emptyBody}>
+                    Share your code or link on WhatsApp, Instagram or your status. Your friend must sign up in the U Angel Foods app
+                    with your code before their first order, then they appear here.
+                </Text>
+                <Button title="Share my code" icon="share-social-outline" onPress={() => router.push('/share')} style={styles.emptyBtn} />
+            </Card>
+        </Enter>
     );
 
     return (
-        <FlatList
-            style={styles.screen}
-            contentContainerStyle={[styles.content, { paddingTop: insets.top + 16 }]}
-            data={state?.items ?? []}
-            keyExtractor={(item, i) => `${item.joined_at}-${i}`}
-            ListHeaderComponent={header}
-            ListEmptyComponent={empty}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.orange} colors={[colors.orange]} />}
-            renderItem={({ item, index }) => {
-                const active = new Date(item.expires_at).getTime() > (state?.now ?? 0);
-                const avatar = AVATARS[index % AVATARS.length];
-                const orders = Number(item.orders);
-                return (
-                    <View style={styles.row}>
-                        <View style={[styles.avatar, { backgroundColor: avatar.bg }]}>
-                            <Text style={[styles.avatarText, { color: avatar.fg }]}>{initials(item.customer)}</Text>
-                        </View>
-                        <View style={styles.rowText}>
-                            <Text style={styles.name}>{item.customer}</Text>
-                            <Text style={styles.sub}>Joined {formatDate(item.joined_at)}</Text>
-                            <View style={styles.metaRow}>
-                                <Ionicons name={active ? 'time-outline' : 'stop-circle-outline'} size={13} color={active ? colors.green : colors.greyLight} />
-                                <Text style={[styles.meta, { color: active ? colors.green : colors.greyLight }]}>
-                                    {active ? `Earning until ${formatDate(item.expires_at)}` : `Ended ${formatDate(item.expires_at)}`}
-                                </Text>
-                            </View>
-                        </View>
-                        <View style={styles.right}>
-                            <Text style={styles.earned}>{formatNaira(item.earned)}</Text>
-                            <Chip label={`${orders} ${orders === 1 ? 'order' : 'orders'}`} tone={orders > 0 ? 'orange' : 'grey'} />
-                        </View>
-                    </View>
-                );
-            }}
-        />
+        <View style={styles.screen}>
+            <ScreenHeader title="Referrals" kicker="Your friends" scrollY={scrollY} />
+            <Animated.FlatList
+                style={styles.flex}
+                contentContainerStyle={styles.content}
+                data={state?.items ?? []}
+                keyExtractor={(item, i) => `${item.joined_at}-${i}`}
+                ListHeaderComponent={top}
+                ListEmptyComponent={empty}
+                onScroll={onScroll}
+                scrollEventThrottle={16}
+                showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.orange} colors={[colors.orange]} />}
+                renderItem={({ item, index }) => {
+                    const active = new Date(item.expires_at).getTime() > (state?.now ?? 0);
+                    const avatar = AVATARS[index % AVATARS.length];
+                    const orders = Number(item.orders);
+                    return (
+                        <Enter index={index + 2}>
+                            <Card style={styles.row}>
+                                <View style={styles.rowTop}>
+                                    <Avatar name={item.customer} bg={avatar.bg} fg={avatar.fg} />
+                                    <View style={styles.rowText}>
+                                        <Text style={styles.name} numberOfLines={1}>{item.customer}</Text>
+                                        <Text style={styles.sub}>Joined {formatDate(item.joined_at)}</Text>
+                                    </View>
+                                    <View style={styles.right}>
+                                        <Text style={[styles.earned, Number(item.earned) <= 0 && styles.earnedNone]}>{formatNaira(item.earned)}</Text>
+                                        <Text style={styles.sub}>earned</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.rowFoot}>
+                                    <View style={styles.metaRow}>
+                                        <Ionicons name={active ? 'time-outline' : 'stop-circle-outline'} size={14} color={active ? colors.green : colors.grey} />
+                                        <Text style={[styles.meta, !active && styles.metaEnded]} numberOfLines={1}>
+                                            {active ? `Earning until ${formatDate(item.expires_at)}` : `Ended ${formatDate(item.expires_at)}`}
+                                        </Text>
+                                    </View>
+                                    <Chip label={`${orders} ${orders === 1 ? 'order' : 'orders'}`} tone={orders > 0 ? 'orange' : 'grey'} />
+                                </View>
+                            </Card>
+                        </Enter>
+                    );
+                }}
+            />
+        </View>
+    );
+}
+
+function Stat({ value, label }: { value: string; label: string }) {
+    return (
+        <View style={styles.stat}>
+            <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
+            <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
+    flex: { flex: 1 },
     screen: { flex: 1, backgroundColor: colors.bg },
-    content: { paddingHorizontal: 20, paddingBottom: 32, gap: 10 },
-    header: { gap: 6, marginBottom: 6 },
-    h1: { fontFamily: fonts.bold, fontSize: 22, color: colors.navy },
+    content: { paddingHorizontal: GUTTER, paddingTop: 6, paddingBottom: 32, gap: 12 },
+    top: { gap: 12 },
     lead: { fontFamily: fonts.semibold, fontSize: 13.5, lineHeight: 20, color: colors.grey },
-    error: { fontFamily: fonts.bold, fontSize: 13, color: colors.red, marginTop: 4 },
     loading: { paddingVertical: 40 },
 
-    emptyCard: { backgroundColor: colors.white, borderRadius: 22, padding: 22, alignItems: 'center', gap: 10 },
-    emptyTitle: { fontFamily: fonts.bold, fontSize: 17, color: colors.navy, marginTop: 4 },
-    emptyBody: { fontFamily: fonts.semibold, fontSize: 13.5, lineHeight: 20, color: colors.grey, textAlign: 'center' },
-    emptyBtn: { alignSelf: 'stretch', marginTop: 6 },
+    stats: { flexDirection: 'row', alignItems: 'center', gap: 0, paddingHorizontal: 8 },
+    stat: { flex: 1, alignItems: 'center', gap: 2, paddingHorizontal: 4 },
+    statValue: { fontFamily: fonts.bold, fontSize: 19, color: colors.navy },
+    statLabel: { fontFamily: fonts.semibold, fontSize: 11.5, color: colors.grey },
+    statLine: { width: 1, height: 30, backgroundColor: colors.line },
 
-    row: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, borderRadius: 18, padding: 14 },
-    avatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-    avatarText: { fontFamily: fonts.bold, fontSize: 14 },
-    rowText: { flex: 1, gap: 2 },
+    emptyCard: { alignItems: 'center', padding: 22, gap: 8 },
+    emptyTitle: { fontFamily: fonts.bold, fontSize: 17, color: colors.navy, marginTop: 6 },
+    emptyBody: { fontFamily: fonts.semibold, fontSize: 13.5, lineHeight: 20, color: colors.grey, textAlign: 'center' },
+    emptyBtn: { alignSelf: 'stretch', marginTop: 8 },
+
+    row: { borderRadius: 22, padding: 14, gap: 12 },
+    rowTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    rowText: { flex: 1, gap: 1 },
     name: { fontFamily: fonts.bold, fontSize: 15, color: colors.navy },
     sub: { fontFamily: fonts.semibold, fontSize: 12, color: colors.grey },
-    metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    meta: { fontFamily: fonts.bold, fontSize: 12 },
-    right: { alignItems: 'flex-end', gap: 6 },
+    right: { alignItems: 'flex-end', gap: 1 },
     earned: { fontFamily: fonts.bold, fontSize: 15, color: colors.green },
+    earnedNone: { color: colors.grey },
+    rowFoot: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line },
+    metaRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 },
+    meta: { flexShrink: 1, fontFamily: fonts.bold, fontSize: 12, color: colors.green },
+    metaEnded: { color: colors.grey },
 });

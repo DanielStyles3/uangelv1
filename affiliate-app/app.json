@@ -17,7 +17,7 @@
         "backgroundColor": "#FD652A"
       },
       "package": "com.uangelfoods.affiliates",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "bundler": "metro",
@@ -45,7 +45,8 @@
             ]
           }
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": false

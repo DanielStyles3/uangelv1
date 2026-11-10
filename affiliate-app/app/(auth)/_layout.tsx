@@ -12,7 +12,7 @@ export default function AuthLayout() {
     return (
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#FD652A' } }}>
             <Stack.Screen name="sign-in" />
-            <Stack.Screen name="forgot-password" />
+            <Stack.Screen name="forgot-password" options={{ animation: 'slide_from_right' }} />
         </Stack>
     );
 }

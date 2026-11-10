@@ -78,6 +78,52 @@ export const applyReferralCode = async (code: string): Promise<string> => {
     return data as string;
 }
 
+/** What the Invite screen needs from affiliate_summary() (supabase/affiliates.sql). */
+export interface AffiliateSummary {
+    code: string;
+    status: 'active' | 'blocked';
+    /** Commission rate as a fraction, e.g. 0.05 for 5%. */
+    rate: number;
+    /** From paid orders that are not delivered yet. */
+    pending: number;
+    on_hold: number;
+    available: number;
+    withdrawn: number;
+    /** Everything earned from delivered orders, withdrawn or not. */
+    total_earned: number;
+    /** Friends who signed up with the code. */
+    referrals: number;
+}
+
+/** The signed-in customer's invite code and earnings, or null when they haven't got a code yet. */
+export const getAffiliateSummary = async (): Promise<AffiliateSummary | null> => {
+    const { data, error } = await supabase.rpc('affiliate_summary');
+    if (error) throw new Error(error.message);
+    const s = data as Partial<AffiliateSummary> | null;
+    if (!s?.code) return null;
+    const num = (v: unknown) => Number(v ?? 0) || 0;
+    return {
+        code: s.code,
+        status: s.status === 'blocked' ? 'blocked' : 'active',
+        rate: num(s.rate) || 0.05,
+        pending: num(s.pending),
+        on_hold: num(s.on_hold),
+        available: num(s.available),
+        withdrawn: num(s.withdrawn),
+        total_earned: num(s.total_earned),
+        referrals: num(s.referrals),
+    };
+}
+
+/** Gives the signed-in customer an invite code (or returns the one they already have). */
+export const becomeAffiliate = async (): Promise<string> => {
+    const { data, error } = await supabase.rpc('become_affiliate');
+    if (error) throw new Error(error.message);
+    const code = (data as { code?: string } | null)?.code;
+    if (!code) throw new Error('Couldn’t create your code. Please try again.');
+    return code;
+}
+
 export const signIn = async ({ email, password }: SignInParams) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(error.message);

@@ -4,6 +4,7 @@ import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Vi
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import logo from '@/assets/images/uangel-logo-white.png';
+import { Enter } from '@/components/motion';
 import { colors, fonts } from '@/lib/theme';
 
 /** Orange header with the logo, then a white rounded sheet holding the form. */
@@ -17,11 +18,14 @@ export default function AuthShell({ title, subtitle, top, children }: {
     return (
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
             <StatusBar style="light" />
+            {/* Solid strip behind the status bar, so the white sheet never scrolls under the clock. */}
+            <View style={[styles.statusStrip, { height: insets.top }]} />
             <ScrollView
                 style={styles.flex}
                 contentContainerStyle={styles.scroll}
                 keyboardShouldPersistTaps="handled"
                 bounces={false}
+                showsVerticalScrollIndicator={false}
             >
                 <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
                     <View style={styles.circle} />
@@ -29,13 +33,13 @@ export default function AuthShell({ title, subtitle, top, children }: {
                     <Image source={logo} style={styles.logo} resizeMode="contain" accessibilityLabel="U Angel Foods" />
                     <Text style={styles.kicker}>U ANGEL AFFILIATES</Text>
                 </View>
-                <View style={[styles.sheet, { paddingBottom: insets.bottom + 28 }]}>
+                <Enter style={[styles.sheet, { paddingBottom: insets.bottom + 28 }]}>
                     <View style={styles.titles}>
                         <Text style={styles.title}>{title}</Text>
                         <Text style={styles.subtitle}>{subtitle}</Text>
                     </View>
                     {children}
-                </View>
+                </Enter>
             </ScrollView>
         </KeyboardAvoidingView>
     );
@@ -44,6 +48,7 @@ export default function AuthShell({ title, subtitle, top, children }: {
 const styles = StyleSheet.create({
     flex: { flex: 1, backgroundColor: colors.orange },
     scroll: { flexGrow: 1 },
+    statusStrip: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: colors.orange, zIndex: 2 },
     header: { alignItems: 'center', paddingBottom: 34, overflow: 'hidden' },
     circle: {
         position: 'absolute',

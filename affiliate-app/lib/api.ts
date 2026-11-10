@@ -81,7 +81,22 @@ export const getCommissions = async (limit = 30): Promise<Commission[]> => {
     return (data as Commission[] | null) ?? [];
 };
 
-export const getWithdrawals = async (): Promise<Withdrawal[]> => {
+export type CommissionPoint = Pick<Commission, 'amount' | 'created_at'>;
+
+/** Commissions created since `sinceIso` that still count (not cancelled): feeds the weekly chart. */
+export const getCommissionsSince = async (sinceIso: string): Promise<CommissionPoint[]> => {
+    const { data, error } = await supabase
+        .from('commissions')
+        .select('amount, created_at')
+        .gte('created_at', sinceIso)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+    fail(error);
+    return (data as CommissionPoint[] | null) ?? [];
+};
+
+export const getWithdrawals =async (): Promise<Withdrawal[]> => {
     const { data, error } = await supabase
         .from('withdrawals')
         .select('id, amount, status, admin_note, created_at, processed_at')

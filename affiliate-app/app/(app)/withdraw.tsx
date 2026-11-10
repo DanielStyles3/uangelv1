@@ -2,32 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
 
-import { BackButton, Button, Chip, Field, Notice } from '@/components/ui';
+import { Enter } from '@/components/motion';
+import { Screen } from '@/components/Screen';
+import { Button, Card, CardHeader, Chip, Field, IconBubble, Notice, SectionLabel } from '@/components/ui';
 import { useAffiliate } from '@/lib/affiliate';
-import { getWithdrawals, requestWithdrawal, setBank, Withdrawal } from '@/lib/api';
+import { AffiliateSummary, getWithdrawals, requestWithdrawal, setBank, Withdrawal } from '@/lib/api';
 import { errorMessage, formatDate, formatNaira, formatShortDate } from '@/lib/format';
 import { withdrawalChip } from '@/lib/status';
-import { colors, fonts } from '@/lib/theme';
+import { colors, CONTACT, fonts, SPRING } from '@/lib/theme';
 
-const STEPS = [
-    'You request the withdrawal here',
-    'U Angel checks it and pays it into your bank by transfer',
-    'It shows as Paid below once the money is sent',
-];
+const MILESTONES = [5, 20, 50];
 
 /** Amount as typed → number (commas and spaces ignored), NaN if not a number. */
 const parseAmount = (text: string) => {
@@ -40,8 +27,18 @@ const amountText = (value: number | string) => {
     return n > 0 ? String(Math.round(n * 100) / 100) : '';
 };
 
-export default function Withdraw() {
-    const insets = useSafeAreaInsets();
+/** "10 Nov, 2:15 pm" */
+const formatDateTime = (iso: string) => {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${formatShortDate(iso)}, ${hours % 12 || 12}:${minutes} ${hours < 12 ? 'am' : 'pm'}`;
+};
+
+const bankLine = (s: AffiliateSummary) => `${s.bank_name} ·· ${s.account_number?.slice(-4)}`;
+
+export default function Payouts() {
     const router = useRouter();
     const { summary, refresh } = useAffiliate();
 
@@ -85,6 +82,11 @@ export default function Withdraw() {
     const value = parseAmount(amount);
     const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
+    // The newest finished request, when it wasn't paid: show why.
+    const latest = history?.[0];
+    const rejected = !open && latest?.status === 'rejected' ? latest : null;
+    const past = (history ?? []).filter((w) => w.status !== 'requested');
+
     const onRefresh = async () => {
         setRefreshing(true);
         try {
@@ -94,6 +96,13 @@ export default function Withdraw() {
         } finally {
             setRefreshing(false);
         }
+    };
+
+    const cancelBankEdit = () => {
+        setBankName(summary.bank_name ?? '');
+        setAccountNumber(summary.account_number ?? '');
+        setAccountName(summary.account_name ?? '');
+        setEditingBank(false);
     };
 
     const saveBank = async () => {
@@ -126,7 +135,7 @@ export default function Withdraw() {
 
         Alert.alert(
             `Withdraw ${formatNaira(value)}?`,
-            `We’ll pay it into ${summary.bank_name} ·· ${summary.account_number?.slice(-4)} (${summary.account_name}).`,
+            `We’ll pay it into ${bankLine(summary)} (${summary.account_name}).`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -151,38 +160,79 @@ export default function Withdraw() {
         );
     };
 
-    const canRequest = !blocked && !open && hasBank && !editingBank && available >= min;
-    const buttonTitle = open
-        ? 'Withdrawal waiting to be paid'
-        : available < min
+    const canRequest = !blocked && hasBank && !editingBank && available >= min;
+    const buttonTitle =
+        available < min
             ? `You can withdraw from ${formatNaira(min)}`
             : Number.isFinite(value) && value > 0
                 ? `Withdraw ${formatNaira(value)}`
                 : 'Withdraw';
 
-    return (
-        <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-                <BackButton onPress={goBack} />
-                <Text style={styles.h1}>Withdraw</Text>
-            </View>
-
-            <ScrollView
-                contentContainerStyle={[styles.content, { paddingBottom: 120 + insets.bottom }]}
-                keyboardShouldPersistTaps="handled"
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.orange} colors={[colors.orange]} />}
-            >
-                {blocked ? (
-                    <Notice
-                        tone="red"
-                        icon="alert-circle-outline"
-                        text="Your affiliate account is on hold, so withdrawals are paused. Please contact us on WhatsApp 0704 905 5555."
+    const bankSection = (
+        <Card style={styles.bankCard}>
+            {editingBank ? (
+                <>
+                    <CardHeader title={hasBank ? 'Change bank account' : 'Add your bank account'} icon="business-outline" />
+                    <Field label="Bank name" icon="business-outline" placeholder="e.g. GTBank, Opay, Access" value={bankName} onChangeText={setBankName} autoCapitalize="words" />
+                    <Field
+                        label="Account number"
+                        icon="keypad-outline"
+                        placeholder="10 digits"
+                        value={accountNumber}
+                        onChangeText={(t) => setAccountNumber(t.replace(/\D/g, '').slice(0, 10))}
+                        keyboardType="number-pad"
+                        maxLength={10}
                     />
-                ) : null}
+                    <Field
+                        label="Account name"
+                        icon="person-outline"
+                        placeholder="Name on the account"
+                        value={accountName}
+                        onChangeText={setAccountName}
+                        autoCapitalize="characters"
+                        hint="Use the name exactly as your bank shows it, or the payment may fail."
+                    />
+                    <View style={styles.bankButtons}>
+                        {hasBank ? <Button title="Cancel" variant="secondary" style={styles.flex} onPress={cancelBankEdit} /> : null}
+                        <Button title={hasBank ? 'Save' : 'Save bank details'} loading={savingBank} onPress={saveBank} style={styles.flex} />
+                    </View>
+                </>
+            ) : (
+                <View style={styles.bankRow}>
+                    <IconBubble name="business-outline" size={42} />
+                    <View style={styles.flex}>
+                        <Text style={styles.bankTitle} numberOfLines={1}>{bankLine(summary)}</Text>
+                        <Text style={styles.bankSub} numberOfLines={1}>{summary.account_name}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setEditingBank(true)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Change bank account">
+                        <Text style={styles.link}>Change</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+        </Card>
+    );
 
-                {/* Amount */}
-                <View style={styles.amountBlock}>
-                    <Text style={styles.amountLabel}>Amount</Text>
+    const requestSection = open ? (
+        <Card style={styles.gapLarge}>
+            <View style={styles.trackerTop}>
+                <View style={styles.flex}>
+                    <SectionLabel>Withdrawal</SectionLabel>
+                    <Text style={styles.trackerAmount}>{formatNaira(open.amount)}</Text>
+                </View>
+                <Chip large label="Being checked" tone="amber" />
+            </View>
+            <View>
+                <TrackerStep state="done" title="Requested" sub={formatDateTime(open.created_at)} />
+                <TrackerStep state="current" title="U Angel is checking it" sub="We review every payout before sending" />
+                <TrackerStep state="todo" title="Paid by bank transfer" sub={hasBank ? `To ${bankLine(summary)}` : 'To your bank account'} last />
+            </View>
+            <Text style={styles.small}>You can request again once this one is done.</Text>
+        </Card>
+    ) : (
+        <Card style={styles.gapLarge}>
+            <View style={styles.trackerTop}>
+                <View style={styles.flex}>
+                    <SectionLabel>Withdraw</SectionLabel>
                     <View style={styles.amountRow}>
                         <Text style={styles.naira}>₦</Text>
                         <TextInput
@@ -192,197 +242,247 @@ export default function Withdraw() {
                             placeholder="0"
                             placeholderTextColor={colors.greyLight}
                             style={styles.amountInput}
-                            editable={!open && !blocked}
+                            editable={!blocked}
                             accessibilityLabel="Amount to withdraw in naira"
                         />
                     </View>
-                    <Chip
-                        label={`Available ${formatNaira(available)} · minimum ${formatNaira(min)}`}
-                        tone={available >= min ? 'green' : 'grey'}
-                    />
-                    {available >= min && !open && value !== available ? (
-                        <TouchableOpacity onPress={() => setAmount(amountText(available))} hitSlop={8}>
-                            <Text style={styles.link}>Use full balance</Text>
-                        </TouchableOpacity>
-                    ) : null}
-                    {Number(summary.on_hold) > 0 || Number(summary.pending) > 0 ? (
-                        <Text style={styles.small}>
-                            {formatNaira(Number(summary.on_hold))} on hold and {formatNaira(Number(summary.pending))} pending will become available after delivery plus 7 days.
-                        </Text>
-                    ) : null}
                 </View>
-
-                {open ? (
-                    <Notice
-                        tone="amber"
-                        icon="time-outline"
-                        text={`You requested ${formatNaira(open.amount)} on ${formatDate(open.created_at)}. It’s waiting to be paid; you can request again once it’s done.`}
-                    />
+                {available >= min && value !== available ? (
+                    <TouchableOpacity onPress={() => setAmount(amountText(available))} hitSlop={10} style={styles.fullBtn}>
+                        <Text style={styles.fullText}>Use full balance</Text>
+                    </TouchableOpacity>
                 ) : null}
+            </View>
+            <Chip label={`Available ${formatNaira(available)} · minimum ${formatNaira(min)}`} tone={available >= min ? 'green' : 'grey'} />
+            {Number(summary.on_hold) > 0 || Number(summary.pending) > 0 ? (
+                <Text style={styles.small}>
+                    {formatNaira(Number(summary.on_hold))} on hold and {formatNaira(Number(summary.pending))} pending will become available after delivery plus 7 days.
+                </Text>
+            ) : null}
+            <Button title={buttonTitle} loading={requesting} disabled={!canRequest} onPress={submit} />
+            <Text style={styles.small}>
+                {!hasBank || editingBank
+                    ? 'Save your bank details first, then request your withdrawal.'
+                    : 'U Angel checks every request, then pays it into your bank by transfer. It shows as Paid here once the money is sent.'}
+            </Text>
+        </Card>
+    );
 
-                {/* Bank */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Pay into</Text>
-                    {editingBank ? (
-                        <View style={styles.bankForm}>
-                            <Field label="Bank name" icon="business-outline" placeholder="e.g. GTBank, Opay, Access" value={bankName} onChangeText={setBankName} autoCapitalize="words" />
-                            <Field
-                                label="Account number"
-                                icon="keypad-outline"
-                                placeholder="10 digits"
-                                value={accountNumber}
-                                onChangeText={(t) => setAccountNumber(t.replace(/\D/g, '').slice(0, 10))}
-                                keyboardType="number-pad"
-                                maxLength={10}
-                            />
-                            <Field
-                                label="Account name"
-                                icon="person-outline"
-                                placeholder="Name on the account"
-                                value={accountName}
-                                onChangeText={setAccountName}
-                                autoCapitalize="characters"
-                                hint="Use the name exactly as your bank shows it, or the payment may fail."
-                            />
-                            <View style={styles.bankButtons}>
-                                {hasBank ? (
-                                    <Button
-                                        title="Cancel"
-                                        variant="secondary"
-                                        style={styles.flex}
-                                        onPress={() => {
-                                            setBankName(summary.bank_name ?? '');
-                                            setAccountNumber(summary.account_number ?? '');
-                                            setAccountName(summary.account_name ?? '');
-                                            setEditingBank(false);
-                                        }}
-                                    />
-                                ) : null}
-                                <Button title="Save bank details" loading={savingBank} onPress={saveBank} style={styles.flex} />
-                            </View>
-                        </View>
-                    ) : (
-                        <View style={styles.bankCard}>
-                            <View style={styles.bankIcon}>
-                                <Ionicons name="business-outline" size={20} color={colors.orange} />
-                            </View>
+    const friends = Number(summary.referrals) || 0;
+    const nextGoal = MILESTONES.find((g) => friends < g);
+
+    return (
+        <Screen stack keyboard title="Payouts" onBack={goBack} refreshing={refreshing} onRefresh={onRefresh}>
+            {blocked ? (
+                <Enter>
+                    <Notice
+                        tone="red"
+                        icon="alert-circle-outline"
+                        text={`Your affiliate account is on hold, so withdrawals are paused. Please contact us on WhatsApp ${CONTACT.whatsappDisplay}.`}
+                    />
+                </Enter>
+            ) : null}
+
+            {rejected ? (
+                <Enter>
+                    <Card style={styles.rejected}>
+                        <View style={styles.rejectedTop}>
+                            <IconBubble name="alert-circle-outline" bg={colors.redSoft} color={colors.red} />
                             <View style={styles.flex}>
-                                <Text style={styles.bankTitle}>
-                                    {summary.bank_name} ·· {summary.account_number?.slice(-4)}
+                                <Text style={styles.rejectedTitle}>Your last request wasn’t paid</Text>
+                                <Text style={styles.small}>
+                                    {formatNaira(rejected.amount)} · requested {formatShortDate(rejected.created_at)}
                                 </Text>
-                                <Text style={styles.bankSub}>{summary.account_name}</Text>
                             </View>
-                            <TouchableOpacity onPress={() => setEditingBank(true)} hitSlop={8}>
-                                <Text style={styles.link}>Change</Text>
-                            </TouchableOpacity>
                         </View>
-                    )}
-                </View>
+                        <View style={styles.noteBox}>
+                            <Text style={styles.noteLabel}>NOTE FROM U ANGEL</Text>
+                            <Text style={styles.noteText}>
+                                {rejected.admin_note?.trim() || 'No reason was given. Message us from the Profile tab and we’ll help.'}
+                            </Text>
+                        </View>
+                        <Text style={styles.small}>The money is back in your available balance.</Text>
+                    </Card>
+                </Enter>
+            ) : null}
 
-                {/* What happens next */}
-                <View style={styles.next}>
-                    <Text style={styles.kicker}>WHAT HAPPENS NEXT</Text>
-                    {STEPS.map((s, i) => (
-                        <View key={s} style={styles.nextRow}>
-                            <View style={styles.num}>
-                                <Text style={styles.numText}>{i + 1}</Text>
+            {/* No bank yet: ask for it first. Otherwise the request (or its tracker) leads. */}
+            <Enter index={0}>{hasBank ? requestSection : bankSection}</Enter>
+            <Enter index={1}>{hasBank ? bankSection : requestSection}</Enter>
+
+            {/* Milestones: display only */}
+            <Enter index={2}>
+                <Card style={styles.gapLarge}>
+                    <CardHeader
+                        title="Milestones"
+                        right={<Text style={styles.headerNote}>{friends} {friends === 1 ? 'friend' : 'friends'} joined</Text>}
+                    />
+                    {MILESTONES.map((goal, i) => {
+                        const reached = friends >= goal;
+                        const current = goal === nextGoal;
+                        const name = i === 0 ? `First ${goal} friends` : `${goal} friends`;
+                        return (
+                            <View key={goal} style={styles.milestone}>
+                                <View style={[styles.badge, reached ? styles.badgeDone : current ? styles.badgeCurrent : styles.badgeTodo]}>
+                                    {reached ? (
+                                        <Ionicons name="checkmark" size={18} color={colors.white} />
+                                    ) : (
+                                        <Text style={[styles.badgeText, current && styles.badgeTextCurrent]}>{goal}</Text>
+                                    )}
+                                </View>
+                                <View style={styles.milestoneText}>
+                                    <Text style={[styles.milestoneTitle, !reached && !current && styles.muted]}>
+                                        {current ? `${name} · ${goal - friends} to go` : name}
+                                    </Text>
+                                    {reached ? (
+                                        <Text style={styles.reached}>Reached</Text>
+                                    ) : current ? (
+                                        <ProgressBar ratio={friends / goal} />
+                                    ) : (
+                                        <Text style={styles.milestoneSub}>Coming up</Text>
+                                    )}
+                                </View>
                             </View>
-                            <Text style={styles.nextText}>{s}</Text>
-                        </View>
-                    ))}
-                </View>
+                        );
+                    })}
+                </Card>
+            </Enter>
 
-                {/* History */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Past withdrawals</Text>
-                    {historyError ? (
-                        <Text style={styles.small}>{historyError}</Text>
+            {/* Past payouts */}
+            <Enter index={3}>
+                <Card style={styles.listCard}>
+                    <Text style={styles.listTitle}>Past payouts</Text>
+                    {historyError && !history ? (
+                        <Text style={styles.listEmpty}>{historyError}</Text>
                     ) : !history ? (
-                        <Text style={styles.small}>Loading…</Text>
-                    ) : history.length === 0 ? (
-                        <Text style={styles.small}>No withdrawals yet.</Text>
+                        <Text style={styles.listEmpty}>Loading…</Text>
+                    ) : past.length === 0 ? (
+                        <Text style={styles.listEmpty}>No payouts yet. When a withdrawal is paid, it’s listed here.</Text>
                     ) : (
-                        history.map((w, i) => {
+                        past.map((w) => {
                             const chip = withdrawalChip(w);
                             return (
-                                <View key={w.id} style={[styles.historyRow, i < history.length - 1 && styles.historyBorder]}>
+                                <View key={w.id} style={styles.historyRow}>
                                     <View style={styles.flex}>
                                         <Text style={styles.historyText}>
                                             {formatShortDate(w.created_at)} · {formatNaira(w.amount)}
                                         </Text>
                                         {w.status === 'paid' && w.processed_at ? (
-                                            <Text style={styles.small}>Paid on {formatDate(w.processed_at)}</Text>
+                                            <Text style={styles.historySub}>Paid on {formatDate(w.processed_at)}</Text>
                                         ) : null}
-                                        {w.admin_note ? <Text style={styles.small}>{w.admin_note}</Text> : null}
+                                        {w.admin_note ? <Text style={styles.historySub}>{w.admin_note}</Text> : null}
                                     </View>
                                     <Chip label={chip.label} tone={chip.tone} />
                                 </View>
                             );
                         })
                     )}
-                </View>
-            </ScrollView>
+                </Card>
+            </Enter>
+        </Screen>
+    );
+}
 
-            <View style={[styles.bottom, { paddingBottom: insets.bottom + 16 }]}>
-                <Button title={buttonTitle} loading={requesting} disabled={!canRequest} onPress={submit} />
+function TrackerStep({ state, title, sub, last }: { state: 'done' | 'current' | 'todo'; title: string; sub: string; last?: boolean }) {
+    return (
+        <View style={styles.step}>
+            <View style={styles.rail}>
+                <View style={[styles.dot, state === 'done' && styles.dotDone, state === 'current' && styles.dotCurrent]}>
+                    {state === 'done' ? <Ionicons name="checkmark" size={14} color={colors.white} /> : null}
+                </View>
+                {last ? null : <View style={[styles.railLine, state === 'done' && styles.railLineDone]} />}
             </View>
-        </KeyboardAvoidingView>
+            <View style={[styles.stepText, !last && styles.stepGap]}>
+                <Text style={[styles.stepTitle, state === 'todo' && styles.muted]}>{title}</Text>
+                <Text style={styles.stepSub}>{sub}</Text>
+            </View>
+        </View>
+    );
+}
+
+/** Fills once, gently, when the card appears. */
+function ProgressBar({ ratio }: { ratio: number }) {
+    const reduce = useReducedMotion();
+    const fill = useSharedValue(0);
+    const target = Math.max(0.03, Math.min(1, ratio));
+
+    useEffect(() => {
+        fill.value = reduce ? target : withDelay(260, withSpring(target, SPRING));
+    }, [fill, target, reduce]);
+
+    const style = useAnimatedStyle(() => ({ width: `${fill.value * 100}%` }));
+
+    return (
+        <View style={styles.track}>
+            <Animated.View style={[styles.trackFill, style]} />
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colors.white },
     flex: { flex: 1 },
-    header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 8 },
-    h1: { fontFamily: fonts.bold, fontSize: 19, color: colors.navy },
-    content: { paddingHorizontal: 20, paddingTop: 14, gap: 20 },
+    gapLarge: { gap: 14 },
+    muted: { color: colors.grey },
+    small: { fontFamily: fonts.semibold, fontSize: 12.5, lineHeight: 18, color: colors.grey },
+    link: { fontFamily: fonts.bold, fontSize: 13, color: colors.orangeDark },
 
-    amountBlock: { alignItems: 'center', gap: 8 },
-    amountLabel: { fontFamily: fonts.bold, fontSize: 13, color: colors.grey },
-    amountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    naira: { fontFamily: fonts.bold, fontSize: 40, color: colors.navy },
-    amountInput: { fontFamily: fonts.bold, fontSize: 44, color: colors.navy, minWidth: 60, paddingVertical: 0, textAlign: 'center' },
-    link: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.orange },
-    small: { fontFamily: fonts.semibold, fontSize: 12.5, lineHeight: 18, color: colors.grey, textAlign: 'left' },
+    // Tracker and request form
+    trackerTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    trackerAmount: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 32, color: colors.navy },
+    step: { flexDirection: 'row', gap: 14 },
+    rail: { alignItems: 'center', width: 22 },
+    dot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#D0D0D8', backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+    dotDone: { borderWidth: 0, backgroundColor: colors.orange },
+    dotCurrent: { borderWidth: 6, borderColor: colors.orange },
+    railLine: { flex: 1, width: 3, minHeight: 18, backgroundColor: colors.fieldBorder },
+    railLineDone: { backgroundColor: colors.orange },
+    stepText: { flex: 1 },
+    stepGap: { paddingBottom: 16 },
+    stepTitle: { fontFamily: fonts.bold, fontSize: 14.5, lineHeight: 20, color: colors.navy },
+    stepSub: { fontFamily: fonts.semibold, fontSize: 12.5, lineHeight: 17, color: colors.grey },
 
-    section: { gap: 10 },
-    sectionTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.navy },
-    bankForm: { gap: 14 },
-    bankButtons: { flexDirection: 'row', gap: 10 },
-    bankCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        borderWidth: 2,
-        borderColor: colors.orange,
-        backgroundColor: colors.orangeTint,
-        borderRadius: 18,
-        padding: 14,
-    },
-    bankIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
-    bankTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.navy },
+    amountRow: { flexDirection: 'row', alignItems: 'center' },
+    naira: { fontFamily: fonts.bold, fontSize: 30, color: colors.navy },
+    amountInput: { flex: 1, fontFamily: fonts.bold, fontSize: 32, color: colors.navy, paddingVertical: 0, minHeight: 46 },
+    fullBtn: { backgroundColor: colors.orangeSoft, borderRadius: 999, paddingHorizontal: 12, height: 36, justifyContent: 'center' },
+    fullText: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.orangeDark },
+
+    // Rejected
+    rejected: { borderColor: '#F7CACA' },
+    rejectedTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    rejectedTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.navy },
+    noteBox: { backgroundColor: colors.redSoft, borderRadius: 14, padding: 12, gap: 4 },
+    noteLabel: { fontFamily: fonts.bold, fontSize: 11, letterSpacing: 1, color: colors.red },
+    noteText: { fontFamily: fonts.semibold, fontSize: 13.5, lineHeight: 19, color: colors.navy },
+
+    // Bank
+    bankCard: { borderRadius: 22, gap: 14 },
+    bankRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    bankTitle: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.navy },
     bankSub: { fontFamily: fonts.semibold, fontSize: 12.5, color: colors.grey },
+    bankButtons: { flexDirection: 'row', gap: 10 },
 
-    next: { backgroundColor: colors.bg, borderRadius: 18, padding: 14, gap: 12 },
-    kicker: { fontFamily: fonts.bold, fontSize: 12, letterSpacing: 1.2, color: colors.grey },
-    nextRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    num: { width: 24, height: 24, borderRadius: 12, backgroundColor: colors.orange, alignItems: 'center', justifyContent: 'center' },
-    numText: { fontFamily: fonts.bold, fontSize: 12, color: colors.white },
-    nextText: { flex: 1, fontFamily: fonts.semibold, fontSize: 13.5, color: colors.navy },
+    // Milestones
+    headerNote: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.grey },
+    milestone: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    badge: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+    badgeDone: { backgroundColor: colors.whatsappDark },
+    badgeCurrent: { backgroundColor: colors.orangeSoft },
+    badgeTodo: { backgroundColor: colors.chip },
+    badgeText: { fontFamily: fonts.bold, fontSize: 13, color: colors.grey },
+    badgeTextCurrent: { color: colors.orangeDark },
+    milestoneText: { flex: 1, gap: 4 },
+    milestoneTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.navy },
+    milestoneSub: { fontFamily: fonts.semibold, fontSize: 12, color: colors.grey },
+    reached: { fontFamily: fonts.semibold, fontSize: 12, color: colors.green },
+    track: { height: 8, borderRadius: 4, backgroundColor: colors.track, overflow: 'hidden', marginTop: 2 },
+    trackFill: { height: 8, borderRadius: 4, backgroundColor: colors.orange },
 
-    historyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
-    historyBorder: { borderBottomWidth: 1, borderBottomColor: colors.line },
+    // Past payouts
+    listCard: { borderRadius: 22, paddingVertical: 6, gap: 0 },
+    listTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.navy, paddingTop: 10, paddingBottom: 8 },
+    listEmpty: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 19, color: colors.grey, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.line },
+    historyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, borderTopWidth: 1, borderTopColor: colors.line },
     historyText: { fontFamily: fonts.semibold, fontSize: 13.5, color: colors.navy },
-
-    bottom: {
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        paddingTop: 12,
-        paddingHorizontal: 20,
-        backgroundColor: colors.white,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
-    },
+    historySub: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17, color: colors.grey },
 });
