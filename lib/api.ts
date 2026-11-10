@@ -239,11 +239,14 @@ export const getHomeProducts = async (): Promise<HomeProduct[]> => {
     }));
 }
 
-/** The Christmas giving pack (menu.is_campaign): no delivery, counts toward the pre-order goal. */
-export const getCampaignProduct = async (): Promise<MenuItem | null> => {
-    const { data, error } = await supabase.from('menu').select(MENU_COLUMNS).eq('is_campaign', true).order('created_at').limit(1).maybeSingle();
-    if (error || !data) return null;
-    return withFallbackPhoto(data as unknown as MenuRow);
+/**
+ * Christmas pre-order products (menu.is_campaign, set in Admin › Products): no delivery,
+ * shown only on the Christmas page, each one bought counts toward the goal. Cheapest first.
+ */
+export const getCampaignProducts = async (): Promise<MenuItem[]> => {
+    const { data, error } = await supabase.from('menu').select(MENU_COLUMNS).eq('is_campaign', true).order('price');
+    if (error || !data) return [];
+    return (data as unknown as MenuRow[]).map(withFallbackPhoto);
 }
 
 export const getMenuItem = async ({ id }: { id: string }): Promise<MenuItem> => {

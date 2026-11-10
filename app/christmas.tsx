@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { ComponentRef, useEffect, useRef, useState } from "react";
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -7,7 +7,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 
 import ProductImage from "@/components/ProductImage";
 import { CAMPAIGN_END, CAMPAIGN_FLYER, CAMPAIGN_GOAL, campaignLive } from "@/constants/campaign";
-import { getCampaignProduct, getCampaignProgress } from "@/lib/api";
+import { getCampaignProducts, getCampaignProgress } from "@/lib/api";
 import { formatNaira } from "@/lib/format";
 import useFetch from "@/lib/useFetch";
 
@@ -43,13 +43,22 @@ function useCountdown() {
 export default function Christmas() {
     const insets = useSafeAreaInsets();
     const { data: count } = useFetch({ fn: getCampaignProgress });
-    const { data: pack } = useFetch({ fn: getCampaignProduct });
+    // Christmas pre-order products (set in Admin › Products): no delivery, count toward the goal.
+    const { data: packsData } = useFetch({ fn: getCampaignProducts });
+    const packs = (packsData ?? []).filter((p) => p.is_available !== false);
+    const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+    const [packsY, setPacksY] = useState(0);
     const left = useCountdown();
     const live = campaignLive();
     const done = count ?? 0;
     const pct = Math.min(100, (done / CAMPAIGN_GOAL) * 100);
-    // The Christmas Food Pack (a special product: no delivery, counts toward the goal).
-    const openPack = () => (pack ? router.push({ pathname: "/menu/[id]", params: { id: pack.id } }) : router.push("/search"));
+    const openProduct = (id: string) => router.push({ pathname: "/menu/[id]", params: { id } });
+    // One pack: open it. Several: scroll to the list so they can choose.
+    const startPreorder = () => {
+        if (packs.length === 1) return openProduct(packs[0].id);
+        if (packs.length > 1) return scrollRef.current?.scrollTo({ y: Math.max(0, packsY - 12), animated: true });
+        router.push("/search");
+    };
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -61,6 +70,7 @@ export default function Christmas() {
             </View>
 
             <ScrollView
+                ref={scrollRef}
                 contentContainerStyle={[styles.body, { paddingBottom: (live ? 110 : 32) + insets.bottom }]}
                 showsVerticalScrollIndicator={false}
             >
@@ -121,11 +131,12 @@ export default function Christmas() {
                     ))}
                 </Animated.View>
 
-                {/* The Christmas Food Pack */}
-                {pack && (
-                    <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ gap: 12 }}>
-                        <Text style={styles.h2}>Your pre-order</Text>
-                        <TouchableOpacity style={styles.pack} activeOpacity={0.88} onPress={openPack} accessibilityRole="button" accessibilityLabel={`${pack.name}, ${formatNaira(pack.price)}`}>
+                {/* Christmas pre-order products */}
+                {packs.length > 0 && (
+                    <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ gap: 12 }} onLayout={(e) => setPacksY(e.nativeEvent.layout.y)}>
+                        <Text style={styles.h2}>{packs.length === 1 ? "Your pre-order" : "Choose your pre-order"}</Text>
+                        {packs.map((pack) => (
+                        <TouchableOpacity key={pack.id} style={styles.pack} activeOpacity={0.88} onPress={() => openProduct(pack.id)} accessibilityRole="button" accessibilityLabel={`${pack.name}, ${formatNaira(pack.price)}`}>
                             <View style={styles.packImg}>
                                 <ProductImage imageUrl={pack.image_url} className="size-full" resizeMode="cover" />
                             </View>
@@ -141,6 +152,7 @@ export default function Christmas() {
                                 </View>
                             </View>
                         </TouchableOpacity>
+                        ))}
                     </Animated.View>
                 )}
             </ScrollView>
@@ -148,7 +160,7 @@ export default function Christmas() {
             {/* Sticky CTA — padded above Android's navigation bar so it's never covered/washed out */}
             {live && (
                 <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
-                    <TouchableOpacity style={styles.cta} onPress={openPack} activeOpacity={0.88} accessibilityRole="button">
+                    <TouchableOpacity style={styles.cta} onPress={startPreorder} activeOpacity={0.88} accessibilityRole="button">
                         <Ionicons name="gift" size={18} color="#fff" />
                         <Text style={styles.ctaText}>Start my pre-order</Text>
                         <Ionicons name="arrow-forward" size={18} color="#fff" />

@@ -11,7 +11,7 @@ import StatePicker from "@/components/StatePicker";
 import PaymentInfoStripe from "@/components/PaymentInfoStripe";
 import { DELIVERY_FEE } from "@/constants";
 import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
-import { getCampaignProduct, placeOrder, updateProfile } from "@/lib/api";
+import { getCampaignProducts, placeOrder, updateProfile } from "@/lib/api";
 import useFetch from "@/lib/useFetch";
 import { openPayment } from "@/lib/payments";
 import useDeliveryFee from "@/lib/useDeliveryFee";
@@ -66,8 +66,10 @@ export default function Checkout() {
     const { fee: deliveryFee, ready: feeReady } = useDeliveryFee(items.map((i) => i.id));
     // Christmas giving: a cart with ONLY the Christmas Food Pack isn't delivered to the buyer,
     // so no address, no delivery fee and no pay-on-delivery (the server enforces the same).
-    const { data: pack } = useFetch({ fn: getCampaignProduct });
-    const givingOnly = !!pack && items.length > 0 && items.every((i) => i.id === pack.id);
+    const { data: packs } = useFetch({ fn: getCampaignProducts });
+    const packIds = new Set((packs ?? []).map((p) => p.id));
+    const givingOnly = packIds.size > 0 && items.length > 0 && items.every((i) => packIds.has(i.id));
+    const [handle, setHandle] = useState('');
 
     if (!isAuthenticated) return <Redirect href="/sign-in" />;
     if (items.length === 0 && !isSubmitting) return <Redirect href="/cart" />;
@@ -92,8 +94,14 @@ export default function Checkout() {
 
         setIsSubmitting(true);
         try {
+            // Giving orders: the dedication and optional social handle go in the order note (admin sees it).
+            const tag = handle.trim().replace(/^@*/, '');
+            const givingNote = [
+                form.note.trim() ? `Dedication: ${form.note.trim()}` : '',
+                tag ? `Social media: @${tag}` : '',
+            ].filter(Boolean).join(' · ');
             const orderId = await placeOrder(givingOnly
-                ? { items, address: '', city: '', state: '', phone, note: form.note.trim() || undefined, paymentMethod: 'paystack' }
+                ? { items, address: '', city: '', state: '', phone, note: givingNote || undefined, paymentMethod: 'paystack' }
                 : {
                     items,
                     address: landmark ? `${address} (Landmark: ${landmark})` : address,
@@ -163,6 +171,16 @@ export default function Checkout() {
                                 autoCapitalize="sentences"
                                 multiline
                             />
+                            <View style={{ gap: 6 }}>
+                                <CustomInput
+                                    label="Your social media handle (optional)"
+                                    placeholder="e.g. @ada.okafor on Instagram, X or TikTok"
+                                    value={handle}
+                                    onChangeText={setHandle}
+                                    autoCapitalize="none"
+                                />
+                                <Text className="body-regular text-gray-200">So we can tag and thank you when we share photos from the giving.</Text>
+                            </View>
                         </View>
                     ) : (
                     <View className="gap-6 -mt-4">

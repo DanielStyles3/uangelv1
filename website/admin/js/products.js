@@ -162,7 +162,9 @@
         (photo ? '<img src="' + esc(photo) + '" alt="" loading="lazy"' + (p.image_url ? '' : ' class="fallback"') + ' data-pid="' + esc(p.id) + '">' : '<span class="pp-noimg">' + esc((p.name || '?').charAt(0)) + '</span>') +
         '<span class="pp-badges">' + (p.rating ? '<span class="pp-tag">★ ' + Number(p.rating).toFixed(1) + '</span>' : '<span></span>') + tag + '</span></button>' +
       '<div class="pp-body"><b>' + esc(p.name) + '</b>' +
-        '<small>' + esc(main ? main.name : 'No category') + (sub && sub.parent_id ? ' › ' + esc(sub.name) : '') + '</small>' +
+        (p.is_campaign
+          ? '<small style="color:#C8102E;font-weight:700">Christmas pre-order · no delivery</small>'
+          : '<small>' + esc(main ? main.name : 'No category') + (sub && sub.parent_id ? ' › ' + esc(sub.name) : '') + '</small>') +
         '<div class="pp-row"><span class="pp-price">' + esc(naira(p.price)) + '</span><span class="pp-sold">' + n + ' sold · 30d</span></div>' +
         '<div class="pp-row"><button type="button" class="pp-switch" role="switch" aria-checked="' + on + '" data-stock="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' in stock"><i></i>' + (on ? 'In stock' : 'Sold out') + '</button>' +
           '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(p.id) + '">Edit</button></div>' +
@@ -231,6 +233,7 @@
       sub: startSub && startSub.parent_id ? startSub.id : (!editing && ui.sub ? ui.sub : ''),
       description: editing ? (p.description || '') : '',
       on: editing ? p.is_available !== false : true,
+      giving: editing ? !!p.is_campaign : false,
       rating: editing && p.rating != null ? String(p.rating) : '',
       calories: editing && p.calories != null ? String(p.calories) : '',
       protein: editing && p.protein != null ? String(p.protein) : '',
@@ -280,7 +283,10 @@
       '<div class="field"><label for="' + uid + '-price">Price <span class="cg-req" aria-hidden="true">*</span></label>' +
         '<div class="pp-money"><span aria-hidden="true">₦</span><input id="' + uid + '-price" name="price" class="input" inputmode="decimal" autocomplete="off" value="' + esc(draft.price) + '"></div>' +
         '<span class="cg-err" data-err="price" role="alert"></span></div>' +
-      '<div class="pp-two">' +
+      '<div class="pp-avail" style="border:1.5px solid #F5C2C7;background:#FFF5F5"><div><b>Christmas pre-order product</b>' +
+        '<small>For the Christmas campaign: shown on the app’s Christmas page (not in the normal menu), no delivery fee or address, and every one bought counts toward the 10,000 goal.</small></div>' +
+        '<button type="button" class="pp-switch" role="switch" aria-checked="' + draft.giving + '" data-giving aria-label="Christmas pre-order product"><i></i></button></div>' +
+      '<div class="pp-two" data-cats' + (draft.giving ? ' style="display:none"' : '') + '>' +
         '<div class="field"><label for="' + uid + '-main">Category <span class="cg-req" aria-hidden="true">*</span></label>' +
           '<select id="' + uid + '-main" name="main" class="select">' + mainOptions() + '</select>' +
           '<span class="cg-err" data-err="main" role="alert"></span></div>' +
@@ -387,6 +393,13 @@
         return;
       }
       if (e.target.closest('[data-on]')) { draft.on = !draft.on; $('[data-on]').setAttribute('aria-checked', String(draft.on)); paintPreview(); return; }
+      if (e.target.closest('[data-giving]')) {
+        draft.giving = !draft.giving;
+        $('[data-giving]').setAttribute('aria-checked', String(draft.giving));
+        $('[data-cats]').style.display = draft.giving ? 'none' : '';
+        fieldError('main', ''); fieldError('sub', '');
+        return;
+      }
       if (e.target.closest('[data-add-addon]')) {
         openAddon(null, function (c) {
           draft.addons.push(c.id);
@@ -407,7 +420,7 @@
       else if (S.products.some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== p.id); })) bad.push(['name', 'A product with this name already exists.']);
       if (!String(draft.price).trim() || !isFinite(price) || price < 0) bad.push(['price', 'Enter a price, e.g. 3500.']);
       // The Christmas Food Pack has no category on purpose (it's only reached from the Christmas page).
-      var giving = editing && p.is_campaign;
+      var giving = draft.giving;
       if (giving) { /* no category needed */ }
       else if (!draft.main) bad.push(['main', 'Choose a category.']);
       else if (!draft.sub) bad.push(['sub', (S.subsBy[draft.main] || []).length ? 'Choose a subcategory.' : 'Add a subcategory to this category first (Categories page).']);
@@ -438,7 +451,9 @@
         var payload = {
           name: name, price: Math.round(price * 100) / 100, category_id: giving ? null : draft.sub,
           description: draft.description.trim() || null, image_url: imageUrl,
-          rating: rating, calories: calories, protein: protein, is_available: draft.on
+          rating: rating, calories: calories, protein: protein, is_available: draft.on,
+          // Christmas pre-order products: no category, ₦0 delivery. Switching it off clears the ₦0.
+          is_campaign: giving, delivery_fee: giving ? 0 : (editing && p.is_campaign ? null : undefined)
         };
         var res = editing
           ? await A.sb.from('menu').update(payload).eq('id', p.id).select(MENU_COLS).single()
