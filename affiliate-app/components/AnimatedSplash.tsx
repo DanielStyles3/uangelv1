@@ -154,8 +154,9 @@ export default function AnimatedSplash({ ready, onFinish }: Props) {
                 {/* Wordmark slides up out of a mask */}
                 <View style={styles.mask}>
                     <Animated.View style={[styles.wordRow, wordStyle]}>
-                        <Text style={styles.word}>U Angel</Text>
-                        <Text style={[styles.word, styles.wordBold]}> Affiliates</Text>
+                        <Text style={styles.word} numberOfLines={1}>
+                            U Angel <Text style={styles.wordBold}>Affiliates</Text>
+                        </Text>
                     </Animated.View>
                 </View>
 
@@ -163,8 +164,9 @@ export default function AnimatedSplash({ ready, onFinish }: Props) {
                 <View style={styles.badgeStage}>
                     <Animated.View style={[styles.burst, burstStyle]} />
                     <Animated.View style={[styles.badge, badgeStyle]}>
-                        <Text style={styles.badgeBig}>5%</Text>
-                        <Text style={styles.badgeSmall}>on every order</Text>
+                        <Text style={styles.badgeText} numberOfLines={1}>
+                            <Text style={styles.badgeBig}>5%</Text>{'  '}on every order
+                        </Text>
                     </Animated.View>
                 </View>
             </View>
@@ -222,11 +224,13 @@ const styles = StyleSheet.create({
         width: CHIP, height: CHIP, borderRadius: CHIP / 2, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center',
         shadowColor: '#7A2A0B', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 6,
     },
-    chipLabel: { fontFamily: fonts.bold, fontSize: 13, letterSpacing: 0.6, color: colors.white },
+    // Fixed widths + centred text on every label here: the splash can draw before Quicksand has
+    // loaded, and Android doesn't re-measure text when the font arrives (it clipped "Share" to "Shar").
+    chipLabel: { width: 90, textAlign: 'center', fontFamily: fonts.bold, fontSize: 13, color: colors.white },
 
     mask: { overflow: 'hidden', marginTop: 26, paddingVertical: 4 },
-    wordRow: { flexDirection: 'row', alignItems: 'baseline' },
-    word: { fontFamily: fonts.medium, fontSize: 26, color: 'rgba(255,255,255,0.92)' },
+    wordRow: { width: W, alignItems: 'center' },
+    word: { width: W - 32, textAlign: 'center', fontFamily: fonts.medium, fontSize: 26, color: 'rgba(255,255,255,0.92)' },
     wordBold: { fontFamily: fonts.bold, color: colors.white },
 
     badgeStage: { marginTop: 18, alignItems: 'center', justifyContent: 'center' },
@@ -236,6 +240,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16, paddingVertical: 8,
         shadowColor: '#7A2A0B', shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
     },
+    badgeText: { width: 190, textAlign: 'center', fontFamily: fonts.bold, fontSize: 13, color: colors.navy },
     badgeBig: { fontFamily: fonts.bold, fontSize: 20, color: colors.orange },
-    badgeSmall: { fontFamily: fonts.bold, fontSize: 13, color: colors.navy },
 });
