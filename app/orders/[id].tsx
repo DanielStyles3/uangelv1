@@ -111,6 +111,8 @@ export default function OrderDetails() {
     const { data: order, loading, refetch } = useFetch({ fn: getOrder, params: { id } });
     // Christmas pre-order products, to word the "payment successful" message for giving orders.
     const { data: packs } = useFetch({ fn: getCampaignProducts });
+    // "Invite a friend" card under the payment-successful banner; "Not now" hides it.
+    const [hideInvite, setHideInvite] = useState(false);
     const { addItem } = useCartStore();
     const [isCancelling, setIsCancelling] = useState(false);
 
@@ -239,6 +241,27 @@ export default function OrderDetails() {
                             ) : (
                                 <Text style={styles.successBody}>Thank you for your order. We’re getting it ready and will keep you updated here.</Text>
                             )}
+                        </View>
+                    </Animated.View>
+                )}
+
+                {/* Just paid: invite a friend, earn 5% */}
+                {placed === '1' && isPaid && !hideInvite && (
+                    <Animated.View entering={FadeInDown.delay(350).duration(400)} style={styles.inviteCard}>
+                        <View style={styles.inviteTop}>
+                            <View style={styles.inviteIcon}><Ionicons name="gift" size={24} color="#fff" /></View>
+                            <View style={{ flex: 1, gap: 2 }}>
+                                <Text style={styles.inviteTitle}>Know someone who’d enjoy this?</Text>
+                                <Text style={styles.inviteBody}>Invite a friend and earn 5% of what they order for 12 months.</Text>
+                            </View>
+                        </View>
+                        <View style={styles.inviteBtns}>
+                            <TouchableOpacity style={styles.inviteGo} onPress={() => router.push('/invite')} activeOpacity={0.85} accessibilityRole="button">
+                                <Text style={styles.inviteGoText}>Invite a friend</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.inviteSkip} onPress={() => setHideInvite(true)} activeOpacity={0.85} accessibilityRole="button">
+                                <Text style={styles.inviteSkipText}>Not now</Text>
+                            </TouchableOpacity>
                         </View>
                     </Animated.View>
                 )}
@@ -390,6 +413,16 @@ const styles = StyleSheet.create({
     center: { alignItems: 'center', justifyContent: 'center' },
     content: { padding: 20, paddingBottom: 40, gap: 16 },
 
+    inviteCard: { backgroundColor: '#fff', borderRadius: 24, borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#FDBA9B', padding: 16, gap: 12 },
+    inviteTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    inviteIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#FD652A', alignItems: 'center', justifyContent: 'center' },
+    inviteTitle: { fontFamily: 'Quicksand-Bold', fontSize: 16, color: '#181C2E' },
+    inviteBody: { fontFamily: 'Quicksand-SemiBold', fontSize: 13, lineHeight: 18, color: '#5B5B66' },
+    inviteBtns: { flexDirection: 'row', gap: 10 },
+    inviteGo: { flex: 1, height: 46, borderRadius: 999, backgroundColor: '#181C2E', alignItems: 'center', justifyContent: 'center' },
+    inviteGoText: { fontFamily: 'Quicksand-Bold', fontSize: 14, color: '#fff' },
+    inviteSkip: { height: 46, paddingHorizontal: 18, borderRadius: 999, backgroundColor: '#F3F3F6', alignItems: 'center', justifyContent: 'center' },
+    inviteSkipText: { fontFamily: 'Quicksand-Bold', fontSize: 14, color: '#181C2E' },
     successBanner: {
         flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 22,
         backgroundColor: '#2F9B65', marginTop: -20,

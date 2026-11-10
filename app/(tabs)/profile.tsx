@@ -9,8 +9,12 @@ import Avatar from "@/components/Avatar";
 import useAuthStore from "@/store/auth.store";
 import {useCartStore} from "@/store/cart.store";
 import useFetch from "@/lib/useFetch";
-import {deleteAccount, getProfileStats} from "@/lib/api";
+import {deleteAccount, getAffiliateSummary, getProfileStats} from "@/lib/api";
 import {formatNigerianPhone} from "@/lib/format";
+import ProfileInviteCard from "@/components/ProfileInviteCard";
+
+// The invite card is a nice-to-have: if it can't load, show the "Get my code" version quietly.
+const loadAffiliate = () => getAffiliateSummary().catch(() => null);
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -55,8 +59,10 @@ const Profile = () => {
     const { data: stats, refetch } = useFetch({ fn: getProfileStats });
     const [busy, setBusy] = useState<'logout' | 'delete' | null>(null);
 
-    // Keep the counts fresh when coming back from an order / request.
-    useFocusEffect(useCallback(() => { refetch(); }, [])); // eslint-disable-line react-hooks/exhaustive-deps
+    const { data: affiliate, refetch: refetchAffiliate } = useFetch({ fn: loadAffiliate });
+
+    // Keep the counts (and invite earnings) fresh when coming back from an order / request.
+    useFocusEffect(useCallback(() => { refetch(); refetchAffiliate(); }, [])); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleLogout = () => {
         Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -151,10 +157,14 @@ const Profile = () => {
                     </View>
                 </View>
 
+                {/* Invite friends, earn 5% */}
+                <View style={{ marginTop: 20, marginHorizontal: 20 }}>
+                    <ProfileInviteCard summary={affiliate ?? null} />
+                </View>
+
                 <Section title="My activity">
                     <Row icon="receipt-outline" label="My orders" detail="Track, pay and view past orders" badge={stats?.orders} onPress={() => router.push('/orders')} />
-                    <Row icon="calendar-outline" label="Catering & event requests" detail="Your quote requests" badge={stats?.requests} onPress={() => router.push('/requests')} />
-                    <Row icon="gift-outline" label="Invite friends & earn" detail="Share your code, earn 5% of their orders" onPress={() => router.push('/invite')} last />
+                    <Row icon="calendar-outline" label="Catering & event requests" detail="Your quote requests" badge={stats?.requests} onPress={() => router.push('/requests')} last />
                 </Section>
 
                 <Section title="Account">
