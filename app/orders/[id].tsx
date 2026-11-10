@@ -10,7 +10,7 @@ import Animated, {
 import CustomHeader from "@/components/CustomHeader";
 import ProductImage from "@/components/ProductImage";
 import useFetch from "@/lib/useFetch";
-import { cancelOrder, getOrder } from "@/lib/api";
+import { cancelOrder, getCampaignProducts, getOrder } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { openPayment } from "@/lib/payments";
 import { formatDateTime, formatNaira, formatNigerianPhone } from "@/lib/format";
@@ -109,6 +109,8 @@ const Row = ({ label, value, bold, valueColor }: { label: string; value: string;
 export default function OrderDetails() {
     const { id, placed, payment } = useLocalSearchParams<{ id: string; placed?: string; payment?: string }>();
     const { data: order, loading, refetch } = useFetch({ fn: getOrder, params: { id } });
+    // Christmas pre-order products, to word the "payment successful" message for giving orders.
+    const { data: packs } = useFetch({ fn: getCampaignProducts });
     const { addItem } = useCartStore();
     const [isCancelling, setIsCancelling] = useState(false);
 
@@ -158,6 +160,9 @@ export default function OrderDetails() {
     const onlineAmount = Number(order.online_amount ?? order.total);
     const balanceDue = Number(order.balance_due ?? 0);
     const balanceCollected = !!order.balance_collected_at;
+    // A pre-order for the less privileged: the order contains a Christmas pre-order product.
+    const packIds = new Set((packs ?? []).map((p) => p.id));
+    const isGiving = items.some((i) => !!i.menu_id && packIds.has(i.menu_id));
 
     const orderAgain = () => {
         let added = 0;
@@ -229,7 +234,11 @@ export default function OrderDetails() {
                         </View>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.successTitle}>Payment successful!</Text>
-                            <Text style={styles.successBody}>Thank you. Every order helps feed someone in need. <Ionicons name="heart" size={14} color="#FD652A" /></Text>
+                            {isGiving ? (
+                                <Text style={styles.successBody}>Thank you. Every order helps feed someone in need. <Ionicons name="heart" size={14} color="#FD652A" /></Text>
+                            ) : (
+                                <Text style={styles.successBody}>Thank you for your order. We’re getting it ready and will keep you updated here.</Text>
+                            )}
                         </View>
                     </Animated.View>
                 )}
