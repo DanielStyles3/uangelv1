@@ -70,6 +70,7 @@ export default function Checkout() {
     const packIds = new Set((packs ?? []).map((p) => p.id));
     const givingOnly = packIds.size > 0 && items.length > 0 && items.every((i) => packIds.has(i.id));
     const [handle, setHandle] = useState('');
+    const [platform, setPlatform] = useState<'Instagram' | 'X (Twitter)' | 'TikTok' | 'Facebook'>('Instagram');
 
     if (!isAuthenticated) return <Redirect href="/sign-in" />;
     if (items.length === 0 && !isSubmitting) return <Redirect href="/cart" />;
@@ -98,7 +99,7 @@ export default function Checkout() {
             const tag = handle.trim().replace(/^@*/, '');
             const givingNote = [
                 form.note.trim() ? `Dedication: ${form.note.trim()}` : '',
-                tag ? `Social media: @${tag}` : '',
+                tag ? `${platform}: @${tag}` : '',
             ].filter(Boolean).join(' · ');
             const orderId = await placeOrder(givingOnly
                 ? { items, address: '', city: '', state: '', phone, note: givingNote || undefined, paymentMethod: 'paystack' }
@@ -171,10 +172,36 @@ export default function Checkout() {
                                 autoCapitalize="sentences"
                                 multiline
                             />
-                            <View style={{ gap: 6 }}>
+                            <View style={{ gap: 10 }}>
+                                <Text className="paragraph-bold text-dark-100">Your social media (optional)</Text>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                    {([
+                                        ['Instagram', 'logo-instagram'],
+                                        ['X (Twitter)', 'logo-twitter'],
+                                        ['TikTok', 'logo-tiktok'],
+                                        ['Facebook', 'logo-facebook'],
+                                    ] as const).map(([name, icon]) => {
+                                        const on = platform === name;
+                                        return (
+                                            <TouchableOpacity
+                                                key={name}
+                                                onPress={() => setPlatform(name)}
+                                                accessibilityRole="radio"
+                                                accessibilityState={{ checked: on }}
+                                                style={{
+                                                    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 38, borderRadius: 999,
+                                                    borderWidth: 1.5, borderColor: on ? '#FD652A' : '#E4E4EA', backgroundColor: on ? '#FFF4EE' : '#fff',
+                                                }}
+                                            >
+                                                <Ionicons name={icon} size={15} color={on ? '#FD652A' : '#5B5B66'} />
+                                                <Text style={{ fontFamily: 'Quicksand-Bold', fontSize: 13, color: on ? '#C2410C' : '#181C2E' }}>{name}</Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
                                 <CustomInput
-                                    label="Your social media handle (optional)"
-                                    placeholder="e.g. @ada.okafor on Instagram, X or TikTok"
+                                    label={`Your ${platform} handle`}
+                                    placeholder="e.g. @ada.okafor"
                                     value={handle}
                                     onChangeText={setHandle}
                                     autoCapitalize="none"
