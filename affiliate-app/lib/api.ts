@@ -24,8 +24,14 @@ export type Commission = {
 };
 
 export type AffiliateSummary = {
-    code: string;
-    status: 'active' | 'blocked';
+    /** null until an admin approves the application. */
+    code: string | null;
+    /** pending = applied, waiting for an admin; rejected = not approved (can apply again). */
+    status: 'pending' | 'active' | 'blocked' | 'rejected';
+    applied_at: string;
+    reviewed_at: string | null;
+    /** The admin's reason, when rejected or blocked. */
+    review_note: string | null;
     rate: number | string;
     bank_name: string | null;
     account_number: string | null;

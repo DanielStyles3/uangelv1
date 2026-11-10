@@ -80,8 +80,12 @@ export const applyReferralCode = async (code: string): Promise<string> => {
 
 /** What the Invite screen needs from affiliate_summary() (supabase/affiliates.sql). */
 export interface AffiliateSummary {
-    code: string;
-    status: 'active' | 'blocked';
+    /** null until an admin approves the application. */
+    code: string | null;
+    /** pending = applied, waiting for an admin; rejected = not approved (can apply again). */
+    status: 'pending' | 'active' | 'blocked' | 'rejected';
+    /** The admin's reason when not approved. */
+    review_note: string | null;
     /** Commission rate as a fraction, e.g. 0.05 for 5%. */
     rate: number;
     /** From paid orders that are not delivered yet. */
@@ -95,16 +99,18 @@ export interface AffiliateSummary {
     referrals: number;
 }
 
-/** The signed-in customer's invite code and earnings, or null when they haven't got a code yet. */
+/** The signed-in customer's affiliate application / invite code and earnings, or null when they haven't applied. */
 export const getAffiliateSummary = async (): Promise<AffiliateSummary | null> => {
     const { data, error } = await supabase.rpc('affiliate_summary');
     if (error) throw new Error(error.message);
     const s = data as Partial<AffiliateSummary> | null;
-    if (!s?.code) return null;
+    if (!s?.status) return null;
     const num = (v: unknown) => Number(v ?? 0) || 0;
+    const status = (['pending', 'active', 'blocked', 'rejected'] as const).find((x) => x === s.status) ?? 'pending';
     return {
-        code: s.code,
-        status: s.status === 'blocked' ? 'blocked' : 'active',
+        code: status === 'active' || status === 'blocked' ? s.code ?? null : null,
+        status,
+        review_note: s.review_note ?? null,
         rate: num(s.rate) || 0.05,
         pending: num(s.pending),
         on_hold: num(s.on_hold),
@@ -115,13 +121,10 @@ export const getAffiliateSummary = async (): Promise<AffiliateSummary | null> =>
     };
 }
 
-/** Gives the signed-in customer an invite code (or returns the one they already have). */
-export const becomeAffiliate = async (): Promise<string> => {
-    const { data, error } = await supabase.rpc('become_affiliate');
+/** Applies to the affiliate programme (or re-applies after a rejection). An admin approves it; the code comes then. */
+export const becomeAffiliate = async (): Promise<void> => {
+    const { error } = await supabase.rpc('become_affiliate');
     if (error) throw new Error(error.message);
-    const code = (data as { code?: string } | null)?.code;
-    if (!code) throw new Error('Couldn’t create your code. Please try again.');
-    return code;
 }
 
 export const signIn = async ({ email, password }: SignInParams) => {

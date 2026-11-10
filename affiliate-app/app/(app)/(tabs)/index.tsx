@@ -88,7 +88,7 @@ export default function EarningsTab() {
 
     if (!summary) return null;
 
-    const code = summary.code;
+    const code = summary.code ?? ''; // always set once approved (only approved affiliates reach this screen)
     const blocked = summary.status !== 'active';
     const firstName = displayName(session).split(' ')[0];
     const open = summary.open_withdrawal;

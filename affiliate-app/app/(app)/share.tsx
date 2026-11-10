@@ -75,7 +75,7 @@ export default function ShareScreen() {
 
     if (!summary) return null;
 
-    const code = summary.code;
+    const code = summary.code ?? ''; // always set once approved (only approved affiliates reach this screen)
     const link = referralLink(code);
     const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 

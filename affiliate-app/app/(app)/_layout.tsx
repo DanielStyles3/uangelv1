@@ -84,7 +84,8 @@ export default function AppLayout() {
         );
     }
 
-    const joined = !!summary;
+    // Approved (active, or blocked later) = joined. Not applied, waiting or not approved → the Join screen.
+    const joined = !!summary && (summary.status === 'active' || summary.status === 'blocked');
     const onJoin = (segments as string[]).includes('join');
     // Not an affiliate yet → Join. Already joined but on Join → Earnings.
     if (!joined && !onJoin) return <Redirect href="/join" />;

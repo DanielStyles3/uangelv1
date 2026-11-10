@@ -441,6 +441,24 @@
 .af-card > .card-head { margin-bottom: 0; padding-bottom: 14px; }
 .af-card .card-head .small { max-width: 60ch; }
 .af-h2 { font-size: 17px; margin: 0 0 12px; }
+/* Applications waiting for approval. */
+.af-apps-card { border: 1.5px solid #FDBA9B; }
+.af-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 7px; margin-left: 6px; border-radius: 999px; background: var(--orange, #FD652A); color: #fff; font-size: 12px; vertical-align: 2px; }
+.af-apps { display: flex; flex-direction: column; }
+.af-app { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 18px; border-top: 1px solid var(--line-2); }
+.af-app-who { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; border: 0; background: none; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.af-app-who:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 12px; }
+.af-app-txt { min-width: 0; }
+.af-app-txt b { display: block; }
+.af-app-txt small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.af-review { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border-radius: 14px; background: #FFF4EE; border: 1px solid #FDBA9B; }
+.af-review b { display: block; }
+.af-review small { display: block; color: var(--muted); font-size: 12px; font-weight: 600; }
+@media (max-width: 640px) {
+  .af-app { flex-direction: column; align-items: stretch; padding: 14px 16px; }
+  .af-app .af-acts .btn:first-child { flex-basis: auto; }
+  .af-review .af-acts { width: 100%; }
+}
 .af-mono { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
 .af-code { font-weight: 700; color: var(--text); }
 .af-acts { display: flex; gap: 6px; justify-content: flex-end; }

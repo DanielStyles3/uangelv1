@@ -16,12 +16,16 @@ const NAVY = "#181C2E";
  * With a code: shows it with a Share button and what's been earned. Without: "Get my code".
  * Tapping the card opens the Invite screen.
  */
-const ProfileInviteCard = ({ summary }: { summary: AffiliateSummary | null }) => {
+const ProfileInviteCard = ({ summary: raw }: { summary: AffiliateSummary | null }) => {
     const open = () => router.push("/invite");
+    // Only approved affiliates have a code; waiting / not approved show a status line instead.
+    const summary = raw?.code ? raw : null;
+    const code = summary?.code ?? "";
+    const pending = raw?.status === "pending";
     const share = () => {
-        if (!summary) return open();
+        if (!code) return open();
         Haptics.selectionAsync().catch(() => {});
-        Share.share({ message: inviteMessage(summary.code) }).catch(() => {});
+        Share.share({ message: inviteMessage(code) }).catch(() => {});
     };
     const friends = summary?.referrals ?? 0;
 
@@ -51,15 +55,20 @@ const ProfileInviteCard = ({ summary }: { summary: AffiliateSummary | null }) =>
 
             {summary ? (
                 <View style={styles.row}>
-                    <View style={styles.codeBox}><Text style={styles.code} numberOfLines={1}>{summary.code}</Text></View>
+                    <View style={styles.codeBox}><Text style={styles.code} numberOfLines={1}>{code}</Text></View>
                     <TouchableOpacity style={styles.shareBtn} onPress={share} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Share my code">
                         <Ionicons name="share-social" size={16} color="#fff" />
                         <Text style={styles.shareText}>Share</Text>
                     </TouchableOpacity>
                 </View>
+            ) : pending ? (
+                <View style={styles.waiting}>
+                    <Ionicons name="hourglass-outline" size={16} color="#FCD34D" />
+                    <Text style={styles.waitingText}>Application received · waiting for approval</Text>
+                </View>
             ) : (
                 <View style={styles.cta}>
-                    <Text style={styles.ctaText}>Get my code</Text>
+                    <Text style={styles.ctaText}>{raw?.status === "rejected" ? "Apply again" : "Apply to join"}</Text>
                     <Ionicons name="arrow-forward" size={16} color={NAVY} />
                 </View>
             )}
@@ -67,7 +76,9 @@ const ProfileInviteCard = ({ summary }: { summary: AffiliateSummary | null }) =>
             <Text style={styles.small}>
                 {summary
                     ? `${friends} friend${friends === 1 ? "" : "s"} joined · on everything they order for 12 months`
-                    : "On everything they order for 12 months."}
+                    : pending
+                        ? "Your code appears here once you’re approved."
+                        : "On everything they order for 12 months."}
             </Text>
         </ScalePress>
     );
@@ -92,6 +103,11 @@ const styles = StyleSheet.create({
     shareText: { fontFamily: "Quicksand-Bold", fontSize: 14, color: "#fff" },
     cta: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, height: 44, paddingHorizontal: 18, borderRadius: 999, backgroundColor: "#fff" },
     ctaText: { fontFamily: "Quicksand-Bold", fontSize: 14, color: NAVY },
+    waiting: {
+        flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, paddingHorizontal: 14, borderRadius: 14,
+        backgroundColor: "rgba(252,211,77,0.12)", borderWidth: 1, borderColor: "rgba(252,211,77,0.4)",
+    },
+    waitingText: { flex: 1, fontFamily: "Quicksand-Bold", fontSize: 13, color: "#FDE68A" },
 });
 
 export default ProfileInviteCard;

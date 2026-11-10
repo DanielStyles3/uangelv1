@@ -85,7 +85,6 @@ export default function Invite() {
     const insets = useSafeAreaInsets();
     const { isAuthenticated } = useAuthStore();
     const { data: summary, loading, refetch } = useFetch({ fn: getAffiliateSummary, skip: !isAuthenticated });
-    const [newCode, setNewCode] = useState<string | null>(null);
     const [joining, setJoining] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [copied, setCopied] = useState<"code" | "link" | null>(null);
@@ -95,19 +94,21 @@ export default function Invite() {
 
     if (!isAuthenticated) return <Redirect href="/sign-in" />;
 
-    const code = summary?.code ?? newCode;
+    const code = summary?.code ?? null;
+    const pending = summary?.status === "pending";
+    const rejected = summary?.status === "rejected";
     const rate = formatRate(summary?.rate);
-    const firstLoad = loading && !summary && !newCode && !refreshing;
+    const firstLoad = loading && !summary && !refreshing;
 
-    const getCode = async () => {
+    const apply = async () => {
         tap();
         setJoining(true);
         try {
-            setNewCode(await becomeAffiliate());
+            await becomeAffiliate();
             success();
-            refetch();
+            await refetch();
         } catch (e: any) {
-            Alert.alert("Couldn’t get your code", e.message);
+            Alert.alert("Couldn’t send your application", e.message);
         } finally {
             setJoining(false);
         }
@@ -236,6 +237,25 @@ export default function Invite() {
                             <HowItWorks rate={rate} />
                         </Animated.View>
                     </View>
+                ) : pending ? (
+                    <View key="pending" style={styles.stack}>
+                        <Animated.View entering={riseIn(0)} style={styles.hero}>
+                            <View style={styles.heroGlow} />
+                            <View style={styles.heroGlowSmall} />
+                            <View style={[styles.giftTile, { backgroundColor: "#F59E0B" }]}><Ionicons name="hourglass" size={28} color="#fff" /></View>
+                            <Text style={styles.heroTitle}>Application{"\n"}received</Text>
+                            <Text style={styles.heroText}>Our team checks every application. Your code appears here as soon as you’re approved.</Text>
+                        </Animated.View>
+
+                        <Animated.View entering={riseIn(1)} style={styles.note}>
+                            <Ionicons name="refresh-circle" size={18} color="#B45309" />
+                            <Text style={styles.noteText}>Pull down to check for an update.</Text>
+                        </Animated.View>
+
+                        <Animated.View entering={riseIn(2)}>
+                            <HowItWorks rate={rate} />
+                        </Animated.View>
+                    </View>
                 ) : (
                     <View key="join" style={styles.stack}>
                         <Animated.View entering={riseIn(0)} style={styles.hero}>
@@ -246,13 +266,22 @@ export default function Invite() {
                             <Text style={styles.heroText}>On everything they order for 12 months.</Text>
                         </Animated.View>
 
+                        {rejected && (
+                            <Animated.View entering={fadeIn()} style={[styles.note, styles.noteRed]}>
+                                <Ionicons name="alert-circle" size={18} color="#B91C1C" />
+                                <Text style={[styles.noteText, { color: "#B91C1C" }]}>
+                                    Your last application wasn’t approved.{summary?.review_note ? ` Reason: ${summary.review_note}` : ""} You can apply again below.
+                                </Text>
+                            </Animated.View>
+                        )}
+
                         <Animated.View entering={riseIn(1)}>
                             <HowItWorks rate={rate} />
                         </Animated.View>
 
                         <Animated.View entering={riseIn(2)} style={{ gap: 10 }}>
-                            <PrimaryButton title="Get my code" icon={<Ionicons name="arrow-forward" size={18} color="#fff" />} loading={joining} onPress={getCode} />
-                            <Text style={styles.small}>Free to join. Your code is ready straight away.</Text>
+                            <PrimaryButton title={rejected ? "Apply again" : "Apply to join"} icon={<Ionicons name="arrow-forward" size={18} color="#fff" />} loading={joining} onPress={apply} />
+                            <Text style={styles.small}>Free to join. You get your code once we approve you.</Text>
                         </Animated.View>
                     </View>
                 )}

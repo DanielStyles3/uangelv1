@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, AppState, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Enter } from '@/components/motion';
@@ -10,7 +10,7 @@ import { Button, IconBubble, IconName, SectionLabel } from '@/components/ui';
 import { useAffiliate } from '@/lib/affiliate';
 import { becomeAffiliate, signOut } from '@/lib/api';
 import { displayName, useAuth } from '@/lib/auth';
-import { errorMessage } from '@/lib/format';
+import { errorMessage, formatDate } from '@/lib/format';
 import { colors, fonts } from '@/lib/theme';
 
 const STEPS: { icon: IconName; title: string; body: string; green?: boolean }[] = [
@@ -32,14 +32,60 @@ const STEPS: { icon: IconName; title: string; body: string; green?: boolean }[] 
     },
 ];
 
+/** Where the application stands, shown in a card at the top of the Join screen. */
+function StatusCard({ status, appliedAt, note }: { status: 'pending' | 'rejected'; appliedAt?: string; note?: string | null }) {
+    const pending = status === 'pending';
+    return (
+        <Enter index={0} style={[styles.statusCard, pending ? styles.statusPending : styles.statusRejected]}>
+            <View style={styles.statusTop}>
+                <IconBubble
+                    name={pending ? 'hourglass-outline' : 'close-circle-outline'}
+                    bg={pending ? colors.amberSoft : colors.redSoft}
+                    color={pending ? colors.amber : colors.red}
+                />
+                <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.statusTitle}>{pending ? 'Application received' : 'Not approved this time'}</Text>
+                    <Text style={styles.statusSub}>
+                        {pending
+                            ? `Sent ${appliedAt ? formatDate(appliedAt) : 'just now'} · waiting for review`
+                            : 'You can fix this and apply again below.'}
+                    </Text>
+                </View>
+            </View>
+            {pending ? (
+                <Text style={styles.statusBody}>
+                    Our team checks every application. As soon as you’re approved, your code appears here and you can start sharing.
+                </Text>
+            ) : note ? (
+                <View style={styles.reason}>
+                    <Text style={styles.reasonLabel}>REASON</Text>
+                    <Text style={styles.reasonText}>{note}</Text>
+                </View>
+            ) : null}
+        </Enter>
+    );
+}
+
 export default function Join() {
     const insets = useSafeAreaInsets();
     const { session } = useAuth();
-    const { refresh } = useAffiliate();
+    const { summary, refresh } = useAffiliate();
     const [agreed, setAgreed] = useState(false);
     const [busy, setBusy] = useState(false);
+    const [checking, setChecking] = useState(false);
 
     const firstName = displayName(session).split(' ')[0];
+    const state: 'new' | 'pending' | 'rejected' =
+        summary?.status === 'pending' ? 'pending' : summary?.status === 'rejected' ? 'rejected' : 'new';
+
+    // Waiting for approval: check again whenever they come back to the app.
+    useEffect(() => {
+        if (state !== 'pending') return;
+        const sub = AppState.addEventListener('change', (s) => {
+            if (s === 'active') refresh().catch(() => {});
+        });
+        return () => sub.remove();
+    }, [state, refresh]);
 
     const join = async () => {
         if (!agreed) return Alert.alert('One more thing', 'Please tick the box to agree to the affiliate terms.');
@@ -47,10 +93,22 @@ export default function Join() {
         try {
             await becomeAffiliate();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-            await refresh(); // the layout now shows the dashboard
+            await refresh(); // now pending: this screen shows "Application received"
         } catch (e) {
-            Alert.alert('Couldn’t join just now', errorMessage(e));
+            Alert.alert('Couldn’t send your application', errorMessage(e));
+        } finally {
             setBusy(false);
+        }
+    };
+
+    const check = async () => {
+        setChecking(true);
+        try {
+            await refresh(); // approved → the layout opens the dashboard
+        } catch (e) {
+            Alert.alert('Couldn’t check just now', errorMessage(e));
+        } finally {
+            setChecking(false);
         }
     };
 
@@ -65,7 +123,11 @@ export default function Join() {
             <StatusBar style="light" />
             {/* Solid strip behind the status bar, so scrolled content never shows under the clock. */}
             <View style={[styles.statusStrip, { height: insets.top }]} />
-            <ScrollView contentContainerStyle={{ paddingBottom: 130 + insets.bottom }} bounces={false} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                contentContainerStyle={{ paddingBottom: 130 + insets.bottom }}
+                showsVerticalScrollIndicator={false}
+                refreshControl={state === 'pending' ? <RefreshControl refreshing={checking} onRefresh={check} tintColor={colors.white} colors={[colors.orange]} /> : undefined}
+            >
                 <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
                     <View style={styles.circle} />
                     <View style={styles.headerTop}>
@@ -81,7 +143,11 @@ export default function Join() {
                     </Enter>
                 </View>
 
-                <Enter index={1} style={styles.howCard}>
+                {state !== 'new' ? (
+                    <StatusCard status={state} appliedAt={summary?.applied_at} note={summary?.review_note} />
+                ) : null}
+
+                <Enter index={1} style={[styles.howCard, state !== 'new' && styles.howCardBelow]}>
                     <SectionLabel>How it works</SectionLabel>
                     {STEPS.map((s) => (
                         <View key={s.title} style={styles.step}>
@@ -103,23 +169,34 @@ export default function Join() {
                     <Text style={styles.heartText}>Every order you bring in helps feed someone in need.</Text>
                 </Enter>
 
-                <TouchableOpacity
-                    style={styles.terms}
-                    onPress={() => setAgreed((a) => !a)}
-                    activeOpacity={0.7}
-                    accessibilityRole="checkbox"
-                    accessibilityState={{ checked: agreed }}
-                >
-                    <Ionicons name={agreed ? 'checkbox' : 'square-outline'} size={22} color={agreed ? colors.orange : colors.greyLight} />
-                    <Text style={styles.termsText}>
-                        I agree to the affiliate terms: no self-referrals, no spam, earnings paid after delivery.
-                    </Text>
-                </TouchableOpacity>
+                {state !== 'pending' ? (
+                    <TouchableOpacity
+                        style={styles.terms}
+                        onPress={() => setAgreed((a) => !a)}
+                        activeOpacity={0.7}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: agreed }}
+                    >
+                        <Ionicons name={agreed ? 'checkbox' : 'square-outline'} size={22} color={agreed ? colors.orange : colors.greyLight} />
+                        <Text style={styles.termsText}>
+                            I agree to the affiliate terms: no self-referrals, no spam, earnings paid after delivery.
+                        </Text>
+                    </TouchableOpacity>
+                ) : null}
             </ScrollView>
 
             <View style={[styles.bottom, { paddingBottom: insets.bottom + 16 }]}>
-                <Button title="Join and get my code" loading={busy} disabled={!agreed} onPress={join} />
-                <Text style={styles.bottomNote}>Free to join. You get your code straight away.</Text>
+                {state === 'pending' ? (
+                    <>
+                        <Button title="Check my application" variant="outline" icon="refresh" loading={checking} onPress={check} />
+                        <Text style={styles.bottomNote}>We’ll let you in as soon as you’re approved.</Text>
+                    </>
+                ) : (
+                    <>
+                        <Button title={state === 'rejected' ? 'Apply again' : 'Apply to join'} loading={busy} disabled={!agreed} onPress={join} />
+                        <Text style={styles.bottomNote}>Free to join. You get your code once we approve you.</Text>
+                    </>
+                )}
             </View>
         </View>
     );
@@ -157,6 +234,28 @@ const styles = StyleSheet.create({
         gap: 14,
         boxShadow: '0px 10px 24px rgba(24, 28, 46, 0.10)',
     },
+    howCardBelow: { marginTop: 16 },
+
+    statusCard: {
+        marginTop: -48,
+        marginHorizontal: 20,
+        backgroundColor: colors.white,
+        borderRadius: 24,
+        borderWidth: 1.5,
+        padding: 18,
+        gap: 12,
+        boxShadow: '0px 10px 24px rgba(24, 28, 46, 0.10)',
+    },
+    statusPending: { borderColor: '#FCD34D' },
+    statusRejected: { borderColor: '#FCA5A5' },
+    statusTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    statusTitle: { fontFamily: fonts.bold, fontSize: 17, color: colors.navy },
+    statusSub: { fontFamily: fonts.semibold, fontSize: 12.5, color: colors.grey },
+    statusBody: { fontFamily: fonts.semibold, fontSize: 13.5, lineHeight: 19, color: colors.grey },
+    reason: { backgroundColor: colors.redSoft, borderRadius: 14, padding: 12, gap: 4 },
+    reasonLabel: { fontFamily: fonts.bold, fontSize: 11, letterSpacing: 1.2, color: colors.red },
+    reasonText: { fontFamily: fonts.semibold, fontSize: 13.5, lineHeight: 19, color: colors.navy },
+
     step: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
     stepText: { flex: 1, gap: 2 },
     stepTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.navy },
