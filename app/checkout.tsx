@@ -11,7 +11,8 @@ import StatePicker from "@/components/StatePicker";
 import PaymentInfoStripe from "@/components/PaymentInfoStripe";
 import { DELIVERY_FEE } from "@/constants";
 import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
-import { placeOrder, updateProfile } from "@/lib/api";
+import { getCampaignProduct, placeOrder, updateProfile } from "@/lib/api";
+import useFetch from "@/lib/useFetch";
 import { openPayment } from "@/lib/payments";
 import useDeliveryFee from "@/lib/useDeliveryFee";
 import { Ionicons } from "@expo/vector-icons";
@@ -63,13 +64,17 @@ export default function Checkout() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('paystack');
     const { fee: deliveryFee, ready: feeReady } = useDeliveryFee(items.map((i) => i.id));
+    // Christmas giving: a cart with ONLY the Christmas Food Pack isn't delivered to the buyer,
+    // so no address, no delivery fee and no pay-on-delivery (the server enforces the same).
+    const { data: pack } = useFetch({ fn: getCampaignProduct });
+    const givingOnly = !!pack && items.length > 0 && items.every((i) => i.id === pack.id);
 
     if (!isAuthenticated) return <Redirect href="/sign-in" />;
     if (items.length === 0 && !isSubmitting) return <Redirect href="/cart" />;
 
     const subtotal = getTotalPrice();
     const total = subtotal + deliveryFee;
-    const payOnDelivery = paymentMethod === 'pay_on_delivery';
+    const payOnDelivery = !givingOnly && paymentMethod === 'pay_on_delivery';
     // What Paystack charges now (the server works out the real amounts).
     const payNow = payOnDelivery ? deliveryFee : total;
 
@@ -80,24 +85,26 @@ export default function Checkout() {
         const city = form.city.trim();
         const phone = normalizeNigerianPhone(form.phone);
 
-        if (!address || !city || !form.state) return Alert.alert('Delivery address', 'Please enter your street address, city/area and state.');
+        if (!givingOnly && (!address || !city || !form.state)) return Alert.alert('Delivery address', 'Please enter your street address, city/area and state.');
         if (!phone) return Alert.alert('Phone number', 'Please enter a valid Nigerian phone number, e.g. 0803 123 4567.');
 
         const landmark = form.landmark.trim();
 
         setIsSubmitting(true);
         try {
-            const orderId = await placeOrder({
-                items,
-                address: landmark ? `${address} (Landmark: ${landmark})` : address,
-                city,
-                state: form.state,
-                phone,
-                note: form.note.trim() || undefined,
-                paymentMethod,
-            });
+            const orderId = await placeOrder(givingOnly
+                ? { items, address: '', city: '', state: '', phone, note: form.note.trim() || undefined, paymentMethod: 'paystack' }
+                : {
+                    items,
+                    address: landmark ? `${address} (Landmark: ${landmark})` : address,
+                    city,
+                    state: form.state,
+                    phone,
+                    note: form.note.trim() || undefined,
+                    paymentMethod,
+                });
 
-            if (saveAddress && user) {
+            if (!givingOnly && saveAddress && user) {
                 // Best effort: the order is already placed even if this fails.
                 try {
                     // Saves to Delivery address only; the personal phone (Personal details) is left alone.
@@ -128,6 +135,36 @@ export default function Checkout() {
                 <ScrollView contentContainerClassName="px-5 pt-5 pb-16 gap-6" keyboardShouldPersistTaps="handled">
                     <CustomHeader title="Checkout" showSearch={false} />
 
+                    {givingOnly ? (
+                        <View className="gap-5 -mt-4">
+                            <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: '#FDECEC', borderRadius: 20, padding: 16 }}>
+                                <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: '#C8102E', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Ionicons name="heart" size={20} color="#fff" />
+                                </View>
+                                <View style={{ flex: 1, gap: 4 }}>
+                                    <Text className="paragraph-bold text-dark-100">Christmas giving: no delivery to you</Text>
+                                    <Text className="body-regular text-gray-200">
+                                        Your pre-order feeds the less privileged: cooked food for the homeless and handicapped, uncooked food for orphans and widows. We give it out the next day. No address or delivery fee needed.
+                                    </Text>
+                                </View>
+                            </View>
+                            <CustomInput
+                                label="Your phone (for your receipt)"
+                                placeholder="0803 123 4567"
+                                value={form.phone}
+                                onChangeText={set('phone')}
+                                keyboardType="phone-pad"
+                            />
+                            <CustomInput
+                                label="Dedication (optional)"
+                                placeholder="e.g. In memory of Mama, or from the Okafor family"
+                                value={form.note}
+                                onChangeText={set('note')}
+                                autoCapitalize="sentences"
+                                multiline
+                            />
+                        </View>
+                    ) : (
                     <View className="gap-6 -mt-4">
                         <Text className="h3-bold text-dark-100">Delivery address</Text>
                         <CustomInput
@@ -175,6 +212,7 @@ export default function Checkout() {
                             <Text className="paragraph-medium text-dark-100">Save as my default address</Text>
                         </TouchableOpacity>
                     </View>
+                    )}
 
                     {/* Pay everything now, or pay the delivery fee now and the items to the rider.
                         Online payments go through Paystack: card, bank transfer or USSD. */}
@@ -187,7 +225,7 @@ export default function Checkout() {
                             selected={!payOnDelivery}
                             onPress={() => setPaymentMethod('paystack')}
                         />
-                        <PaymentOption
+                        {!givingOnly && <PaymentOption
                             icon="bicycle"
                             title="Pay on delivery"
                             body={feeReady
@@ -195,7 +233,7 @@ export default function Checkout() {
                                 : `Pay the delivery fee now with Paystack, then ${formatNaira(subtotal)} to the rider (cash or transfer).`}
                             selected={payOnDelivery}
                             onPress={() => setPaymentMethod('pay_on_delivery')}
-                        />
+                        />}
                         <Text className="body-regular text-gray-200">Your order is confirmed as soon as the online payment goes through.</Text>
                     </View>
 
@@ -210,7 +248,7 @@ export default function Checkout() {
                         ))}
                         <View className="border-t border-gray-300 my-2" />
                         <PaymentInfoStripe label={`Subtotal (${getTotalItems()} item${getTotalItems() === 1 ? '' : 's'})`} value={formatNaira(subtotal)} />
-                        <PaymentInfoStripe label="Delivery fee" value={feeReady ? formatNaira(deliveryFee) : '…'} />
+                        <PaymentInfoStripe label="Delivery fee" value={givingOnly ? 'Free' : feeReady ? formatNaira(deliveryFee) : '…'} />
                         {feeReady && deliveryFee > DELIVERY_FEE && (
                             <Text className="body-regular text-gray-200">{formatNaira(deliveryFee)} delivery for orders with groceries or Local Market items.</Text>
                         )}

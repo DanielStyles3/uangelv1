@@ -19,7 +19,7 @@ import {
 
 // Also embed the product's subcategory photo: products without their own photo
 // (until the admin uploads one) show their subcategory's picture instead.
-const MENU_COLUMNS = 'id, name, description, image_url, emoji, price, rating, calories, protein, is_available, category_id, created_at, categories(image_url)';
+const MENU_COLUMNS = 'id, name, description, image_url, emoji, price, rating, calories, protein, is_available, is_campaign, category_id, created_at, categories(image_url)';
 
 type MenuRow = MenuItem & { categories?: { image_url: string | null } | null };
 const withFallbackPhoto = ({ categories, ...item }: MenuRow): MenuItem => ({
@@ -166,7 +166,8 @@ export const updateProfile = async (userId: string, changes: ProfileUpdate): Pro
  * (products in all of its subcategories).
  */
 export const getMenu = async ({ category, query, limit }: GetMenuParams): Promise<MenuItem[]> => {
-    let request = supabase.from('menu').select(MENU_COLUMNS).order('name');
+    // The Christmas giving pack is only reached from the Christmas page, never listed.
+    let request = supabase.from('menu').select(MENU_COLUMNS).eq('is_campaign', false).order('name');
 
     if (category) {
         const { data: children, error } = await supabase.from('categories').select('id').eq('parent_id', category);
@@ -224,6 +225,7 @@ export const getHomeProducts = async (): Promise<HomeProduct[]> => {
     const rows = unwrap(
         await supabase.from('menu')
             .select('id, name, description, image_url, emoji, price, rating, calories, protein, is_available, category_id, created_at, categories(image_url, parent_id)')
+            .eq('is_campaign', false)
             .order('rating', { ascending: false, nullsFirst: false })
             .order('name')
             .limit(500)
@@ -235,6 +237,13 @@ export const getHomeProducts = async (): Promise<HomeProduct[]> => {
         // Products sit in a subcategory; its parent is the main category (or it IS one).
         main_category_id: categories?.parent_id ?? item.category_id,
     }));
+}
+
+/** The Christmas giving pack (menu.is_campaign): no delivery, counts toward the pre-order goal. */
+export const getCampaignProduct = async (): Promise<MenuItem | null> => {
+    const { data, error } = await supabase.from('menu').select(MENU_COLUMNS).eq('is_campaign', true).order('created_at').limit(1).maybeSingle();
+    if (error || !data) return null;
+    return withFallbackPhoto(data as unknown as MenuRow);
 }
 
 export const getMenuItem = async ({ id }: { id: string }): Promise<MenuItem> => {

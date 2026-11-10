@@ -12,7 +12,7 @@
   var IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   var MAX_BYTES = 5 * 1024 * 1024;
   var PAGE = 48;
-  var MENU_COLS = 'id,name,description,image_url,emoji,price,rating,calories,protein,is_available,category_id,created_at';
+  var MENU_COLS = 'id,name,description,image_url,emoji,price,rating,calories,protein,is_available,is_campaign,category_id,created_at';
 
   var S = null, root = null;
   var ui = { tab: 'products', q: '', main: '', sub: '', chip: '', sort: 'name', limit: PAGE };
@@ -406,7 +406,10 @@
       if (!name) bad.push(['name', 'Enter a name.']);
       else if (S.products.some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== p.id); })) bad.push(['name', 'A product with this name already exists.']);
       if (!String(draft.price).trim() || !isFinite(price) || price < 0) bad.push(['price', 'Enter a price, e.g. 3500.']);
-      if (!draft.main) bad.push(['main', 'Choose a category.']);
+      // The Christmas Food Pack has no category on purpose (it's only reached from the Christmas page).
+      var giving = editing && p.is_campaign;
+      if (giving) { /* no category needed */ }
+      else if (!draft.main) bad.push(['main', 'Choose a category.']);
       else if (!draft.sub) bad.push(['sub', (S.subsBy[draft.main] || []).length ? 'Choose a subcategory.' : 'Add a subcategory to this category first (Categories page).']);
       function num(key, label, lo, hi, isInt) {
         var raw = String(draft[key]).trim();
@@ -433,7 +436,7 @@
         try { imageUrl = draft.file ? await A.uploadImage(draft.file, 'products') : (draft.removed ? null : (currentUrl || null)); }
         catch (e) { A.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
         var payload = {
-          name: name, price: Math.round(price * 100) / 100, category_id: draft.sub,
+          name: name, price: Math.round(price * 100) / 100, category_id: giving ? null : draft.sub,
           description: draft.description.trim() || null, image_url: imageUrl,
           rating: rating, calories: calories, protein: protein, is_available: draft.on
         };

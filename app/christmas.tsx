@@ -7,7 +7,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 
 import ProductImage from "@/components/ProductImage";
 import { CAMPAIGN_END, CAMPAIGN_FLYER, CAMPAIGN_GOAL, campaignLive } from "@/constants/campaign";
-import { getCampaignProgress, getHomeProducts } from "@/lib/api";
+import { getCampaignProduct, getCampaignProgress } from "@/lib/api";
 import { formatNaira } from "@/lib/format";
 import useFetch from "@/lib/useFetch";
 
@@ -26,7 +26,7 @@ const CARD_W = (SCREEN_W - GUTTER * 2 - 12) / 2;
 const POINTS: { icon: IconName; tint: string; color: string; title: string; text: string }[] = [
     { icon: "restaurant", tint: "#FDECEC", color: RED, title: "Cooked food for the homeless", text: "We give cooked food to the homeless and handicapped during the Xmas period." },
     { icon: "basket", tint: "#EAF7EF", color: "#15803D", title: "Food for orphans and widows", text: "We provide orphans and widows with uncooked food." },
-    { icon: "car-sport", tint: "#FFF5DB", color: "#B45309", title: "Delivered next day", text: "All pre-orders are delivered the day after you order." },
+    { icon: "heart", tint: "#FFF5DB", color: "#B45309", title: "Given out the next day", text: "We take your pre-order to someone in need the day after you order. No delivery fee for you." },
 ];
 
 function useCountdown() {
@@ -43,12 +43,13 @@ function useCountdown() {
 export default function Christmas() {
     const insets = useSafeAreaInsets();
     const { data: count } = useFetch({ fn: getCampaignProgress });
-    const { data: products } = useFetch({ fn: getHomeProducts });
+    const { data: pack } = useFetch({ fn: getCampaignProduct });
     const left = useCountdown();
     const live = campaignLive();
     const done = count ?? 0;
     const pct = Math.min(100, (done / CAMPAIGN_GOAL) * 100);
-    const favourites = (products ?? []).filter((p) => p.is_available !== false).slice(0, 6);
+    // The Christmas Food Pack (a special product: no delivery, counts toward the goal).
+    const openPack = () => (pack ? router.push({ pathname: "/menu/[id]", params: { id: pack.id } }) : router.push("/search"));
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -77,7 +78,7 @@ export default function Christmas() {
                         source={CAMPAIGN_FLYER}
                         style={styles.flyer}
                         resizeMode="contain"
-                        accessibilityLabel="Christmas flyer: we want to get 10,000 pre-orders between now and the 15th of December. All pre-orders are delivered next day, to provide food during the Xmas period for the less privileged."
+                        accessibilityLabel="Christmas flyer: we want to get 10,000 pre-orders between now and the 25th of December. All pre-orders are delivered next day, to provide food during the Xmas period for the less privileged."
                     />
                 </Animated.View>
 
@@ -120,36 +121,26 @@ export default function Christmas() {
                     ))}
                 </Animated.View>
 
-                {/* Favourites */}
-                {favourites.length > 0 && (
+                {/* The Christmas Food Pack */}
+                {pack && (
                     <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ gap: 12 }}>
-                        <View style={styles.h2Row}>
-                            <Text style={styles.h2}>Pre-order favourites</Text>
-                            <TouchableOpacity onPress={() => router.push("/search")} hitSlop={8} style={styles.seeAll}>
-                                <Text style={styles.seeAllText}>See all</Text>
-                                <Ionicons name="chevron-forward" size={14} color="#FD652A" />
-                            </TouchableOpacity>
-                        </View>
-                        <View style={styles.grid}>
-                            {favourites.map((p) => (
-                                <TouchableOpacity
-                                    key={p.id}
-                                    style={styles.card}
-                                    activeOpacity={0.85}
-                                    onPress={() => router.push({ pathname: "/menu/[id]", params: { id: p.id } })}
-                                    accessibilityLabel={p.name}
-                                >
-                                    <View style={styles.cardImg}>
-                                        <ProductImage imageUrl={p.image_url} className="size-full" resizeMode="cover" />
-                                    </View>
-                                    <Text style={styles.cardName} numberOfLines={2}>{p.name}</Text>
-                                    <View style={styles.cardBottom}>
-                                        <Text style={styles.cardPrice}>{formatNaira(p.price)}</Text>
-                                        <View style={styles.cardAdd}><Ionicons name="arrow-forward" size={14} color="#fff" /></View>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                        <Text style={styles.h2}>Your pre-order</Text>
+                        <TouchableOpacity style={styles.pack} activeOpacity={0.88} onPress={openPack} accessibilityRole="button" accessibilityLabel={`${pack.name}, ${formatNaira(pack.price)}`}>
+                            <View style={styles.packImg}>
+                                <ProductImage imageUrl={pack.image_url} className="size-full" resizeMode="cover" />
+                            </View>
+                            <View style={{ padding: 16, gap: 8 }}>
+                                <Text style={styles.packName}>{pack.name}</Text>
+                                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                                    <View style={styles.packTag}><Ionicons name="checkmark-circle" size={13} color="#15803D" /><Text style={styles.packTagText}>No delivery fee</Text></View>
+                                    <View style={styles.packTag}><Ionicons name="heart" size={13} color="#15803D" /><Text style={styles.packTagText}>Feeds someone in need</Text></View>
+                                </View>
+                                <View style={styles.cardBottom}>
+                                    <Text style={styles.packPrice}>{formatNaira(pack.price)}</Text>
+                                    <View style={styles.packBtn}><Text style={styles.packBtnText}>Pre-order</Text><Ionicons name="arrow-forward" size={15} color="#fff" /></View>
+                                </View>
+                            </View>
+                        </TouchableOpacity>
                     </Animated.View>
                 )}
             </ScrollView>
@@ -157,7 +148,7 @@ export default function Christmas() {
             {/* Sticky CTA — padded above Android's navigation bar so it's never covered/washed out */}
             {live && (
                 <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
-                    <TouchableOpacity style={styles.cta} onPress={() => router.push("/search")} activeOpacity={0.88} accessibilityRole="button">
+                    <TouchableOpacity style={styles.cta} onPress={openPack} activeOpacity={0.88} accessibilityRole="button">
                         <Ionicons name="gift" size={18} color="#fff" />
                         <Text style={styles.ctaText}>Start my pre-order</Text>
                         <Ionicons name="arrow-forward" size={18} color="#fff" />
@@ -213,6 +204,14 @@ const styles = StyleSheet.create({
     card: { width: CARD_W, padding: 8, borderRadius: 18, backgroundColor: "#fff", ...shadow },
     cardImg: { height: 112, borderRadius: 12, overflow: "hidden", backgroundColor: "#FFF3E6" },
     cardName: { fontFamily: "Quicksand-Bold", fontSize: 13, color: INK, marginTop: 8, minHeight: 34 },
+    pack: { backgroundColor: "#fff", borderRadius: 24, overflow: "hidden", ...shadow },
+    packImg: { width: "100%", height: FLYER * 0.62, backgroundColor: "#FDECEC" },
+    packName: { fontFamily: "Quicksand-Bold", fontSize: 18, lineHeight: 23, color: INK },
+    packTag: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#E9F8EF", paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
+    packTagText: { fontFamily: "Quicksand-Bold", fontSize: 11.5, color: "#15803D" },
+    packPrice: { fontFamily: "Quicksand-Bold", fontSize: 20, color: RED },
+    packBtn: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: RED, paddingHorizontal: 16, height: 40, borderRadius: 999 },
+    packBtnText: { fontFamily: "Quicksand-Bold", fontSize: 14, color: "#fff" },
     cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
     cardPrice: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: "#FD652A" },
     cardAdd: { width: 28, height: 28, borderRadius: 14, backgroundColor: RED, alignItems: "center", justifyContent: "center" },

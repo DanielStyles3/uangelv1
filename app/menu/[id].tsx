@@ -260,9 +260,19 @@ export default function ProductDetails() {
 
                     {/* Info tiles */}
                     <Animated.View entering={FadeInDown.delay(110).springify().damping(16)} style={styles.tiles}>
-                        <InfoTile icon="time-outline" value={deliveryShort} label="Delivery" />
-                        <InfoTile icon="bicycle-outline" value={formatNaira(deliveryFee)} label="Delivery fee" />
-                        <InfoTile icon={thirdTile.icon} value={thirdTile.value} label={thirdTile.label} />
+                        {item.is_campaign ? (
+                            <>
+                                <InfoTile icon="heart-outline" value="Next day" label="Given out" />
+                                <InfoTile icon="bicycle-outline" value="Free" label="Delivery fee" />
+                                <InfoTile icon="people-outline" value="Less privileged" label="Who it feeds" />
+                            </>
+                        ) : (
+                            <>
+                                <InfoTile icon="time-outline" value={deliveryShort} label="Delivery" />
+                                <InfoTile icon="bicycle-outline" value={formatNaira(deliveryFee)} label="Delivery fee" />
+                                <InfoTile icon={thirdTile.icon} value={thirdTile.value} label={thirdTile.label} />
+                            </>
+                        )}
                     </Animated.View>
 
                     {/* Description */}

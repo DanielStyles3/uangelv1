@@ -16,6 +16,8 @@ export interface MenuItem {
     rating: number;
     /** false = sold out: still shown, but can't be added to the cart. */
     is_available?: boolean;
+    /** Christmas giving pack: no delivery to the buyer, hidden from normal lists. */
+    is_campaign?: boolean;
     /** Always a subcategory id. */
     category_id: string | null;
     created_at: string;
