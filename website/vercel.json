@@ -48,6 +48,17 @@
                           "source":  "/download",
                           "destination":  "https://expo.dev/artifacts/eas/B0pvdynnaDxOPvzbv-2CmrWhdDmclB1FgUaHyrhixl4.apk",
                           "permanent":  false
+                      },
+                      {
+                          "source":  "/affiliates",
+                          "destination":  "https://expo.dev/artifacts/eas/CgTySPV9aSNBuQ2pHz9w_iiUP0Lf-H0KQEnnrHax6X0.apk",
+                          "permanent":  false
                       }
-                  ]
+                  ],
+    "rewrites":  [
+                     {
+                         "source":  "/r/:code",
+                         "destination":  "/r"
+                     }
+                 ]
 }

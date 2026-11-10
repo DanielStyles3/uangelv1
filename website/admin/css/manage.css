@@ -429,3 +429,75 @@
   .cu-cbtn { width: 44px; height: 44px; }
   .cu-sort { min-height: 44px; }
 }
+
+/* ---------- Affiliates (af-) ---------- */
+.cu-tiles.af-tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1200px) { .cu-tiles.af-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1000px) {
+  .cu-tiles.af-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cu-tiles.af-tiles > :last-child { grid-column: 1 / -1; }
+}
+.af-card { margin-bottom: 22px; }
+.af-card > .card-head { margin-bottom: 0; padding-bottom: 14px; }
+.af-card .card-head .small { max-width: 60ch; }
+.af-h2 { font-size: 17px; margin: 0 0 12px; }
+.af-mono { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.af-code { font-weight: 700; color: var(--text); }
+.af-acts { display: flex; gap: 6px; justify-content: flex-end; }
+.af-acts .btn { white-space: nowrap; }
+.af-acts .btn svg, .af-a-acts .btn svg, .af-form .btn svg { width: 16px; height: 16px; }
+.af-a-acts { text-align: right; }
+.af-bank { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.af-bank div { background: var(--bg); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.af-bank span { display: block; font-size: 11px; color: var(--muted); font-weight: 700; }
+.af-bank b { display: block; font-size: 15px; margin-top: 2px; overflow-wrap: anywhere; }
+.af-list { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.af-li {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px;
+  border: 0; border-bottom: 1px solid var(--line-2); background: var(--card); font: inherit; font-size: 13.5px;
+  color: inherit; text-align: left; width: 100%;
+}
+.af-li:last-child { border-bottom: 0; }
+button.af-li { cursor: pointer; }
+button.af-li:hover { background: #FAFAFC; }
+button.af-li:focus-visible { outline: none; box-shadow: inset var(--focus); }
+.af-li-main { min-width: 0; font-weight: 700; }
+.af-li-main small { display: block; color: var(--muted); font-size: 11.5px; font-weight: 600; overflow-wrap: anywhere; }
+.af-li-main small.af-note { color: var(--grey-2); }
+.af-li-end { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; text-align: right; }
+@media (max-width: 640px) {
+  .af-card > .card-head { padding: 16px 16px 12px; }
+  .af-bank b { font-size: 14px; }
+  .af-li { min-height: 52px; }
+
+  /* Withdrawals to pay → stacked cards. */
+  .af-wtable.table-cards tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start; }
+  .af-wtable.table-cards .af-w-who { grid-column: 1; grid-row: 1; }
+  .af-wtable.table-cards .af-w-amt { grid-column: 2; grid-row: 1; text-align: right; font-size: 17px; }
+  .af-wtable.table-cards .af-w-bank { grid-column: 1; }
+  .af-wtable.table-cards .af-w-acct { grid-column: 2; text-align: right; }
+  .af-wtable.table-cards .af-w-name, .af-wtable.table-cards .af-w-date, .af-wtable.table-cards .af-w-acts { grid-column: 1 / -1; }
+  .af-wtable.table-cards .af-w-date .cell-sub { display: inline; }
+  .af-wtable.table-cards .af-w-date .cell-sub::before { content: " · "; }
+  .af-acts { flex-wrap: wrap; justify-content: stretch; }
+  .af-acts .btn { flex: 1 1 0; }
+  .af-acts .btn:first-child { flex-basis: 100%; }
+
+  /* Affiliates → stacked cards. */
+  .af-atable.table-cards tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: center; }
+  .af-atable.table-cards .af-a-who { order: 1; }
+  .af-atable.table-cards .af-a-st { order: 2; justify-self: end; }
+  .af-atable.table-cards .af-a-contact { order: 3; grid-column: 1 / -1; font-size: 13px; color: var(--grey-2); overflow-wrap: anywhere; }
+  .af-atable.table-cards .af-a-contact .cell-sub { display: inline; }
+  .af-atable.table-cards .af-a-contact .cell-sub::before { content: " · "; }
+  .af-atable.table-cards .af-a-contact div { display: inline; }
+  .af-atable.table-cards .af-a-code { order: 4; }
+  .af-atable.table-cards .af-a-date { order: 5; text-align: right; }
+  .af-atable.table-cards .af-a-n {
+    order: 6; text-align: left; font-size: 13.5px; background: var(--bg); border-radius: 10px; padding: 6px 8px;
+    white-space: normal; overflow-wrap: anywhere; align-self: stretch;
+  }
+  .af-atable.table-cards .af-a-acts { order: 10; grid-column: 1 / -1; }
+  .af-atable.table-cards .af-a-acts .btn { width: 100%; }
+  .af-atable.table-cards td[data-label]::before { font-size: 10px; }
+}

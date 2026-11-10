@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en-NG">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>You’re invited to U Angel Foods</title>
+  <meta name="description" content="A friend invited you to U Angel Foods. Good food delivered across Lagos, and every order helps feed someone in need.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#FFFFFF">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="U Angel Foods">
+  <meta property="og:title" content="You’re invited to U Angel Foods">
+  <meta property="og:description" content="Good food delivered across Lagos. Every order helps feed someone in need. Sign up with my referral code.">
+  <meta property="og:image" content="https://uangelfoods.com/assets/app-icon.png">
+  <meta property="og:locale" content="en_NG">
+  <meta name="twitter:card" content="summary">
+  <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/icon-180.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .rf-main { padding-block: clamp(20px, 5vw, 56px) clamp(32px, 6vw, 72px); }
+    .rf-wrap { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+    .rf-nav-btn { margin-left: auto; padding: 10px 18px; font-size: 14px; }
+    .rf-title { font-size: clamp(28px, 6vw, 42px); margin-top: 6px; }
+    .rf-title b { color: var(--orange); }
+    .rf-lead { font-size: 17px; color: var(--ink-2); }
+    .rf-code {
+      border: 2px dashed #FFC7AE; background: var(--orange-tint); border-radius: var(--radius);
+      padding: 16px 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    .rf-code > div { flex: 1 1 auto; min-width: 0; }
+    .rf-code small { display: block; font-size: 12.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--orange-ink); }
+    .rf-code strong { display: block; font-size: clamp(30px, 9vw, 44px); line-height: 1.15; letter-spacing: .08em; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+    .rf-copy { flex: none; background: var(--ink); color: #fff; }
+    .rf-copy .ico { font-size: 18px; }
+    .rf-steps { display: grid; gap: 12px; counter-reset: rf; }
+    .rf-steps li { counter-increment: rf; display: flex; gap: 14px; align-items: flex-start; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; }
+    .rf-steps li::before { content: counter(rf); flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--orange); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 14px; }
+    .rf-steps b { display: block; }
+    .rf-steps span { display: block; color: var(--ink-2); font-size: 15px; }
+    .rf-steps .btn { margin-top: 10px; }
+    .rf-tip { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--ink-2); background: #F6F6F9; border-radius: 14px; padding: 12px 14px; }
+    .rf-tip .ico { font-size: 18px; margin-top: 2px; color: var(--muted); }
+    .rf-ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+    .rf-loading { color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 10px; min-height: 40vh; justify-content: center; }
+    .rf-spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--orange); animation: rf-spin .8s linear infinite; }
+    @keyframes rf-spin { to { transform: rotate(360deg); } }
+    [hidden] { display: none !important; }
+    .rf-foot { padding-block: 22px calc(22px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); font-size: 13.5px; color: var(--muted); }
+    .rf-foot .container { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .rf-foot a { color: var(--ink-2); font-weight: 600; text-decoration: none; }
+    @media (max-width: 480px) {
+      .rf-code { padding: 14px; }
+      .rf-copy { width: 100%; }
+      .rf-ctas .btn { flex: 1 1 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-inner container">
+      <a class="brand" href="/" aria-label="U Angel Foods — home">
+        <img src="/assets/icon-180.png" alt="" width="180" height="180">
+        <span>U Angel <b>Foods</b></span>
+      </a>
+      <a class="btn btn-orange rf-nav-btn" href="/download">Get the app</a>
+    </div>
+  </header>
+
+  <main id="main" class="rf-main">
+    <div class="container">
+      <!-- Checking the code -->
+      <div class="rf-wrap rf-loading" id="rf-loading" role="status" aria-live="polite">
+        <span class="rf-spin" aria-hidden="true"></span>Checking your invite…
+      </div>
+
+      <!-- Valid code -->
+      <div class="rf-wrap" id="rf-valid" hidden>
+        <div>
+          <span class="tag-green"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C1 8.6 3 5 6.5 5c2 0 3.6 1.2 4.5 2.7C11.9 6.2 13.5 5 15.5 5 19 5 21 8.6 19.6 11.8 17.5 16.4 12 21 12 21z"/></svg> Every order feeds someone in need</span>
+          <h1 class="rf-title" id="rf-title">You’ve been invited to <b>U Angel Foods</b></h1>
+        </div>
+        <p class="rf-lead">Good food, drinks, groceries and cakes delivered across Lagos. The profit from every order funds outreach that feeds and cares for people in need.</p>
+
+        <div class="rf-code">
+          <div>
+            <small>Your referral code</small>
+            <strong id="rf-code">—</strong>
+          </div>
+          <button type="button" class="btn rf-copy" id="rf-copy">
+            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span id="rf-copy-label">Copy code</span>
+          </button>
+        </div>
+        <p class="sr-only" id="rf-copied" role="status" aria-live="polite"></p>
+
+        <ol class="rf-steps">
+          <li><div><b>Download the app</b><span>The U Angel Foods app for Android.</span>
+            <a class="btn btn-orange" href="/download">
+              <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+              Download the app</a></div></li>
+          <li><div><b>Sign up with the code</b><span>When you create your account, enter <b data-code>the code</b> in “Referral code”.</span></div></li>
+          <li><div><b>Order</b><span>Every order helps feed someone in need.</span></div></li>
+        </ol>
+
+        <p class="rf-tip">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <span>If the download stops at 100%, open this page in Chrome.</span>
+        </p>
+      </div>
+
+      <!-- Invalid or missing code -->
+      <div class="rf-wrap" id="rf-invalid" hidden>
+        <div>
+          <p class="eyebrow">Invite link</p>
+          <h1 class="rf-title">This invite link isn’t working</h1>
+        </div>
+        <p class="rf-lead" id="rf-invalid-text">We couldn’t find that referral code. It may have been typed wrongly or is no longer active. You can still download the app and order: every order helps feed someone in need.</p>
+        <div class="rf-ctas">
+          <a class="btn btn-orange btn-lg" href="/download">Download the app</a>
+          <a class="btn btn-line btn-lg" href="/">Go to the homepage</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="rf-foot">
+    <div class="container">
+      <p>© 2026 U Angel Foods. Lagos, Nigeria.</p>
+      <a href="/">uangelfoods.com</a>
+    </div>
+  </footer>
+
+  <script src="/js/referral.js" defer></script>
+</body>
+</html>
