@@ -41,18 +41,41 @@ function unwrap<T>({ data, error }: { data: T | null; error: { message: string }
 // Auth
 // ---------------------------------------------------------------------------
 
-export const createUser = async ({ email, password, name }: CreateUserParams) => {
+export const createUser = async ({ email, password, name, referralCode }: CreateUserParams & { referralCode?: string }) => {
+    const code = (referralCode ?? '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        // Read by the handle_new_user() trigger in supabase/schema.sql to fill profiles.name.
-        options: { data: { name } },
+        // Read by the handle_new_user() trigger: profiles.name, and the affiliate referral
+        // (supabase/affiliates.sql) — a code here links the new customer to the affiliate.
+        options: { data: code ? { name, referral_code: code } : { name } },
     });
 
     if (error) throw new Error(error.message);
 
     // With "Confirm email" enabled in Supabase, sign-up succeeds but no session is returned yet.
     return { needsEmailConfirmation: !data.session };
+}
+
+/** Is this affiliate code real? Returns the affiliate's first name (or null) when valid. */
+export const checkReferralCode = async (code: string): Promise<{ valid: boolean; firstName: string | null }> => {
+    const { data, error } = await supabase.rpc('referral_code_info', { p_code: code });
+    if (error) throw new Error(error.message);
+    const row = (data as { valid: boolean; first_name: string | null }[] | null)?.[0];
+    return { valid: !!row?.valid, firstName: row?.first_name ?? null };
+}
+
+/** The signed-in customer's referral (null if none). */
+export const getMyReferral = async (): Promise<{ code: string; created_at: string } | null> => {
+    const { data } = await supabase.from('referrals').select('code, created_at').maybeSingle();
+    return (data as { code: string; created_at: string } | null) ?? null;
+}
+
+/** Add a referral code after signing up (new customers only; the server checks the rules). */
+export const applyReferralCode = async (code: string): Promise<string> => {
+    const { data, error } = await supabase.rpc('apply_referral_code', { p_code: code });
+    if (error) throw new Error(error.message);
+    return data as string;
 }
 
 export const signIn = async ({ email, password }: SignInParams) => {
