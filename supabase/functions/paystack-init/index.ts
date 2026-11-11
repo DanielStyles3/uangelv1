@@ -33,7 +33,13 @@ Deno.serve(async (req) => {
                 // No `channels` list: Paystack offers every payment method enabled on the account
                 // (card, bank transfer, USSD, Pay with Bank, QR, …). Manage them in the Paystack
                 // dashboard → Settings → Preferences → Payment channels.
-                metadata: { order_id: order.id, user_id: user.id },
+                // cancel_action: where Paystack sends the customer when they tap "Cancel Payment".
+                // The app intercepts it (…?cancelled=1) and goes back to checkout. Without it the
+                // customer was stuck on Paystack's page.
+                metadata: {
+                    order_id: order.id, user_id: user.id,
+                    ...(callback_url ? { cancel_action: `${callback_url}${String(callback_url).includes("?") ? "&" : "?"}cancelled=1` } : {}),
+                },
             }),
         });
 

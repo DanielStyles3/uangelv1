@@ -104,6 +104,8 @@ export default function PayScreen() {
 
     // 3) Intercept Paystack's redirects before they load.
     const intercept = (url: string): boolean => {
+        // Paystack's "Cancel Payment" goes to our callback with ?cancelled=1 (cancel_action in paystack-init).
+        if (url.startsWith(CALLBACK_URL) && /[?&]cancelled=1/.test(url)) { finish('cancelled'); return true; }
         if (url.startsWith(CALLBACK_URL)) { finish('paid'); return true; }
         if (url.startsWith(PAYSTACK_CLOSE)) { finish('cancelled'); return true; }
         return false;

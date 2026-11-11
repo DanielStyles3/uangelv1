@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BackHandler, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeOut, ZoomIn } from "react-native-reanimated";
@@ -116,16 +116,19 @@ export function NoticeHost() {
                             const primary = !isCancel && (only || i === ordered.length - 1 || isDanger);
                             const bg = isDanger ? "#DC2626" : primary ? (current.tone === "success" ? NAVY : ORANGE) : "#F2F2F5";
                             return (
-                                <Pressable
+                                // TouchableOpacity with a plain style: NativeWind drops Pressable's style function,
+                                // which left these buttons without a background (white "Leave" text on white).
+                                <TouchableOpacity
                                     key={`${b.text}-${i}`}
                                     onPress={() => press(b)}
-                                    style={({ pressed }) => [styles.btn, row && { flex: 1 }, { backgroundColor: bg, opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+                                    activeOpacity={0.85}
+                                    style={[styles.btn, row ? styles.btnRow : null, { backgroundColor: bg }]}
                                     accessibilityRole="button"
                                 >
                                     <Text style={[styles.btnText, { color: primary || isDanger ? "#fff" : NAVY }]} numberOfLines={1}>
                                         {label(b, only, current.tone)}
                                     </Text>
-                                </Pressable>
+                                </TouchableOpacity>
                             );
                         })}
                     </View>
@@ -148,5 +151,6 @@ const styles = StyleSheet.create({
     buttons: { alignSelf: "stretch", gap: 10, marginTop: 22 },
     buttonsRow: { flexDirection: "row" },
     btn: { height: 52, borderRadius: 999, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
+    btnRow: { flex: 1 },
     btnText: { fontFamily: "Quicksand-Bold", fontSize: 15.5 },
 });

@@ -156,14 +156,14 @@ const Cart = () => {
                 </View>
 
                 {/* Save for later: parks this cart in My orders → Active */}
-                <Pressable onPress={saveForLater} style={({ pressed }) => [styles.saveRow, pressed && { opacity: 0.8 }]} accessibilityRole="button">
+                <TouchableOpacity onPress={saveForLater} style={styles.saveRow} activeOpacity={0.8} accessibilityRole="button">
                     <View style={styles.saveIcon}><Ionicons name="bookmark" size={16} color="#FD652A" /></View>
                     <View style={{ flex: 1 }}>
                         <Text style={styles.saveTitle}>Not ready to order?</Text>
                         <Text style={styles.saveSub}>Save this cart and come back to it later</Text>
                     </View>
                     <Text style={styles.saveCta}>Save</Text>
-                </Pressable>
+                </TouchableOpacity>
 
                 {/* Items */}
                 <View style={{ marginTop: 16 }}>
