@@ -172,8 +172,8 @@ const Profile = () => {
                 <Section title="Account">
                     <Row icon="person-outline" label="Personal details" detail={phone ? `${user.name} · ${phone}` : 'Add your phone number'} onPress={() => router.push('/edit-profile')} />
                     <Row icon="location-outline" label="Delivery address" detail={address || 'Add your delivery address'} onPress={() => router.push('/delivery-address')} />
-                    <Row icon="lock-closed-outline" label="Change password" onPress={() => router.push('/change-password')} />
-                    <Row icon="ticket-outline" label="Referral code" detail="Joined with a friend’s code?" onPress={() => router.push('/referral-code')} last />
+                    {/* Referral codes are only added at sign-up (or through an invite link), never later. */}
+                    <Row icon="lock-closed-outline" label="Change password" onPress={() => router.push('/change-password')} last />
                 </Section>
 
                 <Section title="About & support">

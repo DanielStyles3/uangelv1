@@ -177,6 +177,8 @@ const SignUp = () => {
                     <Text style={styles.hint}>We couldn’t check the code just now. We’ll check it again when you create your account.</Text>
                 ) : codeState === 'short' ? (
                     <Text style={styles.hint}>Codes are 4 to 12 letters and numbers.</Text>
+                ) : !code ? (
+                    <Text style={styles.hint}>Did someone invite you? Enter their code now. It can’t be added after you sign up.</Text>
                 ) : null}
             </View>
 
