@@ -15,6 +15,7 @@ import { popIn, riseIn, settle } from "@/lib/motion";
 import { ServiceRequest, ServiceRequestStatus } from "@/type";
 
 import { notify } from "@/lib/notice";
+import { durationLabel } from "@/components/EventCalendar";
 const ORANGE = "#FD652A";
 const RUST = "#C2410C";   // orange text on light backgrounds (readable)
 const INK = "#181C2E";
@@ -173,8 +174,11 @@ const RequestCard = ({ request, index, onCancelled }: { request: ServiceRequest;
             ) : null}
 
             <View style={styles.chips}>
+                {request.end_date ? (
+                    <Chip text={`Until ${eventDate(request.end_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · ${durationLabel(eventDate(request.event_date), eventDate(request.end_date))}`} />
+                ) : null}
                 <Chip text={`${request.guest_count.toLocaleString("en-NG")} guests`} />
-                {!request.quote_amount && <Chip text={`Budget ${formatNaira(request.budget)}`} />}
+                {!request.quote_amount && Number(request.budget) > 0 && <Chip text={`Budget ${formatNaira(request.budget)}`} />}
                 {request.event_time ? <Chip text={request.event_time} /> : null}
             </View>
             {location ? <Text style={styles.location}>{location}</Text> : null}

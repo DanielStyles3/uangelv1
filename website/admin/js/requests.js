@@ -37,6 +37,18 @@
   function hoursSince(iso) { return (Date.now() - new Date(iso).getTime()) / 3600000; }
   function sentText(iso) { var h = hoursSince(iso); return h < 1 ? Math.max(1, Math.round(h * 60)) + ' min ago' : h < 48 ? Math.round(h) + 'h ago' : Math.round(h / 24) + ' days ago'; }
   function dateParts(r) { var d = eventDate(r); return d ? { wd: WD[d.getUTCDay()], day: d.getUTCDate(), mon: MON[d.getUTCMonth()], year: d.getUTCFullYear() } : null; }
+  /** Catering over several days: " → 5 Dec 2027 (1 year)", or '' for one day. */
+  function untilText(r) {
+    if (!r.end_date) return '';
+    var s = eventDate(r), e = new Date(String(r.end_date).slice(0, 10) + 'T12:00:00+01:00');
+    if (!s || isNaN(e.getTime())) return '';
+    var days = Math.round((e.getTime() - s.getTime()) / DAY) + 1, len;
+    if (days >= 360) { var y = Math.round(days / 365); len = y + ' year' + (y === 1 ? '' : 's'); }
+    else if (days >= 28) { var mo = Math.round(days / 30.4); len = mo + ' month' + (mo === 1 ? '' : 's'); }
+    else if (days >= 7 && days % 7 === 0) { len = (days / 7) + ' week' + (days === 7 ? '' : 's'); }
+    else len = days + ' day' + (days === 1 ? '' : 's');
+    return ' → ' + e.getUTCDate() + ' ' + MON[e.getUTCMonth()] + ' ' + e.getUTCFullYear() + ' (' + len + ')';
+  }
   function value(r) { return Number(r.quote_amount) || Number(r.budget) || 0; }
   function isOpen(r) { return r.status !== 'completed' && r.status !== 'cancelled'; }
   function shortService(r) { return /cater/i.test(r.service || '') ? 'Catering' : 'Event'; }
@@ -136,7 +148,7 @@
       if (!cancelled && month !== last) { html += '<div class="rq-month">' + esc(month.toUpperCase()) + '</div>'; last = month; }
       html += '<button type="button" class="rq-row" data-open="' + esc(r.id) + '">' +
         '<span class="rq-date' + (n != null && n < 0 ? ' past' : n != null && n <= 7 ? ' soon' : '') + '"><small>' + esc(p ? p.wd.toUpperCase() : '') + '</small><b>' + (p ? p.day : '?') + '</b></span>' +
-        '<span class="rq-row-main"><b>' + esc(r.event_type) + ' · ' + esc(r.full_name) + '</b><small>' + A.formatNumber(r.guest_count) + ' guests · ' + esc([r.city, r.state].filter(Boolean).join(', ')) + (n != null ? ' · ' + esc(whenText(n)) : '') + '</small></span>' +
+        '<span class="rq-row-main"><b>' + esc(r.event_type) + ' · ' + esc(r.full_name) + '</b><small>' + A.formatNumber(r.guest_count) + ' guests · ' + esc([r.city, r.state].filter(Boolean).join(', ')) + esc(untilText(r)) + (n != null ? ' · ' + esc(whenText(n)) : '') + '</small></span>' +
         '<span class="rq-row-r">' + stagePill(r.status) + '<b>' + esc(A.formatNaira(value(r))) + '</b></span></button>';
     });
     box.innerHTML = '<div class="card flush rq-cal">' + html + '</div>';
@@ -149,7 +161,7 @@
     return '<article class="rq-card' + (late ? ' late' : '') + '" tabindex="0" data-open="' + esc(r.id) + '" aria-label="' + esc(r.event_type + ', ' + r.full_name) + '">' +
       '<div class="rq-top"><span class="rq-svc ' + (shortService(r) === 'Catering' ? 'cat' : 'ev') + '">' + shortService(r) + '</span><span class="rq-age">' + esc(right) + '</span></div>' +
       '<div><div class="rq-t">' + esc(r.event_type) + '</div><div class="rq-who">' + esc(r.full_name) + (r.city ? ' · ' + esc(r.city) : '') + '</div></div>' +
-      '<div class="rq-facts">' + (p ? '<span>📅 ' + esc(p.wd + ' ' + p.day + ' ' + p.mon) + (r.event_time ? ', ' + esc(r.event_time.toLowerCase()) : '') + '</span>' : '') + '<span>👥 ' + A.formatNumber(r.guest_count) + ' guests</span>' +
+      '<div class="rq-facts">' + (p ? '<span>📅 ' + esc(p.wd + ' ' + p.day + ' ' + p.mon) + esc(untilText(r)) + (r.event_time ? ', ' + esc(r.event_time.toLowerCase()) : '') + '</span>' : '') + '<span>👥 ' + A.formatNumber(r.guest_count) + ' guests</span>' +
         (n != null && n >= 0 && n <= 14 && isOpen(r) ? '<span class="rq-count soon">' + esc(whenText(n)) + '</span>' : '') + '</div>' +
       '<div class="rq-bot"><span class="rq-money">' + esc(A.formatNaira(value(r))) + '<small>' + (r.quote_amount != null ? 'Quoted' : 'Their budget') + '</small></span>' +
         (st && st.next ? '<button type="button" class="ob-next' + (st.next === 'completed' ? ' green' : '') + '" data-advance="' + esc(r.id) + '">' + esc(st.nextLabel) + ' →</button>' : '<span class="ob-chip done">Done</span>') +
@@ -212,7 +224,7 @@
             return '<a class="rq-tpl" href="' + esc(waUrl(r, t[1])) + '" target="_blank" rel="noopener" title="' + esc(t[1]) + '">' + esc(t[0]) + '</a>';
           }).join('') + '</div>' : '') + '</div>' +
         '<dl class="rq-kv">' +
-          '<dt>Event date</dt><dd>' + (p ? esc(p.wd + ', ' + p.day + ' ' + p.mon + ' ' + p.year) + (n != null ? ' · <b>' + esc(whenText(n)) + '</b>' : '') : '—') + '</dd>' +
+          '<dt>' + (r.end_date ? 'Dates' : 'Event date') + '</dt><dd>' + (p ? esc(p.wd + ', ' + p.day + ' ' + p.mon + ' ' + p.year) + esc(untilText(r)) + (n != null ? ' · <b>' + esc(whenText(n)) + '</b>' : '') : '—') + '</dd>' +
           (r.event_time ? '<dt>Time of day</dt><dd>' + esc(r.event_time) + '</dd>' : '') +
           '<dt>Guests</dt><dd>' + A.formatNumber(r.guest_count) + '</dd>' +
           (r.needs && r.needs.length ? '<dt>They need</dt><dd>' + esc(r.needs.join(', ')) + '</dd>' : '') +

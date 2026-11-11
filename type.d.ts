@@ -42,6 +42,8 @@ export interface Category {
     delivery_note: string | null;
     /** 'service' = no products; customers send a request (Catering, Events & Celebrations). */
     kind: 'products' | 'service';
+    /** Products here are made to order (Wedding Cakes): "Send an enquiry" instead of Add to cart. */
+    enquiry_only?: boolean;
     created_at: string;
 }
 
@@ -150,6 +152,8 @@ export interface ServiceRequest {
     email: string | null;
     /** YYYY-MM-DD */
     event_date: string;
+    /** Last day, for catering over several days (a week, a month, a year…). null = one day. */
+    end_date?: string | null;
     guest_count: number;
     budget: number;
     address: string;

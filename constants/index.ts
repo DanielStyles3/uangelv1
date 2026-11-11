@@ -44,6 +44,9 @@ import tomatoes from "@/assets/images/tomatoes.png";
 // Delivery fee per order, in naira: ₦2,000, or ₦5,000 when the order has anything from
 // these main categories. The server decides the real fee (public.delivery_fee_for() in
 // supabase/schema.sql); these are for display only, so keep the two in sync.
+/** U Angel Foods WhatsApp (0704 905 5555), for wa.me links. */
+export const SUPPORT_WHATSAPP = "2347049055555";
+
 export const DELIVERY_FEE = 2000;
 export const DELIVERY_FEE_MARKET = 5000;
 export const MARKET_CATEGORIES = ["Groceries & Essentials", "The Local Market"];

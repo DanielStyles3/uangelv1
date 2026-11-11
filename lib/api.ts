@@ -26,7 +26,7 @@ const withFallbackPhoto = ({ categories, ...item }: MenuRow): MenuItem => ({
     ...item,
     image_url: item.image_url ?? categories?.image_url ?? null,
 });
-const CATEGORY_COLUMNS = 'id, name, description, parent_id, emoji, color, image_url, sort_order, delivery_note, kind, created_at';
+const CATEGORY_COLUMNS = 'id, name, description, parent_id, emoji, color, image_url, sort_order, delivery_note, kind, enquiry_only, created_at';
 const PROFILE_COLUMNS = 'id, name, email, avatar, phone, address, city, state, landmark, delivery_phone, created_at';
 const ORDER_COLUMNS = 'id, user_id, status, payment_method, payment_status, paystack_reference, paid_at, subtotal, delivery_fee, total, online_amount, balance_due, balance_collected_at, delivery_address, city, state, phone, note, created_at';
 
@@ -364,9 +364,16 @@ let requiredOptionIds: Promise<Set<string>> | null = null;
 export const getProductsNeedingChoices = (): Promise<Set<string>> => {
     if (!requiredOptionIds) {
         requiredOptionIds = (async () => {
-            const { data, error } = await supabase.from('option_groups').select('menu_id').eq('required', true);
-            if (error) { requiredOptionIds = null; return new Set<string>(); }
-            return new Set((data ?? []).map((r: { menu_id: string }) => r.menu_id));
+            const [opts, enquiry] = await Promise.all([
+                supabase.from('option_groups').select('menu_id').eq('required', true),
+                // Made-to-order products (Wedding Cakes): "+" opens the page with "Send an enquiry".
+                supabase.from('menu').select('id, categories!inner(enquiry_only)').eq('categories.enquiry_only', true),
+            ]);
+            if (opts.error) { requiredOptionIds = null; return new Set<string>(); }
+            return new Set([
+                ...(opts.data ?? []).map((r: { menu_id: string }) => r.menu_id),
+                ...(enquiry.data ?? []).map((r: { id: string }) => r.id),
+            ]);
         })();
     }
     return requiredOptionIds;

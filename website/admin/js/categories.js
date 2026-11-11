@@ -11,7 +11,7 @@
   var MAX_BYTES = 5 * 1024 * 1024;
   var DEFAULT_COLOR = '#FE8C00';
   var SWATCHES = ['#9D174D', '#991B1B', '#6B21A8', '#9A3412', '#166534', '#7A4419', '#0F5B78', '#FE8C00', '#181C2E'];
-  var COLS = 'id,name,description,parent_id,emoji,color,image_url,sort_order,delivery_note,kind,created_at';
+  var COLS = 'id,name,description,parent_id,emoji,color,image_url,sort_order,delivery_note,kind,enquiry_only,created_at';
 
   function svg(d, size, sw) {
     return '<svg width="' + (size || 16) + '" height="' + (size || 16) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (sw || 2.4) +
@@ -396,6 +396,7 @@
       color: isMain ? ((editing && validHex(item.color)) || DEFAULT_COLOR) : null,
       kind: isMain ? (editing ? (item.kind || 'products') : 'products') : (parent.kind || 'products'),
       delivery_note: editing ? (item.delivery_note || '') : '',
+      enquiry_only: editing ? !!item.enquiry_only : false,
       emoji: editing ? item.emoji : null,
       file: null, objUrl: null, removed: false
     };
@@ -441,12 +442,20 @@
         '<div class="field" data-note-field><label for="' + uid + '-note">Delivery note <span class="cg-opt">(optional)</span></label>' +
           '<input id="' + uid + '-note" name="delivery_note" class="input" maxlength="120" autocomplete="off" placeholder="e.g. Standard next-day delivery" value="' + esc(draft.delivery_note) + '"></div>'
         : '') +
+      // Made to order (e.g. Wedding Cakes): no Add to cart, customers send an enquiry instead.
+      (!isMain && draft.kind !== 'service' ?
+        '<div class="pp-avail" style="border:1.5px solid #FDBA9B;background:#FFF8F4"><div><b>Enquiry only</b>' +
+          '<small>For made-to-order items like wedding cakes: the app hides the price and Add to cart and shows “Send an enquiry” and WhatsApp instead. You agree the design and send an invoice on WhatsApp; the customer pays by bank transfer. Enquiries appear under Requests.</small></div>' +
+          '<button type="button" class="pp-switch" role="switch" aria-checked="' + draft.enquiry_only + '" data-enquiry aria-label="Enquiry only"><i></i></button></div>'
+        : '') +
       '<div class="field"><span class="cg-lbl">How it looks in the app</span><div class="cg-mini" data-mini></div></div>' +
       (isMain ? '<p class="cg-help" style="margin:0">This photo is also used for the category’s card in the “Shop” section of uangelfoods.com.</p>' : '') +
       '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
 
     var $ = function (s) { return form.querySelector(s); };
     var input = $('.cg-file'), drop = $('[data-drop]'), errEl = $('[data-photo-err]');
+    var enqSw = $('[data-enquiry]');
+    if (enqSw) enqSw.addEventListener('click', function () { draft.enquiry_only = !draft.enquiry_only; enqSw.setAttribute('aria-checked', String(draft.enquiry_only)); });
 
     function photoSrc() { return draft.objUrl || (!draft.removed ? currentUrl : null); }
     function ring() { return isMain ? draft.color : colorOf(parent); }
@@ -571,6 +580,8 @@
           payload.color = draft.color;
           payload.kind = draft.kind;
           payload.delivery_note = draft.delivery_note.trim() || null;
+        } else if (draft.kind !== 'service') {
+          payload.enquiry_only = !!draft.enquiry_only;
         }
         if (!editing) {
           payload.parent_id = isMain ? null : parent.id;

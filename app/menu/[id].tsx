@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Dimensions, FlatList, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Dimensions, FlatList, Linking, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { Href, router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, {
@@ -13,7 +13,7 @@ import useFetch from "@/lib/useFetch";
 import { getCategory, getMenu, getMenuItem, getMenuItemCustomizations, getProductOptions } from "@/lib/api";
 import ProductOptions, { answersToCart, missingRequired, OptionAnswers, StepHeader } from "@/components/ProductOptions";
 import { useCartStore } from "@/store/cart.store";
-import { deliveryFeeForCategory } from "@/constants";
+import { deliveryFeeForCategory, SUPPORT_WHATSAPP } from "@/constants";
 import { formatNaira } from "@/lib/format";
 import ProductImage from "@/components/ProductImage";
 import { CartCustomization, Customization, MenuItem } from "@/type";
@@ -161,7 +161,9 @@ export default function ProductDetails() {
     const mainCategory = subcategory && !subcategory.parent_id ? subcategory : parentCategory;
     const accent = mainCategory?.color ?? ORANGE;
     const deliveryNote = mainCategory?.delivery_note || "Same-day delivery";
-    const deliveryShort = /next/i.test(deliveryNote) ? "Next day" : "Same day";
+    const deliveryShort = /var/i.test(deliveryNote) ? "Varies" : /next/i.test(deliveryNote) ? "Next day" : "Same day";
+    // Made to order (Wedding Cakes): no cart. Customers send an enquiry; design and price are agreed on WhatsApp.
+    const enquiry = !!subcategory?.enquiry_only || !!parentCategory?.enquiry_only;
     const deliveryFee = deliveryFeeForCategory(mainCategory?.name);
     const groups = optionGroups ?? [];
     const optionLines = answersToCart(groups, answers);
@@ -246,10 +248,17 @@ export default function ProductDetails() {
                             </TouchableOpacity>
                         )}
                         <Text style={styles.name}>{item.name}</Text>
-                        <View style={styles.priceRow}>
-                            <Text style={styles.price}>{pricedOptions ? `From ${formatNaira(item.price)}` : formatNaira(item.price)}</Text>
-                            {pricedOptions && <Text style={styles.priceNote}>price depends on your choices</Text>}
-                        </View>
+                        {enquiry ? (
+                            <View style={styles.priceRow}>
+                                <Text style={[styles.price, { fontSize: 20 }]}>Custom design</Text>
+                                <Text style={styles.priceNote}>price on request</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.priceRow}>
+                                <Text style={styles.price}>{pricedOptions ? `From ${formatNaira(item.price)}` : formatNaira(item.price)}</Text>
+                                {pricedOptions && <Text style={styles.priceNote}>price depends on your choices</Text>}
+                            </View>
+                        )}
                         {soldOut && (
                             <View style={styles.soldOutPill}>
                                 <Ionicons name="close-circle" size={14} color="#B91C1C" />
@@ -260,7 +269,13 @@ export default function ProductDetails() {
 
                     {/* Info tiles */}
                     <Animated.View entering={FadeInDown.delay(110).springify().damping(16)} style={styles.tiles}>
-                        {item.is_campaign ? (
+                        {enquiry ? (
+                            <>
+                                <InfoTile icon="color-palette-outline" value="Made for you" label="Design" />
+                                <InfoTile icon="calendar-outline" value="Agreed" label="Delivery date" />
+                                <InfoTile icon="swap-horizontal-outline" value="Transfer" label="Payment" />
+                            </>
+                        ) : item.is_campaign ? (
                             <>
                                 <InfoTile icon="heart-outline" value="Next day" label="Given out" />
                                 <InfoTile icon="card-outline" value="Online" label="Payment" />
@@ -293,8 +308,32 @@ export default function ProductDetails() {
                         <Text style={styles.missionText}>This order helps feed someone in need. U Are An Angel.</Text>
                     </Animated.View>
 
+                    {/* Made to order: how the enquiry works */}
+                    {enquiry && (
+                        <Animated.View entering={FadeInDown.delay(240).springify().damping(16)} style={styles.enqCard}>
+                            <Text style={styles.enqEyebrow}>HOW IT WORKS</Text>
+                            {([
+                                ["paper-plane", "Send us an enquiry", "Your date, guests and design ideas."],
+                                ["logo-whatsapp", "We design it with you", "On WhatsApp, until it’s exactly what you want."],
+                                ["receipt", "Get your invoice", "Pay by bank transfer."],
+                                ["checkmark-done", "We confirm and start baking", "You get your receipt on WhatsApp."],
+                            ] as [IconName, string, string][]).map(([icon, t, s], i, all) => (
+                                <View key={t} style={styles.enqRow}>
+                                    <View style={{ alignItems: "center" }}>
+                                        <View style={styles.enqIcon}><Ionicons name={icon} size={15} color={accent} /></View>
+                                        {i < all.length - 1 && <View style={styles.enqLine} />}
+                                    </View>
+                                    <View style={{ flex: 1, paddingBottom: i < all.length - 1 ? 12 : 0 }}>
+                                        <Text style={styles.enqTitle}>{t}</Text>
+                                        <Text style={styles.enqText}>{s}</Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </Animated.View>
+                    )}
+
                     {/* "Make it yours" entry card → scrolls to the steps */}
-                    {hasChoices && !soldOut && (
+                    {hasChoices && !soldOut && !enquiry && (
                         <Animated.View entering={FadeInDown.delay(240).springify().damping(16)}>
                             <TouchableOpacity style={styles.makeCard} onPress={scrollToOptions} activeOpacity={0.85}>
                                 <View style={styles.makeIcon}><Ionicons name="sparkles" size={19} color="#fff" /></View>
@@ -310,7 +349,7 @@ export default function ProductDetails() {
                     )}
 
                     {/* Steps */}
-                    {hasChoices && (
+                    {hasChoices && !enquiry && (
                         <View style={styles.steps} onLayout={(e) => setOptionsY(e.nativeEvent.layout.y)}>
                             <ProductOptions groups={groups} answers={answers} onChange={setAnswers} startStep={1} />
 
@@ -392,6 +431,25 @@ export default function ProductDetails() {
             )}
 
             {/* Sticky bottom bar */}
+            {enquiry ? (
+                <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+                    <TouchableOpacity
+                        style={styles.waBtn}
+                        onPress={() => Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(`Hello U Angel Foods, I’d like a wedding cake like “${item.name}”. Can we talk about the design?`)}`).catch(() => {})}
+                        accessibilityLabel="Chat with us on WhatsApp"
+                    >
+                        <Ionicons name="logo-whatsapp" size={22} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.addBtn, { flex: 1 }]}
+                        onPress={() => router.push(`/cake-enquiry?productId=${item.id}` as Href)}
+                        activeOpacity={0.88}
+                    >
+                        <Ionicons name="paper-plane" size={18} color="#fff" />
+                        <Text style={styles.addBtnText} numberOfLines={1}>Send an enquiry</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : (
             <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                 <View style={styles.stepper}>
                     <TouchableOpacity
@@ -428,6 +486,7 @@ export default function ProductDetails() {
                     </TouchableOpacity>
                 </Animated.View>
             </View>
+            )}
         </View>
     );
 }
@@ -533,4 +592,12 @@ const styles = StyleSheet.create({
     addBtnNeedsChoice: { backgroundColor: INK, shadowColor: INK, shadowOpacity: 0.2 },
     addBtnOff: { backgroundColor: "#B4B5C0", shadowOpacity: 0 },
     addBtnText: { fontFamily: "Quicksand-Bold", fontSize: 15, color: "#fff", flexShrink: 1 },
+    waBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#1FA855", alignItems: "center", justifyContent: "center" },
+    enqCard: { borderRadius: 22, padding: 16, gap: 12, backgroundColor: "#FFF8F4", borderWidth: 1, borderColor: "#FFE1D3" },
+    enqEyebrow: { fontFamily: "Quicksand-Bold", fontSize: 11, letterSpacing: 1.3, color: GREY },
+    enqRow: { flexDirection: "row", gap: 12 },
+    enqIcon: { width: 32, height: 32, borderRadius: 11, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#FFE1D3" },
+    enqLine: { flex: 1, width: 2, backgroundColor: "#FFD9C8", marginTop: 4 },
+    enqTitle: { fontFamily: "Quicksand-Bold", fontSize: 14.5, color: INK },
+    enqText: { fontFamily: "Quicksand-Medium", fontSize: 13, color: GREY, marginTop: 1 },
 });

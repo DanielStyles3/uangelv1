@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown, ZoomIn } from "react-native-reanimated";
 
+import EventCalendar, { durationLabel, toISODate } from "@/components/EventCalendar";
 import StatePicker from "@/components/StatePicker";
 import ProductImage from "@/components/ProductImage";
 import { createServiceRequest, getCategory, getSubcategories } from "@/lib/api";
@@ -23,7 +24,6 @@ const LINE = "#E8E8EE";
 const BG = "#F6F6F8";
 const PURPLE = "#6B21A8";
 const isCustomName = (n?: string | null) => !!n && n.trim().toLowerCase() === "customised event";
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const NEEDS: [IconName, string][] = [
     ["restaurant", "Food"], ["wine", "Drinks"], ["gift", "Cake"], ["balloon", "Decor"],
     ["umbrella", "Chairs & canopies"], ["people", "Waiters"], ["mic", "MC / DJ"], ["storefront", "Food stands"],
@@ -33,63 +33,15 @@ const PLACES: [IconName, string][] = [["home", "Indoor"], ["leaf", "Outdoor"], [
 const STEP_TITLES = ["Your event", "Guests & budget", "Venue", "Your details"];
 
 const digitsOnly = (s: string) => s.replace(/[^\d]/g, "");
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const toISODate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-/** Month calendar; past days can't be picked. */
-function Calendar({ value, onChange }: { value: Date | null; onChange: (d: Date) => void }) {
-    const today = startOfDay(new Date());
-    const [view, setView] = useState(() => { const b = value ?? today; return new Date(b.getFullYear(), b.getMonth(), 1); });
-    const first = (view.getDay() + 6) % 7; // Monday first
-    const days = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
-    const canPrev = view > new Date(today.getFullYear(), today.getMonth(), 1);
-    const cells: (number | null)[] = [...Array(first).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
-    while (cells.length % 7) cells.push(null);
-
-    return (
-        <View style={styles.cal}>
-            <View style={styles.calHead}>
-                <TouchableOpacity style={[styles.calNav, !canPrev && { opacity: 0.3 }]} disabled={!canPrev}
-                    onPress={() => setView(new Date(view.getFullYear(), view.getMonth() - 1, 1))} accessibilityLabel="Previous month">
-                    <Ionicons name="chevron-back" size={16} color={INK} />
-                </TouchableOpacity>
-                <Text style={styles.calTitle}>{MONTHS[view.getMonth()]} {view.getFullYear()}</Text>
-                <TouchableOpacity style={styles.calNav} onPress={() => setView(new Date(view.getFullYear(), view.getMonth() + 1, 1))} accessibilityLabel="Next month">
-                    <Ionicons name="chevron-forward" size={16} color={INK} />
-                </TouchableOpacity>
-            </View>
-            <View style={styles.calRow}>
-                {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <Text key={i} style={styles.calDow}>{d}</Text>)}
-            </View>
-            {Array.from({ length: cells.length / 7 }, (_, r) => (
-                <View key={r} style={styles.calRow}>
-                    {cells.slice(r * 7, r * 7 + 7).map((d, i) => {
-                        if (!d) return <View key={i} style={styles.calCell} />;
-                        const date = new Date(view.getFullYear(), view.getMonth(), d);
-                        const past = date < today;
-                        const sel = !!value && value.getTime() === date.getTime();
-                        const isToday = date.getTime() === today.getTime();
-                        return (
-                            <TouchableOpacity key={i} style={styles.calCell} disabled={past}
-                                onPress={() => { Haptics.selectionAsync().catch(() => {}); onChange(date); }}
-                                accessibilityLabel={date.toDateString()} accessibilityState={{ selected: sel, disabled: past }}>
-                                <View style={[styles.calDot, sel && styles.calSel, isToday && !sel && styles.calToday]}>
-                                    <Text style={[styles.calDay, past && { color: "#CFCFD6" }, sel && { color: "#fff" }]}>{d}</Text>
-                                </View>
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-            ))}
-            <View style={[styles.calNote, value && { backgroundColor: "#FFF1EA" }]}>
-                <Ionicons name="calendar" size={15} color={value ? ORANGE : GREY} />
-                <Text style={[styles.calNoteText, value && { color: INK }]}>
-                    {value ? value.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : "Pick the date of your event"}
-                </Text>
-            </View>
-        </View>
-    );
-}
+/** Quick lengths for long contracts (end = start + n days - 1). */
+const LENGTHS: [string, (d: Date) => Date][] = [
+    ["1 week", (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 6)],
+    ["1 month", (d) => new Date(d.getFullYear(), d.getMonth() + 1, d.getDate() - 1)],
+    ["3 months", (d) => new Date(d.getFullYear(), d.getMonth() + 3, d.getDate() - 1)],
+    ["6 months", (d) => new Date(d.getFullYear(), d.getMonth() + 6, d.getDate() - 1)],
+    ["1 year", (d) => new Date(d.getFullYear() + 1, d.getMonth(), d.getDate() - 1)],
+];
+const shortDate = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
 const Section = ({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) => (
     <View style={{ gap: 10 }}>
@@ -158,6 +110,9 @@ export default function ServiceRequestScreen() {
     const [form, setForm] = useState({
         customName: "",
         date: null as Date | null,
+        // Several days (a week of catering, a one-year contract…): the last day.
+        multiDay: false,
+        endDate: null as Date | null,
         time: "Afternoon",
         guests: "",
         budget: "",
@@ -186,7 +141,7 @@ export default function ServiceRequestScreen() {
 
     // Cheap checks, so no memo needed (the React Compiler couldn't preserve one here).
     const valid = [
-        !!picked && (!isCustom || !!form.customName.trim()) && !!form.date,
+        !!picked && (!isCustom || !!form.customName.trim()) && !!form.date && (!form.multiDay || !!form.endDate),
         guests > 0 && budget > 0,
         !!form.address.trim() && !!form.city.trim() && !!form.state,
         !!form.fullName.trim() && !!normalizeNigerianPhone(form.phone),
@@ -203,7 +158,10 @@ export default function ServiceRequestScreen() {
 
     const explainMissing = () => {
         const msg = [
-            !picked ? "Please choose your type of event." : isCustom && !form.customName.trim() ? "Please tell us what you’re celebrating." : "Please pick the date of your event.",
+            !picked ? "Please choose your type of event."
+                : isCustom && !form.customName.trim() ? "Please tell us what you’re celebrating."
+                : !form.date ? (form.multiDay ? "Please tap the first day on the calendar." : "Please pick the date of your event.")
+                : "Please tap the last day on the calendar, or choose a length like 1 month.",
             !guests ? "Please enter the number of guests." : "Please enter your budget in naira.",
             "Please enter the venue address, city/area and state.",
             !form.fullName.trim() ? "Please enter your full name." : "Please enter a valid Nigerian phone number, e.g. 0803 123 4567.",
@@ -235,6 +193,7 @@ export default function ServiceRequestScreen() {
                 phone,
                 email: form.email.trim() || null,
                 event_date: toISODate(form.date),
+                end_date: form.multiDay && form.endDate ? toISODate(form.endDate) : null,
                 guest_count: guests,
                 budget,
                 address: form.address.trim(),
@@ -388,7 +347,44 @@ export default function ServiceRequestScreen() {
                                     </Animated.View>
                                 )}
 
-                                <Section title="Date"><Calendar value={form.date} onChange={(d) => set("date", d)} /></Section>
+                                <Section title="When?" hint="One event, or catering over several days, weeks or months.">
+                                    <View style={styles.seg}>
+                                        {([["One day", false], ["Several days", true]] as [string, boolean][]).map(([label, multi]) => {
+                                            const on = form.multiDay === multi;
+                                            return (
+                                                <TouchableOpacity key={label} style={[styles.segBtn, on && styles.segOn]} activeOpacity={0.85}
+                                                    onPress={() => { tap(); setForm((p) => ({ ...p, multiDay: multi, endDate: multi ? p.endDate : null })); }}
+                                                    accessibilityRole="radio" accessibilityState={{ checked: on }}>
+                                                    <Ionicons name={multi ? "calendar" : "today"} size={16} color={on ? "#fff" : GREY} />
+                                                    <Text style={[styles.segText, on && { color: "#fff" }]}>{label}</Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                    <EventCalendar
+                                        range={form.multiDay}
+                                        start={form.date}
+                                        end={form.endDate}
+                                        onChange={(s, e) => setForm((p) => ({ ...p, date: s, endDate: e }))}
+                                        emptyText={form.multiDay ? "Tap the first day, then the last day" : "Pick the date of your event"}
+                                    />
+                                    {form.multiDay && (
+                                        <View style={{ gap: 8 }}>
+                                            <Text style={styles.labelHint}>{form.date ? "Or choose how long:" : "Pick the first day, then choose how long:"}</Text>
+                                            <View style={styles.chips}>
+                                                {LENGTHS.map(([label, toEnd]) => {
+                                                    const on = !!form.date && !!form.endDate && toEnd(form.date).getTime() === form.endDate.getTime();
+                                                    return (
+                                                        <TouchableOpacity key={label} style={[styles.chip, on && styles.chipOn, !form.date && { opacity: 0.45 }]} disabled={!form.date}
+                                                            onPress={() => { tap(); if (form.date) set("endDate", toEnd(form.date)); }}>
+                                                            <Text style={[styles.chipText, on && { color: ORANGE }]}>{label}</Text>
+                                                        </TouchableOpacity>
+                                                    );
+                                                })}
+                                            </View>
+                                        </View>
+                                    )}
+                                </Section>
                                 <Section title="Time of day">
                                     <View style={styles.row3}>
                                         {TIMES.map(([icon, t, sub]) => (
@@ -501,7 +497,10 @@ export default function ServiceRequestScreen() {
                                             <View style={[styles.notch, { right: -10 }]} />
                                         </View>
                                         {([
-                                            ["calendar-outline", "When", form.date ? `${form.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })} · ${form.time}` : "—", 0],
+                                            ["calendar-outline", "When", !form.date ? "—"
+                                                : form.multiDay && form.endDate
+                                                    ? `${shortDate(form.date)} – ${shortDate(form.endDate)} (${durationLabel(form.date, form.endDate)}) · ${form.time}`
+                                                    : `${shortDate(form.date)} · ${form.time}`, 0],
                                             ["people-outline", "Guests", `${guests} guests`, 1],
                                             ["wallet-outline", "Budget", formatNaira(budget), 1],
                                             ["list-outline", "Needs", form.needs.join(", ") || "—", 1],
@@ -580,19 +579,10 @@ const styles = StyleSheet.create({
     customBox: { backgroundColor: "#F5EDFC", borderRadius: 18, padding: 14, gap: 10 },
     customTitle: { fontFamily: "Quicksand-Bold", fontSize: 14, color: PURPLE },
 
-    cal: { borderWidth: 1.5, borderColor: LINE, borderRadius: 20, padding: 12, backgroundColor: "#fff" },
-    calHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 8 },
-    calNav: { width: 32, height: 32, borderRadius: 16, backgroundColor: BG, alignItems: "center", justifyContent: "center" },
-    calTitle: { fontFamily: "Quicksand-Bold", fontSize: 15, color: INK },
-    calRow: { flexDirection: "row" },
-    calDow: { flex: 1, textAlign: "center", fontFamily: "Quicksand-Bold", fontSize: 11, color: "#A0A0AB", paddingBottom: 4 },
-    calCell: { flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center" },
-    calDot: { width: "86%", aspectRatio: 1, borderRadius: 999, alignItems: "center", justifyContent: "center" },
-    calSel: { backgroundColor: ORANGE },
-    calToday: { borderWidth: 1.5, borderColor: ORANGE },
-    calDay: { fontFamily: "Quicksand-SemiBold", fontSize: 14, color: INK },
-    calNote: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8, borderRadius: 12, paddingVertical: 9, backgroundColor: BG },
-    calNoteText: { fontFamily: "Quicksand-Bold", fontSize: 13, color: GREY },
+    seg: { flexDirection: "row", gap: 6, padding: 4, borderRadius: 999, backgroundColor: BG },
+    segBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 42, borderRadius: 999 },
+    segOn: { backgroundColor: ORANGE },
+    segText: { fontFamily: "Quicksand-Bold", fontSize: 14, color: GREY },
 
     row3: { flexDirection: "row", gap: 8 },
     timeCard: { flex: 1, alignItems: "center", gap: 3, paddingVertical: 14, paddingHorizontal: 6, borderRadius: 18, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#fff" },
