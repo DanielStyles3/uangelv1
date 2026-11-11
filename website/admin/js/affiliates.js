@@ -81,8 +81,8 @@
       A.sb.rpc('admin_affiliates'),
       A.sb.from('withdrawals').select('id, affiliate_id, amount, status, bank_name, account_number, account_name, admin_note, created_at, processed_at')
         .eq('status', 'requested').order('created_at', { ascending: true }).limit(500),
-      A.sb.from('commissions').select(COMM_COLS)
-        .is('reviewed_at', null).neq('status', 'cancelled').order('created_at', { ascending: true }).limit(500)
+      // admin_commissions(): the per-item breakdown is admin-only (affiliates can't read it).
+      A.sb.rpc('admin_commissions', { p_affiliate: null, p_unreviewed: true })
     ]);
     S.rows = A.unwrap(r[0]) || [];
     S.waiting = A.unwrap(r[1]) || [];
@@ -593,8 +593,7 @@
     var hist = body.querySelector('[data-history]');
     try {
       var r = await Promise.all([
-        A.sb.from('commissions').select(COMM_COLS)
-          .eq('affiliate_id', a.user_id).order('created_at', { ascending: false }).limit(20),
+        A.sb.rpc('admin_commissions', { p_affiliate: a.user_id, p_unreviewed: false }).limit(20),
         A.sb.from('withdrawals').select('id, amount, status, bank_name, account_number, admin_note, created_at, processed_at')
           .eq('affiliate_id', a.user_id).order('created_at', { ascending: false }).limit(20)
       ]);

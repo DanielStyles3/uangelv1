@@ -10,7 +10,7 @@ import { Enter, PressableScale } from '@/components/motion';
 import { GUTTER, ScreenHeader, useHeaderScroll } from '@/components/Screen';
 import { Avatar, Card, Chip, IconBubble, Notice, SectionLabel } from '@/components/ui';
 import { CustomerOrder } from '@/lib/api';
-import { errorMessage, formatDate, formatDateTime, formatNaira, itemSummary } from '@/lib/format';
+import { errorMessage, formatDate, formatDateTime, formatNaira } from '@/lib/format';
 import { cachedCustomerOrders, loadCustomerOrders } from '@/lib/orders';
 import { commissionStatus, orderStatusChip } from '@/lib/status';
 import { cardShadow, colors, fonts } from '@/lib/theme';
@@ -27,7 +27,7 @@ const totalEarned = (orders: CustomerOrder[]) =>
 export default function CustomerScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const params = useLocalSearchParams<{ id: string; name?: string; joined?: string; orders?: string; earned?: string }>();
+    const params = useLocalSearchParams<{ id: string; name?: string; joined?: string; orders?: string; earned?: string; spent?: string }>();
     const customerId = one(params.id);
     const name = one(params.name) || 'Customer';
     const joined = one(params.joined);
@@ -75,6 +75,7 @@ export default function CustomerScreen() {
     const orders = state?.orders;
     const orderCount = orders ? orders.length : Number(one(params.orders)) || 0;
     const earned = orders ? totalEarned(orders) : Number(one(params.earned)) || 0;
+    const spent = orders ? orders.reduce((s, o) => s + (Number(o.spent ?? o.items_total) || 0), 0) : Number(one(params.spent)) || 0;
 
     const top = (
         <View style={styles.top}>
@@ -90,7 +91,9 @@ export default function CustomerScreen() {
                     <View style={styles.stats}>
                         <Stat value={String(orderCount)} label={orderCount === 1 ? 'Paid order' : 'Paid orders'} />
                         <View style={styles.statLine} />
-                        <Stat value={formatNaira(earned)} label="Earned so far" green={earned > 0} />
+                        <Stat value={formatNaira(spent)} label="Total spent" />
+                        <View style={styles.statLine} />
+                        <Stat value={formatNaira(earned)} label="Your commission" green={earned > 0} />
                     </View>
                 </Card>
             </Enter>
@@ -148,19 +151,22 @@ function OrderCard({ order, now, onPress }: { order: CustomerOrder; now: number;
     const status = commissionStatus(c, now);
     const orderChip = orderStatusChip(order.status);
     const cancelled = c?.status === 'cancelled';
-    const summary = itemSummary(order.items);
+    const spent = Number(order.spent ?? order.items_total) || 0;
 
+    // Amounts only: for the customer's privacy, affiliates never see what was ordered.
     return (
-        <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel={`Order ${order.ref}, ${formatNaira(order.items_total)}. ${status.text}`}>
+        <PressableScale onPress={onPress} accessibilityRole="button" accessibilityLabel={`Order ${order.ref}, spent ${formatNaira(spent)}. ${status.text}`}>
             <Card style={styles.order}>
                 <View style={styles.orderTop}>
                     <View style={styles.flex}>
                         <Text style={styles.orderDate}>{formatDateTime(order.paid_at ?? order.created_at)}</Text>
                         <Text style={styles.sub}>#{order.ref} · {orderChip.label}</Text>
                     </View>
-                    <Text style={styles.orderTotal}>{formatNaira(order.items_total)}</Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={styles.orderTotal}>{formatNaira(spent)}</Text>
+                        <Text style={styles.sub}>spent</Text>
+                    </View>
                 </View>
-                {summary ? <Text style={styles.items} numberOfLines={2}>{summary}</Text> : null}
                 <View style={styles.orderFoot}>
                     <View style={styles.chipWrap}>
                         <Chip label={status.text} tone={status.tone} icon={status.icon} />

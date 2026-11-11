@@ -6,7 +6,7 @@ import { Enter } from '@/components/motion';
 import { Screen } from '@/components/Screen';
 import { Button, Card, CardHeader, Chip, IconBubble, Notice } from '@/components/ui';
 import { CustomerOrder } from '@/lib/api';
-import { errorMessage, formatDateTime, formatNaira, formatRate } from '@/lib/format';
+import { errorMessage, formatDateTime, formatNaira } from '@/lib/format';
 import { cachedOrder, loadCustomerOrders } from '@/lib/orders';
 import { commissionExplainer, commissionState, commissionStatus, orderStatusChip } from '@/lib/status';
 import { cardShadow, colors, fonts } from '@/lib/theme';
@@ -105,8 +105,7 @@ function OrderDetail({ order, now }: { order: CustomerOrder; now: number }) {
     const estimate = st === 'waiting' || st === 'reviewing';
     const cancelled = st === 'cancelled';
     const orderChip = orderStatusChip(order.status);
-    const items = order.items ?? [];
-    const commissionItems = c?.items ?? [];
+    const spent = Number(order.spent ?? order.items_total) || 0;
 
     return (
         <>
@@ -122,67 +121,21 @@ function OrderDetail({ order, now }: { order: CustomerOrder; now: number }) {
                 </Card>
             </Enter>
 
-            {/* What they ordered */}
+            {/* Amounts only: what they spent and what you earn (never what they ordered). */}
             <Enter index={1}>
                 <Card style={styles.section}>
-                    <CardHeader title="What they ordered" icon="bag-handle-outline" />
-                    <View style={styles.rows}>
-                        {items.length === 0 ? (
-                            <Text style={styles.muted}>No item details for this order.</Text>
-                        ) : (
-                            items.map((it, i) => (
-                                <View key={`${it.name}-${i}`} style={styles.row}>
-                                    <Text style={styles.rowName}>
-                                        {it.name} <Text style={styles.qty}>× {Number(it.quantity) || 1}</Text>
-                                    </Text>
-                                    <Text style={styles.rowValue}>{formatNaira(it.line_total)}</Text>
-                                </View>
-                            ))
-                        )}
-                    </View>
-                    <View style={styles.totalRow}>
-                        <Text style={styles.totalLabel}>Items total</Text>
-                        <Text style={styles.totalValue}>{formatNaira(order.items_total)}</Text>
-                    </View>
-                </Card>
-            </Enter>
-
-            {/* Your commission */}
-            <Enter index={2}>
-                <Card style={styles.section}>
                     <CardHeader title="Your commission" icon="wallet-outline" />
+                    <View style={styles.rows}>
+                        <View style={styles.row}>
+                            <View style={styles.flex}>
+                                <Text style={styles.rowName}>They spent</Text>
+                                <Text style={styles.rowSub}>Order total, without delivery</Text>
+                            </View>
+                            <Text style={styles.rowValue}>{formatNaira(spent)}</Text>
+                        </View>
+                    </View>
                     {c ? (
                         <>
-                            <View style={styles.rows}>
-                                {commissionItems.length === 0 ? (
-                                    <View style={styles.row}>
-                                        <Text style={styles.rowName}>
-                                            Order <Text style={styles.qty}>· on {formatNaira(c.base_amount)}</Text>
-                                        </Text>
-                                        <Text style={styles.rowValue}>{formatNaira(c.amount)}</Text>
-                                    </View>
-                                ) : (
-                                    commissionItems.map((it, i) => {
-                                        const qty = Number(it.quantity) || 1;
-                                        return (
-                                            <View key={`${it.name}-${i}`} style={styles.row}>
-                                                <View style={styles.flex}>
-                                                    <Text style={styles.rowName}>
-                                                        {it.name}
-                                                        {qty > 1 ? <Text style={styles.qty}> × {qty}</Text> : null}
-                                                    </Text>
-                                                    <Text style={styles.rowSub}>
-                                                        {formatRate(it.rate)} of {formatNaira(it.line_total)}
-                                                    </Text>
-                                                </View>
-                                                <Text style={[styles.rowValue, Number(it.amount) > 0 ? styles.earn : styles.noEarn]}>
-                                                    {formatNaira(it.amount)}
-                                                </Text>
-                                            </View>
-                                        );
-                                    })
-                                )}
-                            </View>
                             <View style={styles.totalRow}>
                                 <View style={styles.flex}>
                                     <Text style={styles.totalLabel}>Total commission</Text>
@@ -204,9 +157,9 @@ function OrderDetail({ order, now }: { order: CustomerOrder; now: number }) {
                 </Card>
             </Enter>
 
-            <Enter index={3}>
+            <Enter index={2}>
                 <Text style={styles.footer}>
-                    Delivery fees and Christmas giving packs don’t earn commission. Rates vary by product, up to 5%.
+                    For their privacy you see amounts only, not what they ordered. Rates vary by product, up to 5%; delivery fees and Christmas giving packs don’t earn.
                 </Text>
             </Enter>
         </>

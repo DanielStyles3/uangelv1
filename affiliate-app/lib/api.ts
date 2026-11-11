@@ -50,7 +50,10 @@ export type CustomerOrder = {
     created_at: string;
     paid_at: string | null;
     status: OrderStatus;
+    /** What they spent on items (no delivery). Affiliates see amounts only, never what was ordered. */
+    spent?: number | string;
     items_total: number | string;
+    /** Always empty now (privacy); kept for older app versions. */
     items: OrderItem[] | null;
     commission: {
         status: CommissionStatus;
@@ -94,6 +97,8 @@ export type Referral = {
     joined_at: string;
     expires_at: string;
     orders: number | string;
+    /** Total they've spent on items since joining. */
+    spent?: number | string;
     earned: number | string;
 };
 

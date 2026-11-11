@@ -124,6 +124,7 @@ export default function Referrals() {
                                 joined: item.joined_at,
                                 orders: String(orders),
                                 earned: String(Number(item.earned) || 0),
+                                spent: String(Number(item.spent) || 0),
                             },
                         });
                     };
@@ -149,6 +150,7 @@ export default function Referrals() {
                                     </View>
                                     <View style={styles.rowFoot}>
                                         <Chip label={`${orders} ${orders === 1 ? 'order' : 'orders'}`} tone={orders > 0 ? 'orange' : 'grey'} />
+                                        {Number(item.spent) > 0 ? <Chip label={`${formatNaira(item.spent)} spent`} tone="grey" /> : null}
                                         <View style={styles.flex} />
                                         <Text style={styles.seeOrders}>See orders</Text>
                                         <Ionicons name="chevron-forward" size={15} color={colors.orangeDark} />

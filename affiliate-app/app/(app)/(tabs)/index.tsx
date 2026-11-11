@@ -12,7 +12,7 @@ import WeekChart, { buildWeek, WeekDay, weekStart } from '@/components/WeekChart
 import { useAffiliate } from '@/lib/affiliate';
 import { Commission, getCommissions, getCommissionsSince } from '@/lib/api';
 import { displayName, useAuth } from '@/lib/auth';
-import { errorMessage, formatNaira, formatShortDate, itemSummary } from '@/lib/format';
+import { errorMessage, formatNaira, formatShortDate } from '@/lib/format';
 import { commissionStatus } from '@/lib/status';
 import { cardShadow, colors, fonts } from '@/lib/theme';
 
@@ -229,7 +229,6 @@ export default function EarningsTab() {
                             const status = commissionStatus(c, earnings.now);
                             const tone = TONES[status.tone];
                             const cancelled = c.status === 'cancelled';
-                            const summary = itemSummary(c.items, 2);
                             const customerId = c.customer_id;
                             const openOrder = customerId
                                 ? () => {
@@ -249,7 +248,7 @@ export default function EarningsTab() {
                                 >
                                     <IconBubble name={status.icon} bg={tone.bg} color={tone.fg} />
                                     <View style={styles.itemText}>
-                                        <Text style={styles.itemTitle} numberOfLines={1}>{summary || `Order · ${formatNaira(c.base_amount)}`}</Text>
+                                        <Text style={styles.itemTitle} numberOfLines={1}>{`Order · ${formatNaira(c.base_amount)} spent`}</Text>
                                         <Text style={[styles.itemStatus, { color: tone.fg }]}>{status.text}</Text>
                                         <Text style={styles.itemDate}>{formatShortDate(c.created_at)}</Text>
                                     </View>
