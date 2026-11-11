@@ -135,7 +135,24 @@ export default function Christmas() {
                 {packs.length > 0 && (
                     <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ gap: 12 }} onLayout={(e) => setPacksY(e.nativeEvent.layout.y)}>
                         <Text style={styles.h2}>{packs.length === 1 ? "Your pre-order" : "Choose your pre-order"}</Text>
-                        {packs.map((pack) => (
+                        {packs.length > 1 ? (
+                            // Several packs: two across, like the normal product grid.
+                            <View style={styles.grid}>
+                                {packs.map((pack) => (
+                                    <TouchableOpacity key={pack.id} style={styles.card} activeOpacity={0.88} onPress={() => openProduct(pack.id)} accessibilityRole="button" accessibilityLabel={`${pack.name}, ${formatNaira(pack.price)}`}>
+                                        <View style={styles.cardImg}>
+                                            <ProductImage imageUrl={pack.image_url} className="size-full" resizeMode="cover" />
+                                        </View>
+                                        <Text style={styles.cardName} numberOfLines={2}>{pack.name}</Text>
+                                        <View style={styles.miniTag}><Ionicons name="heart" size={11} color="#15803D" /><Text style={styles.miniTagText} numberOfLines={1}>No delivery fee</Text></View>
+                                        <View style={styles.cardBottom}>
+                                            <Text style={[styles.cardPrice, { color: RED }]}>{formatNaira(pack.price)}</Text>
+                                            <View style={styles.cardAdd}><Ionicons name="arrow-forward" size={15} color="#fff" /></View>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        ) : packs.map((pack) => (
                         <TouchableOpacity key={pack.id} style={styles.pack} activeOpacity={0.88} onPress={() => openProduct(pack.id)} accessibilityRole="button" accessibilityLabel={`${pack.name}, ${formatNaira(pack.price)}`}>
                             <View style={styles.packImg}>
                                 <ProductImage imageUrl={pack.image_url} className="size-full" resizeMode="cover" />
@@ -226,6 +243,8 @@ const styles = StyleSheet.create({
     packBtnText: { fontFamily: "Quicksand-Bold", fontSize: 14, color: "#fff" },
     cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
     cardPrice: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: "#FD652A" },
+    miniTag: { flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start", backgroundColor: "#E9F8EF", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999, marginTop: 4 },
+    miniTagText: { fontFamily: "Quicksand-Bold", fontSize: 10.5, color: "#15803D" },
     cardAdd: { width: 28, height: 28, borderRadius: 14, backgroundColor: RED, alignItems: "center", justifyContent: "center" },
 
     foot: {
