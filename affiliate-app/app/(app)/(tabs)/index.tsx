@@ -12,7 +12,7 @@ import WeekChart, { buildWeek, WeekDay, weekStart } from '@/components/WeekChart
 import { useAffiliate } from '@/lib/affiliate';
 import { Commission, getCommissions, getCommissionsSince } from '@/lib/api';
 import { displayName, useAuth } from '@/lib/auth';
-import { errorMessage, formatNaira, formatShortDate } from '@/lib/format';
+import { errorMessage, formatNaira, formatShortDate, itemSummary } from '@/lib/format';
 import { commissionStatus } from '@/lib/status';
 import { cardShadow, colors, fonts } from '@/lib/theme';
 
@@ -161,7 +161,7 @@ export default function EarningsTab() {
                         </TouchableOpacity>
                     ) : (
                         <Text style={styles.balanceFoot}>
-                            Pending is paid but not delivered yet. On hold clears 7 days after delivery.
+                            Pending is paid but not delivered yet. On hold is being reviewed by U Angel Foods, or confirmed and clearing 7 days after delivery.
                         </Text>
                     )}
                 </View>
@@ -229,18 +229,35 @@ export default function EarningsTab() {
                             const status = commissionStatus(c, earnings.now);
                             const tone = TONES[status.tone];
                             const cancelled = c.status === 'cancelled';
+                            const summary = itemSummary(c.items, 2);
+                            const customerId = c.customer_id;
+                            const openOrder = customerId
+                                ? () => {
+                                    Haptics.selectionAsync().catch(() => {});
+                                    router.push({ pathname: '/order/[id]', params: { id: c.order_id, customer: customerId } });
+                                }
+                                : undefined;
                             return (
-                                <View key={c.id} style={styles.item}>
+                                <TouchableOpacity
+                                    key={c.id}
+                                    style={styles.item}
+                                    onPress={openOrder}
+                                    disabled={!openOrder}
+                                    activeOpacity={0.6}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Commission ${formatNaira(c.amount)}. ${status.text}`}
+                                >
                                     <IconBubble name={status.icon} bg={tone.bg} color={tone.fg} />
                                     <View style={styles.itemText}>
-                                        <Text style={styles.itemTitle}>Order · {formatNaira(c.base_amount)}</Text>
+                                        <Text style={styles.itemTitle} numberOfLines={1}>{summary || `Order · ${formatNaira(c.base_amount)}`}</Text>
                                         <Text style={[styles.itemStatus, { color: tone.fg }]}>{status.text}</Text>
                                         <Text style={styles.itemDate}>{formatShortDate(c.created_at)}</Text>
                                     </View>
                                     <Text style={[styles.itemAmount, { color: cancelled ? colors.greyLight : tone.fg }, cancelled && styles.strike]}>
                                         +{formatNaira(c.amount)}
                                     </Text>
-                                </View>
+                                    {openOrder ? <Ionicons name="chevron-forward" size={14} color={colors.greyLight} /> : null}
+                                </TouchableOpacity>
                             );
                         })
                     )}
@@ -311,7 +328,7 @@ const styles = StyleSheet.create({
     emptyBox: { alignItems: 'center', gap: 4, paddingTop: 10, paddingBottom: 14, borderTopWidth: 1, borderTopColor: colors.line },
     emptyTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.navy, marginTop: 8 },
     empty: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 19, color: colors.grey, textAlign: 'center', paddingBottom: 10, paddingHorizontal: 8 },
-    item: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.line },
+    item: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderTopWidth: 1, borderTopColor: colors.line },
     itemText: { flex: 1, gap: 1 },
     itemTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.navy },
     itemStatus: { fontFamily: fonts.bold, fontSize: 12, lineHeight: 17 },

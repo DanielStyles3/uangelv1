@@ -8,6 +8,7 @@ import { AffiliateContext } from '@/lib/affiliate';
 import { useAuth } from '@/lib/auth';
 import { AffiliateSummary, getSummary, signOut } from '@/lib/api';
 import { errorMessage } from '@/lib/format';
+import { clearOrderCache } from '@/lib/orders';
 import { colors, fonts } from '@/lib/theme';
 
 type Phase =
@@ -32,6 +33,7 @@ export default function AppLayout() {
     }
 
     useEffect(() => {
+        clearOrderCache(); // never show one account's customers' orders to another
         if (!signedIn) return;
         let alive = true;
         getSummary()
@@ -93,11 +95,14 @@ export default function AppLayout() {
 
     return (
         <AffiliateContext.Provider value={value}>
-            {/* Share and Payouts slide in from the right over the tabs, which keep their state underneath. */}
+            {/* Share, Payouts, a customer's orders and an order's breakdown slide in from the right over the tabs,
+                which keep their state underneath. */}
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="share" options={{ animation: 'slide_from_right', contentStyle: { backgroundColor: colors.white } }} />
                 <Stack.Screen name="withdraw" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="customer/[id]" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="order/[id]" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="join" options={{ animation: 'fade' }} />
             </Stack>
         </AffiliateContext.Provider>

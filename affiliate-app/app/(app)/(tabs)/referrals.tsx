@@ -1,9 +1,11 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
 
-import { Enter } from '@/components/motion';
+import { Enter, PressableScale } from '@/components/motion';
 import { GUTTER, ScreenHeader, useHeaderScroll } from '@/components/Screen';
 import { Avatar, Button, Card, Chip, IconBubble, Notice } from '@/components/ui';
 import { useAffiliate } from '@/lib/affiliate';
@@ -61,8 +63,6 @@ export default function Referrals() {
                     <Card style={styles.stats}>
                         <Stat value={String(summary.referrals)} label={Number(summary.referrals) === 1 ? 'Person joined' : 'People joined'} />
                         <View style={styles.statLine} />
-                        <Stat value={String(summary.active_referrals)} label="Still earning" />
-                        <View style={styles.statLine} />
                         <Stat value={formatNaira(summary.total_earned)} label="Earned so far" />
                     </Card>
                 </Enter>
@@ -70,6 +70,7 @@ export default function Referrals() {
             <Enter index={1}>
                 <Text style={styles.lead}>
                     People who signed up with your code{summary ? ` ${summary.code}` : ''}. You earn up to 5% on their paid orders.
+                    Tap someone to see their orders.
                 </Text>
             </Enter>
             {error ? <Notice tone="red" icon="cloud-offline-outline" text={error} /> : null}
@@ -103,7 +104,7 @@ export default function Referrals() {
                 style={styles.flex}
                 contentContainerStyle={styles.content}
                 data={state?.items ?? []}
-                keyExtractor={(item, i) => `${item.joined_at}-${i}`}
+                keyExtractor={(item, i) => item.customer_id ?? `${item.joined_at}-${i}`}
                 ListHeaderComponent={top}
                 ListEmptyComponent={empty}
                 onScroll={onScroll}
@@ -113,25 +114,47 @@ export default function Referrals() {
                 renderItem={({ item, index }) => {
                     const avatar = AVATARS[index % AVATARS.length];
                     const orders = Number(item.orders);
+                    const open = () => {
+                        Haptics.selectionAsync().catch(() => {});
+                        router.push({
+                            pathname: '/customer/[id]',
+                            params: {
+                                id: item.customer_id,
+                                name: item.customer,
+                                joined: item.joined_at,
+                                orders: String(orders),
+                                earned: String(Number(item.earned) || 0),
+                            },
+                        });
+                    };
                     return (
                         <Enter index={index + 2}>
-                            <Card style={styles.row}>
-                                <View style={styles.rowTop}>
-                                    <Avatar name={item.customer} bg={avatar.bg} fg={avatar.fg} />
-                                    <View style={styles.rowText}>
-                                        <Text style={styles.name} numberOfLines={1}>{item.customer}</Text>
-                                        <Text style={styles.sub}>Joined {formatDate(item.joined_at)}</Text>
+                            <PressableScale
+                                onPress={open}
+                                disabled={!item.customer_id}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${item.customer}, ${orders} ${orders === 1 ? 'order' : 'orders'}, ${formatNaira(item.earned)} earned`}
+                            >
+                                <Card style={styles.row}>
+                                    <View style={styles.rowTop}>
+                                        <Avatar name={item.customer} bg={avatar.bg} fg={avatar.fg} />
+                                        <View style={styles.rowText}>
+                                            <Text style={styles.name} numberOfLines={1}>{item.customer}</Text>
+                                            <Text style={styles.sub}>Joined {formatDate(item.joined_at)}</Text>
+                                        </View>
+                                        <View style={styles.right}>
+                                            <Text style={[styles.earned, Number(item.earned) <= 0 && styles.earnedNone]}>{formatNaira(item.earned)}</Text>
+                                            <Text style={styles.sub}>earned</Text>
+                                        </View>
                                     </View>
-                                    <View style={styles.right}>
-                                        <Text style={[styles.earned, Number(item.earned) <= 0 && styles.earnedNone]}>{formatNaira(item.earned)}</Text>
-                                        <Text style={styles.sub}>earned</Text>
+                                    <View style={styles.rowFoot}>
+                                        <Chip label={`${orders} ${orders === 1 ? 'order' : 'orders'}`} tone={orders > 0 ? 'orange' : 'grey'} />
+                                        <View style={styles.flex} />
+                                        <Text style={styles.seeOrders}>See orders</Text>
+                                        <Ionicons name="chevron-forward" size={15} color={colors.orangeDark} />
                                     </View>
-                                </View>
-                                <View style={styles.rowFoot}>
-                                    <View style={styles.flex} />
-                                    <Chip label={`${orders} ${orders === 1 ? 'order' : 'orders'}`} tone={orders > 0 ? 'orange' : 'grey'} />
-                                </View>
-                            </Card>
+                                </Card>
+                            </PressableScale>
                         </Enter>
                     );
                 }}
@@ -176,5 +199,6 @@ const styles = StyleSheet.create({
     right: { alignItems: 'flex-end', gap: 1 },
     earned: { fontFamily: fonts.bold, fontSize: 15, color: colors.green },
     earnedNone: { color: colors.grey },
-    rowFoot: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line },
+    rowFoot: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line },
+    seeOrders: { fontFamily: fonts.bold, fontSize: 12.5, color: colors.orangeDark },
 });

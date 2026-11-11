@@ -33,6 +33,22 @@ export const formatShortDate = (iso: string | null | undefined) => {
     return `${d.getDate()} ${MONTHS[d.getMonth()]}${sameYear ? '' : ` ${d.getFullYear()}`}`;
 };
 
+/** 10 Nov, 07:06 (adds the year only when it isn't this year) */
+export const formatDateTime = (iso: string | null | undefined) => {
+    const day = formatShortDate(iso);
+    if (!day) return '';
+    const d = new Date(iso as string);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${day}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+/** "2× Cake, 1× Water" (first few items, then "…") */
+export const itemSummary = (items: { name: string; quantity: number | string }[] | null | undefined, max = 3) => {
+    const list = items ?? [];
+    const text = list.slice(0, max).map((i) => `${Number(i.quantity) || 1}× ${i.name}`).join(', ');
+    return list.length > max ? `${text}…` : text;
+};
+
 /** 0.05 → "5%", 0.075 → "7.5%" */
 export const formatRate = (rate: number | string | null | undefined) => {
     const pct = Math.round(Number(rate ?? 0) * 1000) / 10;

@@ -12,15 +12,55 @@ export type Withdrawal = {
     processed_at: string | null;
 };
 
+export type CommissionStatus = 'pending' | 'earned' | 'cancelled';
+
+/** One product line of a commission: rate is a fraction (0.05 = 5%). */
+export type CommissionItem = {
+    name: string;
+    quantity: number | string;
+    line_total: number | string;
+    rate: number | string;
+    amount: number | string;
+};
+
 export type Commission = {
     id: string;
     order_id: string;
+    customer_id: string | null;
     base_amount: number | string;
     rate: number | string;
     amount: number | string;
-    status: 'pending' | 'earned' | 'cancelled';
+    status: CommissionStatus;
     available_at: string | null;
     created_at: string;
+    items: CommissionItem[] | null;
+    /** null = U Angel Foods hasn't checked it yet (the amount is an estimate). */
+    reviewed_at: string | null;
+    admin_note: string | null;
+};
+
+export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
+
+export type OrderItem = { name: string; quantity: number | string; line_total: number | string };
+
+/** A referred customer's paid order, as returned by affiliate_customer_orders. */
+export type CustomerOrder = {
+    order_id: string;
+    ref: string;
+    created_at: string;
+    paid_at: string | null;
+    status: OrderStatus;
+    items_total: number | string;
+    items: OrderItem[] | null;
+    commission: {
+        status: CommissionStatus;
+        amount: number | string;
+        base_amount: number | string;
+        items: CommissionItem[] | null;
+        reviewed_at: string | null;
+        available_at: string | null;
+        note: string | null;
+    } | null;
 };
 
 export type AffiliateSummary = {
@@ -48,6 +88,8 @@ export type AffiliateSummary = {
 };
 
 export type Referral = {
+    customer_id: string;
+    /** First name + initial. */
     customer: string;
     joined_at: string;
     expires_at: string;
@@ -77,10 +119,17 @@ export const getReferrals = async (): Promise<Referral[]> => {
     return (data as Referral[] | null) ?? [];
 };
 
+/** A referred customer's paid orders since they joined, newest first, each with its commission (if any). */
+export const getCustomerOrders = async (customerId: string): Promise<CustomerOrder[]> => {
+    const { data, error } = await supabase.rpc('affiliate_customer_orders', { p_customer: customerId });
+    fail(error);
+    return Array.isArray(data) ? (data as CustomerOrder[]) : [];
+};
+
 export const getCommissions = async (limit = 30): Promise<Commission[]> => {
     const { data, error } = await supabase
         .from('commissions')
-        .select('id, order_id, base_amount, rate, amount, status, available_at, created_at')
+        .select('id, order_id, customer_id, base_amount, rate, amount, status, available_at, created_at, items, reviewed_at, admin_note')
         .order('created_at', { ascending: false })
         .limit(limit);
     fail(error);
