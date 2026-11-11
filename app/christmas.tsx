@@ -1,4 +1,4 @@
-import { ComponentRef, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
@@ -46,19 +46,11 @@ export default function Christmas() {
     // Christmas pre-order products (set in Admin › Products): no delivery, count toward the goal.
     const { data: packsData } = useFetch({ fn: getCampaignProducts });
     const packs = (packsData ?? []).filter((p) => p.is_available !== false);
-    const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
-    const [packsY, setPacksY] = useState(0);
     const left = useCountdown();
     const live = campaignLive();
     const done = count ?? 0;
     const pct = Math.min(100, (done / CAMPAIGN_GOAL) * 100);
     const openProduct = (id: string) => router.push({ pathname: "/menu/[id]", params: { id } });
-    // One pack: open it. Several: scroll to the list so they can choose.
-    const startPreorder = () => {
-        if (packs.length === 1) return openProduct(packs[0].id);
-        if (packs.length > 1) return scrollRef.current?.scrollTo({ y: Math.max(0, packsY - 12), animated: true });
-        router.push("/search");
-    };
 
     return (
         <SafeAreaView style={styles.screen} edges={["top"]}>
@@ -70,8 +62,7 @@ export default function Christmas() {
             </View>
 
             <ScrollView
-                ref={scrollRef}
-                contentContainerStyle={[styles.body, { paddingBottom: (live ? 110 : 32) + insets.bottom }]}
+                contentContainerStyle={[styles.body, { paddingBottom: 32 + insets.bottom }]}
                 showsVerticalScrollIndicator={false}
             >
                 {/* Hero: festive card with the full, uncropped flyer */}
@@ -133,7 +124,7 @@ export default function Christmas() {
 
                 {/* Christmas pre-order products */}
                 {packs.length > 0 && (
-                    <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ gap: 12 }} onLayout={(e) => setPacksY(e.nativeEvent.layout.y)}>
+                    <Animated.View entering={FadeInDown.delay(200).duration(400)} style={{ gap: 12 }}>
                         <Text style={styles.h2}>{packs.length === 1 ? "Your pre-order" : "Choose your pre-order"}</Text>
                         {packs.length > 1 ? (
                             // Several packs: two across, like the normal product grid.
@@ -174,16 +165,6 @@ export default function Christmas() {
                 )}
             </ScrollView>
 
-            {/* Sticky CTA — padded above Android's navigation bar so it's never covered/washed out */}
-            {live && (
-                <View style={[styles.foot, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}>
-                    <TouchableOpacity style={styles.cta} onPress={startPreorder} activeOpacity={0.88} accessibilityRole="button">
-                        <Ionicons name="gift" size={18} color="#fff" />
-                        <Text style={styles.ctaText}>Start my pre-order</Text>
-                        <Ionicons name="arrow-forward" size={18} color="#fff" />
-                    </TouchableOpacity>
-                </View>
-            )}
         </SafeAreaView>
     );
 }
