@@ -1,4 +1,4 @@
-{
+﻿{
   "expo": {
     "name": "U Angel Affiliates",
     "slug": "u-angel-affiliates",
@@ -17,7 +17,7 @@
         "backgroundColor": "#FD652A"
       },
       "package": "com.uangelfoods.affiliates",
-      "versionCode": 9
+      "versionCode": 10
     },
     "web": {
       "bundler": "metro",
