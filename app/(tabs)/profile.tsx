@@ -56,7 +56,8 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 const Profile = () => {
     const insets = useSafeAreaInsets();
     const { user, logout, setUser, setIsAuthenticated } = useAuthStore();
-    const { clearCart } = useCartStore();
+    // Signing out / deleting: empty the cart AND the saved carts, so the next person on this phone sees none of it.
+    const clearCart = () => useCartStore.setState({ items: [], savedCarts: [] });
     const { data: stats, refetch } = useFetch({ fn: getProfileStats });
     const [busy, setBusy] = useState<'logout' | 'delete' | null>(null);
 

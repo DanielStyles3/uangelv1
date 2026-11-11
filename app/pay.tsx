@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, BackHandler, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { WebView, WebViewNavigation } from "react-native-webview";
 
 import { startPayment, verifyPayment } from "@/lib/api";
-
 import { notify } from "@/lib/notice";
+import { useCartStore } from "@/store/cart.store";
+
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
 // Paystack redirects here after a successful payment; we intercept it inside the WebView
 // (the page itself is never shown), so the customer lands back in the app instantly.
@@ -23,7 +24,8 @@ type Outcome = "paid" | "pending" | "failed" | "cancelled";
  * payment succeeds, closes itself and replaces this screen with the order page.
  */
 export default function PayScreen() {
-    const { orderId } = useLocalSearchParams<{ orderId: string }>();
+    const { orderId, from } = useLocalSearchParams<{ orderId: string; from?: string }>();
+    const fromCheckout = from === 'checkout';
     const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [finishing, setFinishing] = useState(false);
@@ -31,12 +33,30 @@ export default function PayScreen() {
     const done = useRef(false);
 
     const goToOrder = useCallback((outcome: Outcome) => {
+        if (fromCheckout) {
+            if (outcome === 'paid') {
+                // Paid: the cart has become this order. Leave checkout behind and show the order.
+                useCartStore.getState().clearCart();
+                if (router.canDismiss()) router.dismissAll();
+                router.push({ pathname: '/orders/[id]', params: { id: orderId, placed: '1', payment: 'paid' } });
+            } else {
+                // Not paid: back to Checkout with the cart exactly as it was.
+                if (router.canGoBack()) router.back(); else router.replace('/cart');
+                setTimeout(() => notify(
+                    outcome === 'pending' ? 'Payment still processing' : 'Payment not completed',
+                    outcome === 'pending'
+                        ? 'If money left your account we’ll confirm the order automatically. Your cart is still here.'
+                        : 'Nothing was charged. Your cart is still here, so you can change it, try again or save it for later.',
+                ), 350);
+            }
+            return;
+        }
         if (!orderId) return router.replace('/orders');
         router.replace({
             pathname: '/orders/[id]',
             params: { id: orderId, placed: outcome === 'paid' ? '1' : undefined, payment: outcome },
         });
-    }, [orderId]);
+    }, [orderId, fromCheckout]);
 
     /** Ask the server (which asks Paystack) for the truth, then leave. */
     const finish = useCallback(async (hint: Outcome) => {
@@ -89,14 +109,27 @@ export default function PayScreen() {
         return false;
     };
 
-    const confirmClose = () =>
-        notify('Leave payment?', "If you've already paid, we'll confirm it. Otherwise you can pay later from your order.", [
+    const confirmClose = useCallback(() =>
+        notify('Leave payment?', fromCheckout
+            ? "If you've already paid, we'll confirm it. Otherwise you'll go back to checkout and your cart stays as it is."
+            : "If you've already paid, we'll confirm it. Otherwise you can pay later from your order.", [
             { text: 'Stay', style: 'cancel' },
             { text: 'Leave', style: 'destructive', onPress: () => finish('cancelled') },
-        ]);
+        ]), [fromCheckout, finish]);
+
+    // Android back button: same as the close button (ask, then check the payment), never a silent exit.
+    useEffect(() => {
+        const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+            if (!done.current) confirmClose();
+            return true;
+        });
+        return () => sub.remove();
+    }, [confirmClose]);
 
     return (
         <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+            {/* No swipe-back on iPhone: leaving goes through confirmClose so the payment is checked. */}
+            <Stack.Screen options={{ gestureEnabled: false }} />
             <View style={styles.bar}>
                 <TouchableOpacity onPress={confirmClose} hitSlop={12} accessibilityLabel="Close payment">
                     <Ionicons name="close" size={24} color="#181C2E" />
@@ -114,7 +147,7 @@ export default function PayScreen() {
                     <Text style={styles.errorTitle}>Couldn&apos;t start payment</Text>
                     <Text style={styles.errorBody}>{error}</Text>
                     <TouchableOpacity style={styles.btn} onPress={() => goToOrder('cancelled')}>
-                        <Text style={styles.btnText}>Back to my order</Text>
+                        <Text style={styles.btnText}>{fromCheckout ? 'Back to checkout' : 'Back to my order'}</Text>
                     </TouchableOpacity>
                 </View>
             ) : !checkoutUrl ? (

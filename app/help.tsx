@@ -30,7 +30,7 @@ const FAQS: { q: string; a: string }[] = [
     },
     {
         q: 'I closed the payment page — what now?',
-        a: 'Your order stays "Awaiting payment". Open Profile → My orders, open the order and tap "Pay now". You can also cancel an unpaid order there.',
+        a: 'Nothing is lost. You go back to checkout and your cart stays exactly as it was, so you can change it and pay when you’re ready. Not ready yet? In your cart, tap "Save" and find it later in Profile → My orders → Active. If money did leave your account, we confirm the order automatically.',
     },
     {
         q: 'How much is delivery?',

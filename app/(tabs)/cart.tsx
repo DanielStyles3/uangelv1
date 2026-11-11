@@ -73,7 +73,7 @@ const Suggestions = ({ title, items }: { title: string; items: MenuItem[] }) =>
     );
 
 const Cart = () => {
-    const { items, getTotalItems, getTotalPrice, clearCart } = useCartStore();
+    const { items, getTotalItems, getTotalPrice, clearCart, saveCartForLater } = useCartStore();
     const { user } = useAuthStore();
     const { data: menu } = useFetch({ fn: getMenu, params: { limit: 12 } });
 
@@ -90,6 +90,21 @@ const Cart = () => {
         notify('Clear cart', 'Remove all items from your cart?', [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Clear', style: 'destructive', onPress: clearCart },
+        ]);
+
+    const saveForLater = () =>
+        notify('Save this cart for later?', 'We’ll keep it in My orders → Active. Open it any time to carry on where you stopped.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Save cart',
+                onPress: () => {
+                    saveCartForLater();
+                    setTimeout(() => notify('Cart saved', 'Find it in Profile → My orders → Active.', [
+                        { text: 'Keep shopping', style: 'cancel' },
+                        { text: 'View saved', onPress: () => router.push('/orders') },
+                    ], { tone: 'success' }), 300);
+                },
+            },
         ]);
 
     // ---------- Empty state ----------
@@ -133,6 +148,16 @@ const Cart = () => {
                         <Text style={styles.clear}>Clear</Text>
                     </Pressable>
                 </View>
+
+                {/* Save for later: parks this cart in My orders → Active */}
+                <Pressable onPress={saveForLater} style={({ pressed }) => [styles.saveRow, pressed && { opacity: 0.8 }]} accessibilityRole="button">
+                    <View style={styles.saveIcon}><Ionicons name="bookmark" size={16} color="#FD652A" /></View>
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.saveTitle}>Not ready to order?</Text>
+                        <Text style={styles.saveSub}>Save this cart and come back to it later</Text>
+                    </View>
+                    <Text style={styles.saveCta}>Save</Text>
+                </Pressable>
 
                 {/* Items */}
                 <View style={{ marginTop: 16 }}>
@@ -198,6 +223,14 @@ const styles = StyleSheet.create({
     countPill: { backgroundColor: '#FFF1E0', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
     countText: { fontFamily: 'Quicksand-Bold', fontSize: 12, color: '#FD652A' },
     clear: { fontFamily: 'Quicksand-Bold', fontSize: 14, color: '#F14141' },
+    saveRow: {
+        flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, paddingVertical: 12, paddingHorizontal: 14,
+        borderRadius: 18, backgroundColor: '#fff', borderWidth: 1, borderColor: '#FFE1D3',
+    },
+    saveIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: '#FFF1EA', alignItems: 'center', justifyContent: 'center' },
+    saveTitle: { fontFamily: 'Quicksand-Bold', fontSize: 14, color: '#181C2E' },
+    saveSub: { fontFamily: 'Quicksand-Medium', fontSize: 12.5, color: '#878787', marginTop: 1 },
+    saveCta: { fontFamily: 'Quicksand-Bold', fontSize: 14, color: '#FD652A' },
     sectionTitle: { fontFamily: 'Quicksand-Bold', fontSize: 18, color: '#181C2E' },
 
     deliver: {

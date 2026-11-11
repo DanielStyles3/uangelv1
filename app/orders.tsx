@@ -26,7 +26,9 @@ import useFetch from "@/lib/useFetch";
 import { getOrders } from "@/lib/api";
 import { formatDateTime, formatNaira } from "@/lib/format";
 import { openPayment } from "@/lib/payments";
-import type { Order, OrderStatus } from "@/type";
+import { notify } from "@/lib/notice";
+import { useCartStore } from "@/store/cart.store";
+import type { Order, OrderStatus, SavedCart } from "@/type";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -47,6 +49,9 @@ const C = {
 type Tab = "active" | "past";
 
 const ACTIVE_STATUSES: OrderStatus[] = ["awaiting_payment", "pending", "confirmed", "preparing", "on_the_way"];
+// Customers only see real orders: unpaid checkouts (the cart is still in the Cart tab, or saved
+// for later) and cancelled orders are left out. The admin still sees everything.
+const HIDDEN_STATUSES: OrderStatus[] = ["awaiting_payment", "cancelled"];
 
 const STATUS_META: Record<OrderStatus, { label: string; color: string; bg: string; sentence: string }> = {
     awaiting_payment: { label: "Awaiting payment", color: C.orange, bg: "#FFF3E2", sentence: "Complete payment to place your order" },
@@ -54,7 +59,7 @@ const STATUS_META: Record<OrderStatus, { label: string; color: string; bg: strin
     confirmed: { label: "Confirmed", color: "#2F6FEB", bg: "#E8F0FE", sentence: "Your order has been confirmed" },
     preparing: { label: "Preparing", color: C.logo, bg: "#FFEDE5", sentence: "Your order is being prepared" },
     on_the_way: { label: "On the way", color: "#5B4BDB", bg: "#EEEBFF", sentence: "Your order is on its way to you" },
-    delivered: { label: "Delivered", color: C.success, bg: "#E7F5EE", sentence: "Delivered — enjoy your meal!" },
+    delivered: { label: "Delivered", color: C.success, bg: "#E7F5EE", sentence: "Delivered â€” enjoy your meal!" },
     cancelled: { label: "Cancelled", color: C.error, bg: "#FDECEC", sentence: "This order was cancelled" },
 };
 
@@ -72,7 +77,7 @@ const shortId = (id: string) => `#${id.slice(0, 8).toUpperCase()}`;
 const itemSummary = (order: Order) => {
     const items = order.order_items ?? [];
     if (items.length === 0) return "No items";
-    const shown = items.slice(0, 2).map((i) => `${i.quantity}× ${i.name}`).join(", ");
+    const shown = items.slice(0, 2).map((i) => `${i.quantity}Ã— ${i.name}`).join(", ");
     const more = items.length - 2;
     return more > 0 ? `${shown} + ${more} more` : shown;
 };
@@ -284,6 +289,84 @@ const OrderCard = ({ order, index }: { order: Order; index: number }) => {
 };
 
 // ---------------------------------------------------------------------------
+// Saved carts (kept on the phone, shown at the top of Active)
+// ---------------------------------------------------------------------------
+
+const savedTotal = (c: SavedCart) =>
+    c.items.reduce((t, i) => t + i.quantity * (i.price + (i.customizations ?? []).reduce((s, x) => s + x.price, 0)), 0);
+
+const SavedCartCard = ({ cart, index }: { cart: SavedCart; index: number }) => {
+    const { items: current, restoreSavedCart, deleteSavedCart } = useCartStore();
+    const count = cart.items.reduce((n, i) => n + i.quantity, 0);
+    const shown = cart.items.slice(0, 3);
+    const extra = cart.items.length - shown.length;
+    const summary = cart.items.slice(0, 2).map((i) => `${i.quantity}Ã— ${i.name}`).join(", ") + (cart.items.length > 2 ? ` + ${cart.items.length - 2} more` : "");
+
+    const open = () => {
+        restoreSavedCart(cart.id);
+        router.navigate("/cart");
+    };
+    const carryOn = () => {
+        if (!current.length) return open();
+        notify("Replace your current cart?", "Your cart already has items. Continuing with this saved cart will replace them.", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Replace", onPress: open },
+        ]);
+    };
+    const remove = () =>
+        notify("Remove this saved cart?", "You canâ€™t undo this.", [
+            { text: "Keep it", style: "cancel" },
+            { text: "Remove", style: "destructive", onPress: () => deleteSavedCart(cart.id) },
+        ]);
+
+    return (
+        <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 60).duration(320)} style={[styles.card, styles.savedCard]}>
+            <View style={styles.cardTop}>
+                <View style={styles.thumbStack}>
+                    {shown.map((item, i) => (
+                        <View key={`${item.id}-${i}`} style={[styles.thumb, i > 0 && styles.thumbOverlap, { zIndex: 10 - i }]}>
+                            <ProductImage imageUrl={item.image_url} className="size-full" resizeMode="cover" />
+                        </View>
+                    ))}
+                    {extra > 0 && (
+                        <View style={[styles.thumb, styles.thumbOverlap, styles.thumbMore]}>
+                            <Text style={styles.thumbMoreText}>+{extra}</Text>
+                        </View>
+                    )}
+                </View>
+                <View style={styles.cardTopText}>
+                    <Text style={styles.orderNo} numberOfLines={1}>Saved cart</Text>
+                    <Text style={styles.orderDate} numberOfLines={1}>Saved {formatDateTime(cart.savedAt)}</Text>
+                </View>
+                <View style={[styles.statusPill, { backgroundColor: "#FFF1EA" }]}>
+                    <Ionicons name="bookmark" size={11} color={C.orange} />
+                    <Text style={[styles.statusText, { color: C.orange }]}>Not ordered</Text>
+                </View>
+            </View>
+
+            <Text style={styles.summary} numberOfLines={1}>{summary}</Text>
+
+            <View style={styles.divider} />
+
+            <View style={styles.cardBottom}>
+                <View>
+                    <Text style={styles.totalLabel}>{count} item{count === 1 ? "" : "s"} Â· before delivery</Text>
+                    <Text style={styles.total}>{formatNaira(savedTotal(cart))}</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <TouchableOpacity onPress={remove} style={styles.savedRemove} hitSlop={6} accessibilityLabel="Remove saved cart">
+                        <Ionicons name="trash-outline" size={17} color={C.error} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={carryOn} style={styles.payBtn} activeOpacity={0.85} accessibilityRole="button">
+                        <Text style={styles.payBtnText}>Continue</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Animated.View>
+    );
+};
+
+// ---------------------------------------------------------------------------
 // Skeleton + empty state
 // ---------------------------------------------------------------------------
 
@@ -328,8 +411,8 @@ const EmptyState = ({ tab }: { tab: Tab }) => (
         <Text style={styles.emptyTitle}>{tab === "active" ? "No active orders" : "No past orders yet"}</Text>
         <Text style={styles.emptyText}>
             {tab === "active"
-                ? "When you place an order, you can track it right here."
-                : "Orders you've received or cancelled will show up here."}
+                ? "Orders you've paid for, and carts you save for later, show up here."
+                : "Orders you've received will show up here."}
         </Text>
         <TouchableOpacity style={styles.emptyBtn} activeOpacity={0.85} onPress={() => router.replace("/search")}>
             <Ionicons name="storefront-outline" size={18} color={C.white} />
@@ -349,17 +432,21 @@ export default function Orders() {
     // Refresh when coming back from an order (e.g. after cancelling or paying).
     useFocusEffect(useCallback(() => { refetch(); }, [])); // eslint-disable-line react-hooks/exhaustive-deps
 
+    const savedCarts = useCartStore((s) => s.savedCarts);
+
     const { activeOrders, pastOrders } = useMemo(() => {
-        const all = orders ?? [];
+        const all = (orders ?? []).filter((o) => !HIDDEN_STATUSES.includes(o.status));
         return {
             activeOrders: all.filter(isActive),
             pastOrders: all.filter((o) => !isActive(o)),
         };
     }, [orders]);
 
-    // Until the user picks a tab: Active if it has orders, otherwise Past.
-    const currentTab: Tab = tab ?? (orders && activeOrders.length === 0 && pastOrders.length > 0 ? "past" : "active");
+    const activeCount = activeOrders.length + savedCarts.length;
+    // Until the user picks a tab: Active if it has anything, otherwise Past.
+    const currentTab: Tab = tab ?? (orders && activeCount === 0 && pastOrders.length > 0 ? "past" : "active");
     const data = currentTab === "active" ? activeOrders : pastOrders;
+    const showSaved = currentTab === "active" && savedCarts.length > 0;
     const firstLoad = loading && !orders;
 
     return (
@@ -369,7 +456,7 @@ export default function Orders() {
                 <SegmentedTabs
                     tab={currentTab}
                     onChange={setTab}
-                    activeCount={activeOrders.length}
+                    activeCount={activeCount}
                     pastCount={pastOrders.length}
                 />
             </View>
@@ -385,7 +472,14 @@ export default function Orders() {
                     key={currentTab}
                     data={data}
                     keyExtractor={(order) => order.id}
-                    contentContainerStyle={[styles.listContent, data.length === 0 && styles.listEmpty]}
+                    contentContainerStyle={[styles.listContent, data.length === 0 && !showSaved && styles.listEmpty]}
+                    ListHeaderComponent={showSaved ? (
+                        <View style={{ gap: 14 }}>
+                            <Text style={styles.sectionLabel}>SAVED FOR LATER</Text>
+                            {savedCarts.map((c, i) => <SavedCartCard key={c.id} cart={c} index={i} />)}
+                            {activeOrders.length > 0 && <Text style={[styles.sectionLabel, { marginTop: 6 }]}>ORDERS</Text>}
+                        </View>
+                    ) : undefined}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl
@@ -396,7 +490,7 @@ export default function Orders() {
                         />
                     }
                     renderItem={({ item, index }) => <OrderCard order={item} index={index} />}
-                    ListEmptyComponent={<EmptyState tab={currentTab} />}
+                    ListEmptyComponent={showSaved ? undefined : <EmptyState tab={currentTab} />}
                 />
             )}
         </SafeAreaView>
@@ -464,6 +558,9 @@ const styles = StyleSheet.create({
     // List
     listContent: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40, gap: 14 },
     listEmpty: { flexGrow: 1 },
+    sectionLabel: { fontFamily: "Quicksand-Bold", fontSize: 11.5, letterSpacing: 1.4, color: C.grey },
+    savedCard: { borderWidth: 1.5, borderColor: "#FFD9C8", borderStyle: "dashed" },
+    savedRemove: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#FDECEC", alignItems: "center", justifyContent: "center" },
 
     // Card
     card: {

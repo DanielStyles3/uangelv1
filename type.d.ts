@@ -226,8 +226,21 @@ export interface CartItemType {
     customizations?: CartCustomization[];
 }
 
+/** A cart the customer chose to keep for later (My orders → Active). Stored on the phone. */
+export interface SavedCart {
+    id: string;
+    savedAt: string;
+    items: CartItemType[];
+}
+
 export interface CartStore {
     items: CartItemType[];
+    savedCarts: SavedCart[];
+    /** Keeps the current cart in My orders → Active and empties the cart. */
+    saveCartForLater: () => void;
+    /** Puts a saved cart back into the cart (replacing what's there) and removes it from the saved list. */
+    restoreSavedCart: (id: string) => void;
+    deleteSavedCart: (id: string) => void;
     addItem: (item: Omit<CartItemType, "quantity">, quantity?: number) => void;
     removeItem: (id: string, customizations: CartCustomization[]) => void;
     increaseQty: (id: string, customizations: CartCustomization[]) => void;

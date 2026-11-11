@@ -50,7 +50,7 @@ const PaymentOption = ({ icon, title, body, selected, onPress }: {
 
 export default function Checkout() {
     const { user, setUser, isAuthenticated } = useAuthStore();
-    const { items, getTotalItems, getTotalPrice, clearCart } = useCartStore();
+    const { items, getTotalItems, getTotalPrice } = useCartStore();
 
     const [form, setForm] = useState({
         address: user?.address ?? '',
@@ -127,14 +127,13 @@ export default function Checkout() {
                 }
             }
 
-            // The order now exists (awaiting payment), so the cart is done with: retrying
-            // payment happens from the order page, never by placing a second order.
-            clearCart();
-
-            // Opens Paystack inside the app; returns to the order page as soon as it's paid.
-            openPayment(orderId);
+            // The cart stays as it is until the payment succeeds: if the customer comes back
+            // from the payment page they can still change it (the pay screen clears it once paid,
+            // and the server drops this unpaid order if they check out again).
+            openPayment(orderId, 'push', 'checkout');
         } catch (e: any) {
             notify('Could not place order', e.message);
+        } finally {
             setIsSubmitting(false);
         }
     };

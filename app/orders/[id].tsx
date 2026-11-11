@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, {
@@ -109,6 +109,7 @@ const Row = ({ label, value, bold, valueColor }: { label: string; value: string;
 
 export default function OrderDetails() {
     const { id, placed, payment } = useLocalSearchParams<{ id: string; placed?: string; payment?: string }>();
+    const insets = useSafeAreaInsets();
     const { data: order, loading, refetch } = useFetch({ fn: getOrder, params: { id } });
     // Christmas pre-order products, to word the "payment successful" message for giving orders.
     const { data: packs } = useFetch({ fn: getCampaignProducts });
@@ -226,7 +227,8 @@ export default function OrderDetails() {
 
     return (
         <SafeAreaView style={styles.screen} edges={['top']}>
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Pad past the phone's navigation bar so the last line is never hidden behind it. */}
+            <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]} showsVerticalScrollIndicator={false}>
                 <CustomHeader title={`Order #${shortId}`} showSearch={false} />
 
                 {/* Just paid */}

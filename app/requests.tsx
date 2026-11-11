@@ -293,7 +293,8 @@ export default function Requests() {
 
     // Active: soonest event first. Past: most recently sent first (the order they arrive in).
     const { active, past } = useMemo(() => {
-        const all = requests ?? [];
+        // Cancelled requests drop off the customer's list (the admin keeps the record).
+        const all = (requests ?? []).filter((r) => r.status !== "cancelled");
         return {
             active: all.filter((r) => !PAST.has(r.status)).sort((a, b) => a.event_date.localeCompare(b.event_date)),
             past: all.filter((r) => PAST.has(r.status)),
@@ -346,7 +347,7 @@ export default function Requests() {
                             </Text>
                             <Text style={styles.emptyText}>
                                 {emptyPast
-                                    ? "Completed and cancelled requests will show here."
+                                    ? "Completed requests will show here."
                                     : total > 0
                                         ? "Tap New request when you’re planning your next event."
                                         : "Corporate catering, food stands, birthdays, weddings and church events. Tell us what you need and we’ll send you a quote."}

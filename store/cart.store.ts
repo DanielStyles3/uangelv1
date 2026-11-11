@@ -1,5 +1,9 @@
 import { CartCustomization, CartStore } from "@/type";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
+
+const MAX_SAVED = 10;
 
 function areCustomizationsEqual(
     a: CartCustomization[] = [],
@@ -14,8 +18,26 @@ function areCustomizationsEqual(
     return aSorted.every((item, idx) => item.id === bSorted[idx].id && (item.text ?? '') === (bSorted[idx].text ?? ''));
 }
 
-export const useCartStore = create<CartStore>((set, get) => ({
+// Kept on the phone, so the cart survives closing the app and is still there when the
+// customer comes back from the payment page to change something.
+export const useCartStore = create<CartStore>()(persist((set, get) => ({
     items: [],
+    savedCarts: [],
+
+    saveCartForLater: () => {
+        const items = get().items;
+        if (!items.length) return;
+        const saved = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, savedAt: new Date().toISOString(), items };
+        set({ savedCarts: [saved, ...get().savedCarts].slice(0, MAX_SAVED), items: [] });
+    },
+
+    restoreSavedCart: (id) => {
+        const saved = get().savedCarts.find((c) => c.id === id);
+        if (!saved) return;
+        set({ items: saved.items, savedCarts: get().savedCarts.filter((c) => c.id !== id) });
+    },
+
+    deleteSavedCart: (id) => set({ savedCarts: get().savedCarts.filter((c) => c.id !== id) }),
 
     addItem: (item, quantity = 1) => {
         const customizations = item.customizations ?? [];
@@ -93,4 +115,8 @@ export const useCartStore = create<CartStore>((set, get) => ({
                 ) ?? 0;
             return total + item.quantity * (base + customPrice);
         }, 0),
+}), {
+    name: "uangel-cart",
+    storage: createJSONStorage(() => AsyncStorage),
+    partialize: (s) => ({ items: s.items, savedCarts: s.savedCarts }),
 }));

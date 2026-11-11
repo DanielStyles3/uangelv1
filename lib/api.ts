@@ -474,8 +474,9 @@ export const getOrder = async ({ id }: { id: string }): Promise<Order> => {
 /** Counts for the Profile stats card (RLS limits both to the signed-in user). */
 export const getProfileStats = async (): Promise<{ orders: number; requests: number }> => {
     const [orders, requests] = await Promise.all([
-        supabase.from('orders').select('id', { count: 'exact', head: true }),
-        supabase.from('service_requests').select('id', { count: 'exact', head: true }),
+        // Same as the lists the customer sees: no unpaid checkouts, nothing cancelled.
+        supabase.from('orders').select('id', { count: 'exact', head: true }).not('status', 'in', '(awaiting_payment,cancelled)'),
+        supabase.from('service_requests').select('id', { count: 'exact', head: true }).neq('status', 'cancelled'),
     ]);
     if (orders.error) throw new Error(orders.error.message);
     if (requests.error) throw new Error(requests.error.message);
