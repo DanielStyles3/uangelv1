@@ -191,3 +191,6 @@ begin
 end;
 $$;
 grant execute on function public.affiliate_customer_orders(uuid) to authenticated;
+
+-- Backfill (run once): give older commissions an item breakdown at their recorded rate.
+update public.commissions c set items = coalesce((select jsonb_agg(jsonb_build_object('name', oi.name, 'quantity', oi.quantity, 'line_total', oi.line_total, 'rate', c.rate, 'amount', round(oi.line_total * c.rate, 2)) order by oi.name) from public.order_items oi left join public.menu m on m.id = oi.menu_id where oi.order_id = c.order_id and coalesce(m.is_campaign, false) = false), '[]'::jsonb) where c.items = '[]'::jsonb;

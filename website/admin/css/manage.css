@@ -548,3 +548,58 @@ button.af-li:focus-visible { outline: none; box-shadow: inset var(--focus); }
   .af-atable.table-cards .af-a-acts .btn { width: 100%; }
   .af-atable.table-cards td[data-label]::before { font-size: 10px; }
 }
+/* ---------- Affiliates: commissions to review (af-rv / af-r-) ---------- */
+.af-rv-card { border: 1.5px solid #FDBA9B; }
+.af-rv-msg { margin: 0; padding: 0 18px 16px; }
+p.cg-warn.af-rv-msg { margin: 0 18px 16px; }
+.af-link {
+  display: inline; border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--orange, #FD652A);
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer; text-align: left;
+}
+.af-link:hover { color: #EC5317; }
+.af-link:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 6px; }
+.af-r-acts { text-align: right; }
+.af-li-rv { background: #FFF9F5; }
+.af-li-rv .af-li-end .btn { margin-top: 2px; }
+.af-rv-items { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.af-rv-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 100px 96px; gap: 10px; align-items: center;
+  padding: 10px 12px; border-bottom: 1px solid var(--line-2); font-size: 13.5px;
+}
+.af-rv-row:last-child { border-bottom: 0; }
+.af-rv-headrow { padding-top: 8px; padding-bottom: 8px; background: var(--bg); font-size: 11px; font-weight: 700; color: var(--muted); }
+.af-rv-headrow span:not(:first-child) { text-align: right; }
+.af-rv-name { min-width: 0; }
+.af-rv-name b { display: block; overflow-wrap: anywhere; }
+.af-rv-name small, .af-rv-total small { display: block; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.af-rv-pct { position: relative; display: block; }
+.af-rv-pct .input { width: 100%; padding-right: 26px; text-align: right; font-variant-numeric: tabular-nums; }
+.af-rv-pct i { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-style: normal; font-weight: 700; color: var(--muted); pointer-events: none; }
+.af-rv-pct .input[aria-invalid="true"] { border-color: var(--red, #DC2626); }
+.af-rv-amt, .af-rv-total b { text-align: right; font-variant-numeric: tabular-nums; }
+.af-rv-total { background: var(--bg); font-weight: 700; }
+.af-rv-total b { font-size: 15px; }
+.af-rv-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+@media (max-width: 640px) {
+  .af-rv-msg { padding: 0 16px 14px; }
+  p.cg-warn.af-rv-msg { margin: 0 16px 14px; }
+  .af-rv-row { grid-template-columns: minmax(0, 1fr) 84px 84px; gap: 8px; padding: 10px; }
+  .af-rv-pct .input { min-height: 44px; font-size: 16px; }
+  .af-rv-quick .btn { flex: 1 1 0; }
+  .af-li-rv { flex-wrap: wrap; }
+
+  /* Commissions to review → stacked cards. */
+  .af-rtable.table-cards tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: center; }
+  .af-rtable.table-cards .af-r-who { grid-column: 1; grid-row: 1; }
+  .af-rtable.table-cards .af-r-st { grid-column: 2; grid-row: 1; justify-self: end; text-align: right; }
+  .af-rtable.table-cards .af-r-order { grid-column: 1 / -1; }
+  .af-rtable.table-cards .af-r-order .cell-sub { display: inline; }
+  .af-rtable.table-cards .af-r-order .cell-sub::before { content: " · "; }
+  .af-rtable.table-cards .af-r-n {
+    text-align: left; font-size: 13.5px; background: var(--bg); border-radius: 10px; padding: 6px 8px;
+    white-space: normal; overflow-wrap: anywhere; align-self: stretch;
+  }
+  .af-rtable.table-cards .af-r-acts { grid-column: 1 / -1; }
+  .af-rtable.table-cards .af-r-acts .btn { width: 100%; min-height: 44px; }
+  .af-rtable.table-cards td[data-label]::before { font-size: 10px; }
+}

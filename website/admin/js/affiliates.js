@@ -1,8 +1,9 @@
 /* U Angel Foods admin — Affiliates.
- * Summary tiles, the withdrawals waiting to be paid (copy bank details, mark as paid, reject),
+ * Summary tiles, applications, commissions to review (confirm each order's per-item %),
+ * the withdrawals waiting to be paid (copy bank details, mark as paid, reject),
  * and the affiliates list with search, block / unblock and a details side panel (balances,
  * bank account, recent commissions, withdrawal history).
- * Data contract: supabase/affiliates.sql. Styles: css/manage.css (af- + cu-) + css/categories.css (cg-). */
+ * Data contract: supabase/affiliates.sql + supabase/affiliate-review.sql. Styles: css/manage.css (af- + cu-) + css/categories.css (cg-). */
 (function () {
   'use strict';
   var A = window.Admin;
@@ -15,8 +16,9 @@
   var COPY = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   var HOW = 'People apply in the app and get their code once you approve them here. ' +
     'Customers who sign up with an affiliate’s code stay linked to that affiliate. ' +
-    'The affiliate earns up to 5% of the items total of every order those customers pay for (not delivery or Christmas giving packs). ' +
-    'Commission is pending until the order is delivered, then becomes withdrawable 7 days later. ' +
+    'The affiliate earns commission on the items of every order those customers pay for (not delivery or Christmas giving packs), worked out per product: up to 5%, set for each product in Products. ' +
+    'Commission is pending until the order is delivered. You check and confirm it in “Commissions to review” (you can change the % for each item) before it can be withdrawn; ' +
+    'confirmed commission becomes withdrawable 7 days after delivery. ' +
     'Affiliates request withdrawals of ₦2,000 or more in the app; you send the money by bank transfer, then mark the request as paid here.';
 
   var S;
@@ -37,9 +39,18 @@
   function commissionChip(c) {
     if (c.status === 'cancelled') return A.badge('cancelled', 'Cancelled');
     if (c.status === 'pending') return A.badge('pending', 'Awaiting delivery');
+    if (!c.reviewed_at) return A.badge('warn', 'Being reviewed');
     if (c.available_at && new Date(c.available_at).getTime() > Date.now()) return A.badge('warn', 'On hold until ' + A.formatDate(c.available_at));
     return A.badge('success', 'Earned');
   }
+  function pct(rate) { return Math.round(num(rate) * 1000) / 10; }
+  function round2(n) { return Math.round(n * 100) / 100; }
+  function needsReview(c) { return !c.reviewed_at && c.status !== 'cancelled'; }
+  function itemsOf(c) { return Array.isArray(c.items) ? c.items : []; }
+  function reviewChip(c) {
+    return c.status === 'pending' ? A.badge('pending', 'Awaiting delivery') : A.badge('warn', 'Delivered · to review');
+  }
+  var COMM_COLS = 'id, affiliate_id, order_id, customer_id, base_amount, rate, amount, status, available_at, created_at, items, reviewed_at, admin_note';
   function withdrawalChip(w) {
     if (w.status === 'paid') return A.badge('paid', 'Paid');
     if (w.status === 'rejected') return A.badge('danger', 'Rejected');
@@ -69,10 +80,15 @@
     var r = await Promise.all([
       A.sb.rpc('admin_affiliates'),
       A.sb.from('withdrawals').select('id, affiliate_id, amount, status, bank_name, account_number, account_name, admin_note, created_at, processed_at')
-        .eq('status', 'requested').order('created_at', { ascending: true }).limit(500)
+        .eq('status', 'requested').order('created_at', { ascending: true }).limit(500),
+      A.sb.from('commissions').select(COMM_COLS)
+        .is('reviewed_at', null).neq('status', 'cancelled').order('created_at', { ascending: true }).limit(500)
     ]);
     S.rows = A.unwrap(r[0]) || [];
     S.waiting = A.unwrap(r[1]) || [];
+    // The review list is optional: if supabase/affiliate-review.sql isn't run yet the rest of the page still works.
+    if (r[2].error) { S.reviews = []; S.reviewErr = A.errMessage(r[2].error); }
+    else { S.reviews = r[2].data || []; S.reviewErr = ''; }
   }
 
   async function reload() {
@@ -92,7 +108,8 @@
         [waiting ? waiting + ' waiting for approval' : '', blocked ? blocked + ' blocked' : ''].filter(Boolean).join(' · ') || 'all approved') +
       tile('Customers referred', A.formatNumber(sum(rows, 'referrals')), 'signed up with a code') +
       tile('Commission earned', A.formatNaira(sum(rows, 'total_earned')), A.formatNaira(sum(rows, 'pending')) + ' more awaiting delivery') +
-      tile('Owed now', A.formatNaira(sum(rows, 'available')), A.formatNaira(sum(rows, 'on_hold')) + ' still on hold (7 days)') +
+      tile('Owed now', A.formatNaira(sum(rows, 'available')), A.formatNaira(sum(rows, 'on_hold')) + ' on hold (7 days or being reviewed)' +
+        (S.reviews.length ? ' · ' + S.reviews.length + ' to review' : '')) +
       tile('Withdrawals waiting', A.formatNumber(S.waiting.length), S.waiting.length ? A.formatNaira(sum(S.waiting, 'amount')) + ' to pay' : 'Nothing to pay');
   }
 
@@ -118,6 +135,42 @@
             '<button type="button" class="btn btn-ghost btn-sm" data-decline="' + esc(a.user_id) + '">' + I.x + 'Reject</button>' +
           '</div></div>';
       }).join('') + '</div>';
+  }
+
+  function orderRef(orderId) {
+    var label = 'Order #' + esc(A.shortId(orderId));
+    return typeof A.openOrder === 'function' && orderId
+      ? '<button type="button" class="af-link" data-order="' + esc(orderId) + '">' + label + '</button>'
+      : '<span>' + label + '</span>';
+  }
+
+  function reviewsHtml() {
+    var list = S.reviews;
+    var head = '<div class="card-head"><h2>Commissions to review' + (list.length ? ' <span class="af-count">' + list.length + '</span>' : '') + '</h2>';
+    if (S.reviewErr) {
+      return head + '</div><p class="cg-warn af-rv-msg">Couldn’t load commissions to review: ' + esc(S.reviewErr) +
+        (/reviewed_at|items|column/i.test(S.reviewErr) ? ' Run supabase/affiliate-review.sql in the Supabase SQL Editor, then refresh.' : '') + '</p>';
+    }
+    if (!list.length) {
+      return head + '</div><p class="muted small af-rv-msg">All commissions are confirmed. New ones appear here when a referred customer pays for an order.</p>';
+    }
+    var delivered = list.filter(function (c) { return c.status === 'earned'; }).length;
+    return head + '<span class="muted small">Oldest first. Check each order’s items and confirm the commission; affiliates can only withdraw confirmed commission' +
+        (delivered ? ' (' + delivered + ' delivered and waiting for you)' : '') + '.</span></div>' +
+      '<div class="table-wrap"><table class="table table-cards af-rtable"><thead><tr>' +
+      '<th>Affiliate</th><th>Order</th><th>Status</th><th class="num">Items total</th><th class="num">Commission (est.)</th><th><span class="sr-only">Actions</span></th>' +
+      '</tr></thead><tbody>' + list.map(function (c) {
+        var a = byId(c.affiliate_id) || {};
+        var n = itemsOf(c).length;
+        return '<tr data-cid="' + esc(c.id) + '">' +
+          '<td class="af-r-who"><div class="cell-main">' + esc(nameOf(a)) + '</div><div class="cell-sub">' + esc(a.code || '') + (a.status === 'blocked' ? ' · Blocked' : '') + '</div></td>' +
+          '<td class="af-r-order nowrap">' + orderRef(c.order_id) + '<div class="cell-sub">' + esc(A.formatDate(c.created_at)) +
+            (n ? ' · ' + n + ' item' + (n === 1 ? '' : 's') : '') + '</div></td>' +
+          '<td class="af-r-st">' + reviewChip(c) + '</td>' +
+          '<td class="num af-r-n" data-label="Items total">' + esc(A.formatNaira(c.base_amount)) + '</td>' +
+          '<td class="num af-r-n" data-label="Commission (est.)"><b>' + esc(A.formatNaira(c.amount)) + '</b><div class="cell-sub">' + esc(String(pct(c.rate))) + '% overall</div></td>' +
+          '<td class="af-r-acts"><button type="button" class="btn btn-primary btn-sm" data-rv="' + esc(c.id) + '">Review</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
   }
 
   function waitingHtml() {
@@ -191,12 +244,18 @@
   function renderAll() {
     var active = S.rows.filter(function (a) { return a.status === 'active'; }).length;
     var apps = pendingList().length;
+    var revs = S.reviews.length;
     S.el.querySelector('[data-sub]').textContent = (apps ? apps + ' application' + (apps === 1 ? '' : 's') + ' to review · ' : '') +
+      (revs ? revs + ' commission' + (revs === 1 ? '' : 's') + ' to review · ' : '') +
       active + ' active affiliate' + (active === 1 ? '' : 's') + ' · ' + S.waiting.length + ' withdrawal' + (S.waiting.length === 1 ? '' : 's') + ' to pay';
     S.el.querySelector('[data-tiles]').innerHTML = tilesHtml();
     var appsBox = S.el.querySelector('[data-apps]');
     appsBox.innerHTML = appsHtml();
     appsBox.hidden = !apps;
+    var revBox = S.el.querySelector('[data-reviews]');
+    revBox.innerHTML = reviewsHtml();
+    revBox.classList.toggle('af-rv-card', revs > 0);
+    revBox.hidden = false;
     S.el.querySelector('[data-waiting]').innerHTML = waitingHtml();
     renderTable();
   }
@@ -261,6 +320,132 @@
       ]
     });
     form.addEventListener('submit', function (e) { e.preventDefault(); var b = m.el.querySelector('.modal-actions .btn:last-child'); if (b && !b.disabled) b.click(); });
+  }
+
+  /* ---------------- Commission review ---------------- */
+
+  function findReview(id) { return S.reviews.find(function (c) { return c.id === id; }) || null; }
+
+  function openReview(c, onDone) {
+    var a = byId(c.affiliate_id) || {};
+    var items = itemsOf(c);
+    var form = document.createElement('form');
+    form.className = 'cg-form af-form';
+    form.noValidate = true;
+    form.innerHTML =
+      '<p class="cu-note">' + esc(nameOf(a)) + (a.code ? ' (' + esc(a.code) + ')' : '') + ' · ' + orderRef(c.order_id) + ' · paid ' + esc(A.formatDate(c.created_at)) + ' · ' + reviewChip(c) + '</p>' +
+      (c.status === 'pending'
+        ? '<p class="cu-note">This order hasn’t been delivered yet. You can confirm now; the commission becomes withdrawable 7 days after delivery, and it is cancelled automatically if the order is cancelled or refunded.</p>'
+        : '<p class="cu-note">Delivered. Once you confirm, it becomes withdrawable ' +
+            (c.available_at && new Date(c.available_at).getTime() > Date.now() ? 'on ' + esc(A.formatDate(c.available_at)) + ' (7 days after delivery)' : 'straight away (the 7-day hold has passed)') + '.</p>') +
+      (items.length
+        ? '<div class="field"><span class="cg-lbl" id="af-rv-lbl">Commission per item <span class="cg-opt">(0–50%)</span></span>' +
+            '<div class="af-rv-items" role="group" aria-labelledby="af-rv-lbl">' +
+              '<div class="af-rv-row af-rv-headrow" aria-hidden="true"><span>Item</span><span>%</span><span>Commission</span></div>' +
+              items.map(function (it, i) {
+                return '<div class="af-rv-row">' +
+                  '<span class="af-rv-name"><b>' + esc(it.name || 'Item') + ' × ' + esc(String(num(it.quantity) || 1)) + '</b><small>' + esc(A.formatNaira(it.line_total)) + '</small></span>' +
+                  '<span class="af-rv-pct"><label class="sr-only" for="af-rv-' + i + '">Commission % for ' + esc(it.name || 'item') + '</label>' +
+                    '<input id="af-rv-' + i + '" class="input" type="number" inputmode="decimal" min="0" max="50" step="0.1" data-i="' + i + '" value="' + esc(String(pct(it.rate))) + '" aria-describedby="af-rv-err">' +
+                    '<i aria-hidden="true">%</i></span>' +
+                  '<b class="af-rv-amt" data-amt="' + i + '">' + esc(A.formatNaira(it.amount)) + '</b></div>';
+              }).join('') +
+              '<div class="af-rv-row af-rv-total"><span>Total commission <small>on ' + esc(A.formatNaira(c.base_amount)) + ' of items</small></span><span></span><b data-total aria-live="polite"></b></div>' +
+            '</div>' +
+            '<span class="cg-err" id="af-rv-err" data-err role="alert"></span>' +
+            '<div class="af-rv-quick"><button type="button" class="btn btn-ghost btn-sm" data-all="0">Set all to 0%</button>' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-all="5">Set all to 5%</button></div></div>'
+        : '<p class="cg-warn" style="margin:0">This commission (' + esc(A.formatNaira(c.amount)) + ') was recorded before per-item breakdowns, so there are no items to confirm. ' +
+            'Confirming it here would set it to ₦0, so it can’t be confirmed from this screen.</p>') +
+      '<div class="field"><label for="af-rv-note">Note <span class="cg-opt">(optional, the affiliate sees it in the app)</span></label>' +
+        '<textarea id="af-rv-note" class="textarea" maxlength="300" rows="2" placeholder="e.g. Cakes earn 2% because of their lower margin."></textarea></div>' +
+      '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
+    var noteEl = form.querySelector('#af-rv-note');
+    noteEl.value = c.admin_note || '';
+    var inputs = [].slice.call(form.querySelectorAll('input[data-i]'));
+    var errEl = form.querySelector('[data-err]');
+
+    // Returns the percents, or null when any is invalid (and marks those inputs).
+    function read(mark) {
+      var bad = 0, out = inputs.map(function (inp) {
+        var raw = String(inp.value).trim().replace(',', '.');
+        var p = raw === '' ? NaN : Number(raw);
+        var ok = isFinite(p) && p >= 0 && p <= 50;
+        if (!ok) bad++;
+        if (mark) { if (ok) inp.removeAttribute('aria-invalid'); else inp.setAttribute('aria-invalid', 'true'); }
+        return ok ? Math.round(p * 100) / 100 : null;
+      });
+      return bad ? null : out;
+    }
+    function paint() {
+      var total = 0;
+      inputs.forEach(function (inp) {
+        var i = Number(inp.getAttribute('data-i'));
+        var raw = String(inp.value).trim().replace(',', '.');
+        var p = raw === '' ? NaN : Number(raw);
+        var ok = isFinite(p) && p >= 0 && p <= 50;
+        var amt = ok ? round2(num(items[i].line_total) * p / 100) : 0;
+        total += amt;
+        form.querySelector('[data-amt="' + i + '"]').textContent = ok ? A.formatNaira(amt) : '—';
+      });
+      var t = form.querySelector('[data-total]');
+      if (t) t.textContent = A.formatNaira(round2(total));
+      return round2(total);
+    }
+    form.addEventListener('input', function (e) {
+      if (!e.target.matches('input[data-i]')) return;
+      if (errEl.textContent && read(true)) errEl.textContent = '';
+      paint();
+    });
+    form.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-all]');
+      if (b) {
+        inputs.forEach(function (inp) { inp.value = b.getAttribute('data-all'); inp.removeAttribute('aria-invalid'); });
+        errEl.textContent = '';
+        paint();
+        return;
+      }
+      var o = e.target.closest('[data-order]');
+      if (o && typeof A.openOrder === 'function') A.openOrder(o.getAttribute('data-order'));
+    });
+    if (items.length) paint();
+
+    var busy = false;
+    async function go(close) {
+      if (busy) return;
+      var percents = read(true);
+      if (!percents) {
+        errEl.textContent = 'Enter a % between 0 and 50 for every item (e.g. 2.5).';
+        var first = form.querySelector('input[aria-invalid="true"]');
+        if (first) first.focus();
+        return;
+      }
+      var total = paint();
+      busy = true;
+      try {
+        var res = await A.sb.rpc('admin_review_commission', {
+          p_id: c.id,
+          p_rates: percents.map(function (p) { return Math.round(p * 100) / 10000; }),
+          p_note: noteEl.value.trim() || null
+        });
+        if (res.error) throw new Error(A.errMessage(res.error));
+        var saved = Array.isArray(res.data) ? res.data[0] : res.data;
+        close();
+        A.toast('Commission confirmed: ' + A.formatNaira(saved && saved.amount != null ? saved.amount : total) + ' for ' + nameOf(a), 'success');
+        if (A.refreshBadges) A.refreshBadges();
+        await reload();
+        if (onDone) onDone();
+      } finally { busy = false; }
+    }
+    var m = A.modal({
+      title: 'Review commission · #' + A.shortId(c.order_id), body: form, className: 'modal-confirm af-rv-modal',
+      actions: [
+        { label: 'Cancel', variant: 'ghost' },
+        { label: 'Confirm commission', variant: 'success', disabled: !items.length, loadingLabel: 'Saving…', onClick: function (close) { return go(close); } }
+      ]
+    });
+    form.addEventListener('submit', function (e) { e.preventDefault(); var b = m.el.querySelector('.modal-actions .btn:last-child'); if (b && !b.disabled) b.click(); });
+    return m;
   }
 
   /* ---------------- Approve / reject applications ---------------- */
@@ -408,7 +593,7 @@
     var hist = body.querySelector('[data-history]');
     try {
       var r = await Promise.all([
-        A.sb.from('commissions').select('id, order_id, base_amount, rate, amount, status, available_at, created_at')
+        A.sb.from('commissions').select(COMM_COLS)
           .eq('affiliate_id', a.user_id).order('created_at', { ascending: false }).limit(20),
         A.sb.from('withdrawals').select('id, amount, status, bank_name, account_number, admin_note, created_at, processed_at')
           .eq('affiliate_id', a.user_id).order('created_at', { ascending: false }).limit(20)
@@ -420,10 +605,18 @@
       hist.innerHTML =
         '<div class="field"><span class="cg-lbl">Recent commissions</span>' + (comms.length
           ? '<div class="af-list">' + comms.map(function (c) {
+              var sub = '<small>' + esc(A.formatDate(c.created_at)) + ' · ' + esc(String(pct(c.rate))) + '% of ' + esc(A.formatNaira(c.base_amount)) +
+                (c.reviewed_at ? ' · confirmed ' + esc(A.formatDate(c.reviewed_at)) : '') + '</small>' +
+                (c.admin_note ? '<small class="af-note">Note: ' + esc(c.admin_note) + '</small>' : '');
+              var end = '<b>' + esc(A.formatNaira(c.amount)) + '</b>' + commissionChip(c);
+              if (needsReview(c)) {
+                // Not a single button here: the row holds two controls (order link + Review).
+                return '<div class="af-li af-li-rv"><span class="af-li-main">' + orderRef(c.order_id) + sub + '</span>' +
+                  '<span class="af-li-end">' + end + '<button type="button" class="btn btn-primary btn-sm" data-rv="' + esc(c.id) + '">Review</button></span></div>';
+              }
               var tag = canOpen ? 'button type="button" data-order="' + esc(c.order_id) + '"' : 'div';
-              return '<' + tag + ' class="af-li"><span class="af-li-main">Order #' + esc(A.shortId(c.order_id)) +
-                '<small>' + esc(A.formatDate(c.created_at)) + ' · ' + esc(String(Math.round(num(c.rate) * 1000) / 10)) + '% of ' + esc(A.formatNaira(c.base_amount)) + '</small></span>' +
-                '<span class="af-li-end"><b>' + esc(A.formatNaira(c.amount)) + '</b>' + commissionChip(c) + '</span></' + (canOpen ? 'button' : 'div') + '>';
+              return '<' + tag + ' class="af-li"><span class="af-li-main">Order #' + esc(A.shortId(c.order_id)) + sub + '</span>' +
+                '<span class="af-li-end">' + end + '</span></' + (canOpen ? 'button' : 'div') + '>';
             }).join('') + '</div>' + (comms.length === 20 ? '<span class="cg-help">Showing the latest 20.</span>' : '')
           : '<p class="cu-note">No commission yet. It appears here when a customer they referred pays for an order.</p>') + '</div>' +
         '<div class="field"><span class="cg-lbl">Withdrawals</span>' + (wds.length
@@ -436,6 +629,12 @@
             }).join('') + '</div>'
           : '<p class="cu-note">No withdrawals yet.</p>') + '</div>';
       hist.addEventListener('click', function (e) {
+        var rv = e.target.closest('[data-rv]');
+        if (rv) {
+          var c = comms.find(function (x) { return x.id === rv.getAttribute('data-rv'); });
+          if (c) openReview(c, function () { m.close(); var fresh = byId(a.user_id); if (fresh) openDetails(fresh); });
+          return;
+        }
         var o = e.target.closest('[data-order]');
         if (o && canOpen) A.openOrder(o.getAttribute('data-order'));
       });
@@ -449,7 +648,7 @@
 
   async function render(el, params) {
     params = params || A.getParams();
-    S = { el: el, rows: [], waiting: [], q: params.get('q') || '', limit: PAGE };
+    S = { el: el, rows: [], waiting: [], reviews: [], reviewErr: '', q: params.get('q') || '', limit: PAGE };
 
     el.innerHTML =
       '<div class="page-head"><div><h1>Affiliates</h1><p data-sub>People who share their code and earn commission on the customers they bring.</p></div>' +
@@ -457,6 +656,7 @@
       '<p class="pp-note">' + esc(HOW) + '</p>' +
       '<div class="cu-tiles af-tiles" data-tiles>' + A.skeletonBlocks(5, 'cu-sk') + '</div>' +
       '<div class="card flush af-card af-apps-card" data-apps hidden></div>' +
+      '<div class="card flush af-card" data-reviews hidden></div>' +
       '<div class="card flush af-card" data-waiting><div class="table-wrap"><table class="table"><tbody>' + A.skeletonRows(2, 5) + '</tbody></table></div></div>' +
       '<h2 class="af-h2">All affiliates</h2>' +
       '<div class="toolbar"><label class="search"><span class="sr-only">Search affiliates</span>' + I.search +
@@ -479,6 +679,14 @@
       if ((v = b.getAttribute('data-copy')) && (w = findWaiting(v))) return copyBank(w, b);
       if ((v = b.getAttribute('data-pay')) && (w = findWaiting(v))) return settle(w, true);
       if ((v = b.getAttribute('data-reject')) && (w = findWaiting(v))) return settle(w, false);
+    });
+
+    el.querySelector('[data-reviews]').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b || b.disabled || !S.loaded) return;
+      var v, c;
+      if ((v = b.getAttribute('data-rv')) && (c = findReview(v))) return openReview(c);
+      if ((v = b.getAttribute('data-order')) && typeof A.openOrder === 'function') return A.openOrder(v);
     });
 
     el.querySelector('[data-apps]').addEventListener('click', function (e) {
