@@ -159,7 +159,7 @@ const Profile = () => {
                     </View>
                 </View>
 
-                {/* Invite friends, earn 5% */}
+                {/* Invite others, earn up to 5% */}
                 <View style={{ marginTop: 20, marginHorizontal: 20 }}>
                     <ProfileInviteCard summary={affiliate ?? null} />
                 </View>

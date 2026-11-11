@@ -17,18 +17,18 @@ import { notify } from '@/lib/notice';
 const STEPS: { icon: IconName; title: string; body: string; green?: boolean }[] = [
     {
         icon: 'share-social-outline',
-        title: 'Share your link or code',
+        title: 'Share your code and link with people',
         body: 'WhatsApp, Instagram, your status, anywhere.',
     },
     {
         icon: 'bag-handle-outline',
-        title: 'Friends sign up and order',
-        body: 'Your friend must sign up in the U Angel Foods app with your code before their first order. You then earn on their orders for 12 months.',
+        title: 'Customers must sign up',
+        body: 'They sign up in the U Angel Foods app with your code before their first order.',
     },
     {
         icon: 'card-outline',
-        title: 'You earn after delivery',
-        body: '5% of the food total of every paid order. Withdraw to any Nigerian bank from ₦2,000.',
+        title: 'You earn up to 5% per product',
+        body: 'On the food total of every paid order, after delivery. Withdraw to any Nigerian bank from ₦2,000.',
         green: true,
     },
 ];
@@ -140,7 +140,7 @@ export default function Join() {
                     <Enter index={0} style={styles.headerText}>
                         <Text style={styles.kicker}>U ANGEL AFFILIATES</Text>
                         <Text style={styles.h1}>Share the food.{'\n'}Earn. Feed someone.</Text>
-                        <Text style={styles.lead}>Earn 5% on every order placed with your code, paid to your bank.</Text>
+                        <Text style={styles.lead}>Invite others, earn up to 5% on their orders. Paid to your bank.</Text>
                     </Enter>
                 </View>
 

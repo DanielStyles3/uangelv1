@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -60,7 +59,7 @@ export default function Referrals() {
             {summary ? (
                 <Enter index={0}>
                     <Card style={styles.stats}>
-                        <Stat value={String(summary.referrals)} label={Number(summary.referrals) === 1 ? 'Friend joined' : 'Friends joined'} />
+                        <Stat value={String(summary.referrals)} label={Number(summary.referrals) === 1 ? 'Person joined' : 'People joined'} />
                         <View style={styles.statLine} />
                         <Stat value={String(summary.active_referrals)} label="Still earning" />
                         <View style={styles.statLine} />
@@ -70,7 +69,7 @@ export default function Referrals() {
             ) : null}
             <Enter index={1}>
                 <Text style={styles.lead}>
-                    Friends who signed up with your code{summary ? ` ${summary.code}` : ''}. You earn on their paid orders for 12 months from the day they joined.
+                    People who signed up with your code{summary ? ` ${summary.code}` : ''}. You earn up to 5% on their paid orders.
                 </Text>
             </Enter>
             {error ? <Notice tone="red" icon="cloud-offline-outline" text={error} /> : null}
@@ -89,8 +88,8 @@ export default function Referrals() {
                 <IconBubble name="people-outline" size={60} />
                 <Text style={styles.emptyTitle}>No referrals yet</Text>
                 <Text style={styles.emptyBody}>
-                    Share your code or link on WhatsApp, Instagram or your status. Your friend must sign up in the U Angel Foods app
-                    with your code before their first order, then they appear here.
+                    Share your code and link with people on WhatsApp, Instagram or your status. Customers must sign up in the
+                    U Angel Foods app with your code before their first order, then they appear here.
                 </Text>
                 <Button title="Share my code" icon="share-social-outline" onPress={() => router.push('/share')} style={styles.emptyBtn} />
             </Card>
@@ -99,7 +98,7 @@ export default function Referrals() {
 
     return (
         <View style={styles.screen}>
-            <ScreenHeader title="Referrals" kicker="Your friends" scrollY={scrollY} />
+            <ScreenHeader title="Referrals" kicker="People you invited" scrollY={scrollY} />
             <Animated.FlatList
                 style={styles.flex}
                 contentContainerStyle={styles.content}
@@ -112,7 +111,6 @@ export default function Referrals() {
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.orange} colors={[colors.orange]} />}
                 renderItem={({ item, index }) => {
-                    const active = new Date(item.expires_at).getTime() > (state?.now ?? 0);
                     const avatar = AVATARS[index % AVATARS.length];
                     const orders = Number(item.orders);
                     return (
@@ -130,12 +128,7 @@ export default function Referrals() {
                                     </View>
                                 </View>
                                 <View style={styles.rowFoot}>
-                                    <View style={styles.metaRow}>
-                                        <Ionicons name={active ? 'time-outline' : 'stop-circle-outline'} size={14} color={active ? colors.green : colors.grey} />
-                                        <Text style={[styles.meta, !active && styles.metaEnded]} numberOfLines={1}>
-                                            {active ? `Earning until ${formatDate(item.expires_at)}` : `Ended ${formatDate(item.expires_at)}`}
-                                        </Text>
-                                    </View>
+                                    <View style={styles.flex} />
                                     <Chip label={`${orders} ${orders === 1 ? 'order' : 'orders'}`} tone={orders > 0 ? 'orange' : 'grey'} />
                                 </View>
                             </Card>
@@ -184,7 +177,4 @@ const styles = StyleSheet.create({
     earned: { fontFamily: fonts.bold, fontSize: 15, color: colors.green },
     earnedNone: { color: colors.grey },
     rowFoot: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.line },
-    metaRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 5 },
-    meta: { flexShrink: 1, fontFamily: fonts.bold, fontSize: 12, color: colors.green },
-    metaEnded: { color: colors.grey },
 });

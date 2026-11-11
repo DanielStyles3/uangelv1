@@ -248,14 +248,14 @@ export default function OrderDetails() {
                     </Animated.View>
                 )}
 
-                {/* Just paid: invite a friend, earn 5% */}
+                {/* Just paid: invite others, earn up to 5% */}
                 {placed === '1' && isPaid && !hideInvite && (
                     <Animated.View entering={FadeInDown.delay(350).duration(400)} style={styles.inviteCard}>
                         <View style={styles.inviteTop}>
                             <View style={styles.inviteIcon}><Ionicons name="gift" size={24} color="#fff" /></View>
                             <View style={{ flex: 1, gap: 2 }}>
                                 <Text style={styles.inviteTitle}>Know someone who’d enjoy this?</Text>
-                                <Text style={styles.inviteBody}>Invite a friend and earn 5% of what they order for 12 months.</Text>
+                                <Text style={styles.inviteBody}>Invite others and earn up to 5% on their orders.</Text>
                             </View>
                         </View>
                         <View style={styles.inviteBtns}>

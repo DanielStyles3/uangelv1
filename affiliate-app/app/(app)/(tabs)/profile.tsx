@@ -14,12 +14,11 @@ import { colors, CONTACT, fonts } from '@/lib/theme';
 
 import { notify } from '@/lib/notice';
 const HOW_IT_WORKS: { icon: IconName; text: string }[] = [
-    { icon: 'share-social-outline', text: 'Share your code or link with friends, family and followers.' },
+    { icon: 'share-social-outline', text: 'Share your code and link with people: family, friends and followers.' },
     {
         icon: 'person-add-outline',
-        text: 'Your friend must sign up in the U Angel Foods app with your code before their first order. Codes can’t be added to existing customers.',
+        text: 'Customers must sign up in the U Angel Foods app with your code before their first order. Codes can’t be added to existing customers.',
     },
-    { icon: 'calendar-outline', text: 'Each friend is linked to you for 12 months from the day they sign up.' },
     {
         icon: 'cash-outline',
         text: 'You earn your rate on the food total of every order they pay for. Delivery fees and Christmas giving packs don’t count.',

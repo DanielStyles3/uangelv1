@@ -165,7 +165,7 @@ export default function AnimatedSplash({ ready, onFinish }: Props) {
                     <Animated.View style={[styles.burst, burstStyle]} />
                     <Animated.View style={[styles.badge, badgeStyle]}>
                         <Text style={styles.badgeText} numberOfLines={1}>
-                            <Text style={styles.badgeBig}>5%</Text>{'  '}on every order
+                            Up to <Text style={styles.badgeBig}>5%</Text> on every order
                         </Text>
                     </Animated.View>
                 </View>
@@ -240,6 +240,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16, paddingVertical: 8,
         shadowColor: '#7A2A0B', shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
     },
-    badgeText: { width: 190, textAlign: 'center', fontFamily: fonts.bold, fontSize: 13, color: colors.navy },
+    badgeText: { width: 210, textAlign: 'center', fontFamily: fonts.bold, fontSize: 13, color: colors.navy },
     badgeBig: { fontFamily: fonts.bold, fontSize: 20, color: colors.orange },
 });

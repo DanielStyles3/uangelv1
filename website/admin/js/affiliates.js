@@ -14,8 +14,8 @@
   var ICON = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.59 13.51 6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>';
   var COPY = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   var HOW = 'People apply in the app and get their code once you approve them here. ' +
-    'Customers who sign up with an affiliate’s code are linked to that affiliate for 12 months. ' +
-    'The affiliate earns 5% of the items total of every order those customers pay for (not delivery or Christmas giving packs). ' +
+    'Customers who sign up with an affiliate’s code stay linked to that affiliate. ' +
+    'The affiliate earns up to 5% of the items total of every order those customers pay for (not delivery or Christmas giving packs). ' +
     'Commission is pending until the order is delivered, then becomes withdrawable 7 days later. ' +
     'Affiliates request withdrawals of ₦2,000 or more in the app; you send the money by bank transfer, then mark the request as paid here.';
 
@@ -267,7 +267,7 @@
 
   async function approve(a, btn) {
     var ok = await A.confirm('Approve ' + nameOf(a) + '?\n\nThey get their own invite code straight away and earn ' +
-      (Math.round(num(a.rate) * 1000) / 10) + '% on the items in every order their referred customers pay for, for 12 months.',
+      (Math.round(num(a.rate) * 1000) / 10) + '% on the items in every order their referred customers pay for.',
       { title: 'Approve affiliate', confirmLabel: 'Approve' });
     if (!ok) return false;
     if (btn) A.setLoading(btn, true, 'Approving…');

@@ -29,9 +29,9 @@ const tap = () => { Haptics.selectionAsync().catch(() => {}); };
 const success = () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); };
 
 const STEPS: { icon: IconName; title: string; text: string }[] = [
-    { icon: "share-social", title: "Share your code", text: "Send your code or link to friends and family." },
-    { icon: "person-add", title: "Friends sign up and order", text: "They enter your code when they create their account." },
-    { icon: "cash", title: "You earn", text: "On the items in every order they pay for, for 12 months. Paid to your bank." },
+    { icon: "share-social", title: "Send your code and link to others", text: "Share it on WhatsApp or anywhere you like." },
+    { icon: "person-add", title: "Others sign up and order", text: "They enter your code when they create their account." },
+    { icon: "cash", title: "You earn up to {rate} per product", text: "On the items in every order they pay for. Paid to your bank." },
 ];
 
 /** The three steps, joined by a thin line. */
@@ -50,7 +50,7 @@ const HowItWorks = ({ rate }: { rate: string }) => (
                             {!last && <View style={styles.stepLine} />}
                         </View>
                         <View style={[styles.stepBody, last && { paddingBottom: 0 }]}>
-                            <Text style={styles.stepTitle}>{last ? `${step.title} ${rate}` : step.title}</Text>
+                            <Text style={styles.stepTitle}>{step.title.replace("{rate}", rate)}</Text>
                             <Text style={styles.stepText}>{step.text}</Text>
                         </View>
                     </View>
@@ -81,7 +81,7 @@ const PrimaryButton = ({ title, icon, loading, onPress }: { title: string; icon?
     </ScalePress>
 );
 
-/** Invite friends: get your code, share it, and see how it's going. */
+/** Invite & earn: get your code, share it, and see how it's going. */
 export default function Invite() {
     const insets = useSafeAreaInsets();
     const { isAuthenticated } = useAuthStore();
@@ -161,7 +161,7 @@ export default function Invite() {
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ORANGE} colors={[ORANGE]} />}
             >
-                <ScreenHeader title="Invite friends" />
+                <ScreenHeader title="Invite & earn" />
 
                 {firstLoad ? (
                     <ActivityIndicator color={ORANGE} style={{ marginTop: 60 }} />
@@ -175,7 +175,7 @@ export default function Invite() {
                             <TouchableOpacity onPress={() => copy("code")} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`Your code is ${code.split("").join(" ")}. Tap to copy`}>
                                 <Text style={styles.code} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{code}</Text>
                             </TouchableOpacity>
-                            <Text style={styles.heroText}>Friends who join with it earn you {rate} of everything they order for 12 months.</Text>
+                            <Text style={styles.heroText}>People who join with it earn you up to {rate} on their orders.</Text>
 
                             <ScalePress style={styles.copyBtn} wrapStyle={{ alignSelf: "stretch" }} onPress={() => copy("code")} accessibilityRole="button" accessibilityLabel={copied === "code" ? "Code copied" : "Copy code"}>
                                 <Ionicons name={copied === "code" ? "checkmark-circle" : "copy-outline"} size={18} color={copied === "code" ? "#15803D" : NAVY} />
@@ -210,7 +210,7 @@ export default function Invite() {
 
                         {/* How it's going */}
                         <Animated.View entering={riseIn(2)} style={styles.stats}>
-                            <Stat icon="people" value={(summary?.referrals ?? 0).toLocaleString("en-NG")} label="Friends joined" />
+                            <Stat icon="people" value={(summary?.referrals ?? 0).toLocaleString("en-NG")} label="People joined" />
                             <Stat
                                 icon="wallet"
                                 value={formatNaira(summary?.total_earned ?? 0)}
@@ -221,7 +221,7 @@ export default function Invite() {
 
                         <Animated.View entering={riseIn(3)} style={styles.note}>
                             <Ionicons name="information-circle" size={18} color="#B45309" />
-                            <Text style={styles.noteText}>Your friend must sign up with your code before their first order.</Text>
+                            <Text style={styles.noteText}>Customers must sign up with your code before their first order.</Text>
                         </Animated.View>
 
                         {/* The Affiliates app */}
@@ -230,7 +230,7 @@ export default function Invite() {
                                 <View style={styles.appIcon}><Ionicons name="trending-up" size={22} color="#fff" /></View>
                                 <Text style={styles.appTitle}>Track earnings and withdraw in the U Angel Affiliates app</Text>
                             </View>
-                            <Text style={styles.appText}>See every order your friends place, watch your balance grow and request a payout to your bank account.</Text>
+                            <Text style={styles.appText}>See every order the people you invite place, watch your balance grow and request a payout to your bank account.</Text>
                             <PrimaryButton title="Get the Affiliates app" icon={<Ionicons name="open-outline" size={17} color="#fff" />} onPress={openAffiliatesApp} />
                         </Animated.View>
 
@@ -263,8 +263,8 @@ export default function Invite() {
                             <View style={styles.heroGlow} />
                             <View style={styles.heroGlowSmall} />
                             <View style={styles.giftTile}><Ionicons name="gift" size={30} color="#fff" /></View>
-                            <Text style={styles.heroTitle}>Invite friends,{"\n"}earn {rate}</Text>
-                            <Text style={styles.heroText}>On everything they order for 12 months.</Text>
+                            <Text style={styles.heroTitle}>Invite others,{"\n"}earn up to {rate}</Text>
+                            <Text style={styles.heroText}>On their orders, paid to your bank.</Text>
                         </Animated.View>
 
                         {rejected && (

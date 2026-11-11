@@ -1,4 +1,4 @@
-// Invite friends (the affiliate programme, see supabase/affiliates.sql).
+// Invite & earn (the affiliate programme, see supabase/affiliates.sql).
 
 /** Where the "U Angel Affiliates" app is downloaded (earnings and withdrawals live there). */
 export const AFFILIATES_APP_URL = 'https://uangelfoods.com/affiliates';

@@ -161,7 +161,7 @@ export default function ShareScreen() {
             <Enter index={4}>
                 <Notice
                     icon="information-circle-outline"
-                    text="Your friend must sign up in the U Angel Foods app with your code, before their first order."
+                    text="Customers must sign up in the U Angel Foods app with your code, before their first order."
                 />
             </Enter>
         </Screen>

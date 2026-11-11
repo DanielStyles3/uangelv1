@@ -221,7 +221,7 @@ export default function EarningsTab() {
                             <IconBubble name="sparkles-outline" size={48} />
                             <Text style={styles.emptyTitle}>No earnings yet</Text>
                             <Text style={styles.empty}>
-                                Share your code. When a friend you referred pays for an order, it shows here.
+                                Share your code. When someone you referred pays for an order, it shows here.
                             </Text>
                         </View>
                     ) : (

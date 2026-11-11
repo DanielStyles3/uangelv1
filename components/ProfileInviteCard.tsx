@@ -12,7 +12,7 @@ const ORANGE = "#FD652A";
 const NAVY = "#181C2E";
 
 /**
- * Profile: the navy "Invite friends, earn 5%" card.
+ * Profile: the navy "Invite others, earn up to 5%" card.
  * With a code: shows it with a Share button and what's been earned. Without: "Get my code".
  * Tapping the card opens the Invite screen.
  */
@@ -34,14 +34,14 @@ const ProfileInviteCard = ({ summary: raw }: { summary: AffiliateSummary | null 
             style={styles.card}
             onPress={open}
             accessibilityRole="button"
-            accessibilityLabel="Invite friends, earn 5% on everything they order for 12 months"
+            accessibilityLabel="Invite others, earn up to 5% on their orders"
         >
             <View style={styles.glow} />
 
             <View style={styles.top}>
                 <View style={{ flex: 1, gap: 4 }}>
                     <Text style={styles.eyebrow}>INVITE &amp; EARN</Text>
-                    <Text style={styles.title}>Invite friends,{"\n"}earn 5%</Text>
+                    <Text style={styles.title}>Invite others,{"\n"}earn up to 5%</Text>
                 </View>
                 {summary ? (
                     <View style={{ alignItems: "flex-end", gap: 2 }}>
@@ -75,10 +75,10 @@ const ProfileInviteCard = ({ summary: raw }: { summary: AffiliateSummary | null 
 
             <Text style={styles.small}>
                 {summary
-                    ? `${friends} friend${friends === 1 ? "" : "s"} joined · on everything they order for 12 months`
+                    ? `${friends} ${friends === 1 ? "person" : "people"} joined · up to 5% on their orders`
                     : pending
                         ? "Your code appears here once you’re approved."
-                        : "On everything they order for 12 months."}
+                        : "On their orders, paid to your bank."}
             </Text>
         </ScalePress>
     );
