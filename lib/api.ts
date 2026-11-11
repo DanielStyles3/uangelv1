@@ -3,6 +3,7 @@ import {
     Category,
     CreateUserParams,
     Customization,
+    DeliveryQuote,
     GetMenuParams,
     MenuItem,
     NewServiceRequest,
@@ -28,7 +29,7 @@ const withFallbackPhoto = ({ categories, ...item }: MenuRow): MenuItem => ({
 });
 const CATEGORY_COLUMNS = 'id, name, description, parent_id, emoji, color, image_url, sort_order, delivery_note, kind, enquiry_only, created_at';
 const PROFILE_COLUMNS = 'id, name, email, avatar, phone, address, city, state, landmark, delivery_phone, created_at';
-const ORDER_COLUMNS = 'id, user_id, status, payment_method, payment_status, paystack_reference, paid_at, subtotal, delivery_fee, total, online_amount, balance_due, balance_collected_at, delivery_address, city, state, phone, note, created_at';
+const ORDER_COLUMNS = 'id, user_id, status, payment_method, payment_status, paystack_reference, paid_at, subtotal, delivery_fee, total, online_amount, balance_due, balance_collected_at, delivery_address, city, state, phone, note, delivery_plan, created_at';
 
 // Supabase returns { data, error }; turn errors into thrown Errors so callers can try/catch.
 function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
@@ -447,7 +448,16 @@ export const getDeliveryFee = async (menuIds: string[]): Promise<number> => {
  * Creates the order as 'awaiting_payment'; pay it with openPayment() (lib/payments.ts → app/pay.tsx).
  * 'pay_on_delivery': only the delivery fee is paid online; the items are paid to the rider.
  */
-export const placeOrder = async ({ items, address, city, state, phone, note, paymentMethod = 'paystack' }: PlaceOrderParams): Promise<string> => {
+/** Delivery fees for a cart: together (one run) vs split (same-day now + next-day tomorrow). */
+export const getDeliveryQuote = async (menuIds: string[]): Promise<DeliveryQuote> => {
+    const { data, error } = await supabase.rpc('delivery_quote', { p_menu_ids: menuIds });
+    if (error) throw new Error(error.message);
+    const q = data as Record<string, unknown>;
+    const n = (v: unknown) => Number(v ?? 0) || 0;
+    return { together: n(q.together), today: n(q.today), tomorrow: n(q.tomorrow), split: n(q.split), has_both: !!q.has_both };
+}
+
+export const placeOrder = async ({ items, address, city, state, phone, note, paymentMethod = 'paystack', deliveryPlan = 'together' }: PlaceOrderParams): Promise<string> => {
     const { data, error } = await supabase.rpc('place_order', {
         p_items: items.map((item) => {
             const all = item.customizations ?? [];
@@ -465,6 +475,7 @@ export const placeOrder = async ({ items, address, city, state, phone, note, pay
         p_phone: phone,
         p_payment_method: paymentMethod,
         p_note: note ?? null,
+        p_delivery_plan: deliveryPlan,
     });
 
     if (error) throw new Error(error.message);

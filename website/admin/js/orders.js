@@ -249,7 +249,7 @@
         '<button type="button" class="btn btn-ghost" data-cancel style="color:var(--red)">' + I.x + 'Cancel order</button></div>';
     }
 
-    var itemsHtml = items.length ? items.map(function (it) {
+    function itemRow(it) {
       var img = it.image_url
         ? '<img class="thumb" src="' + esc(it.image_url) + '" alt="" loading="lazy">'
         : '<span class="thumb" aria-hidden="true">\uD83C\uDF7D\uFE0F</span>';
@@ -257,7 +257,22 @@
         '<div class="meta">' + esc(it.quantity) + ' \u00D7 ' + esc(A.formatNaira(it.unit_price)) + '</div>' +
         customizationsHtml(it.customizations) + '</div>' +
         '<div class="price">' + esc(A.formatNaira(it.line_total)) + '</div></div>';
-    }).join('') : '<p class="muted">No items recorded for this order.</p>';
+    }
+    // Mixed carts: the customer chose two deliveries (today + tomorrow) or everything tomorrow.
+    function runHead(title, sub) {
+      return '<div class="dl-run"><b>' + esc(title) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>';
+    }
+    var itemsHtml;
+    if (!items.length) itemsHtml = '<p class="muted">No items recorded for this order.</p>';
+    else if (o.delivery_plan === 'split') {
+      var today = items.filter(function (it) { return it.delivery_day !== 'tomorrow'; });
+      var tomorrow = items.filter(function (it) { return it.delivery_day === 'tomorrow'; });
+      itemsHtml = runHead('Deliver today', today.length + ' item' + (today.length === 1 ? '' : 's')) + today.map(itemRow).join('') +
+        runHead('Deliver tomorrow', 'Groceries / Local Market \u00B7 ' + tomorrow.length + ' item' + (tomorrow.length === 1 ? '' : 's')) + tomorrow.map(itemRow).join('');
+    } else {
+      itemsHtml = (o.delivery_plan === 'together' ? runHead('Deliver everything tomorrow', 'The customer chose one delivery (the order includes groceries / Local Market items)') : '') +
+        items.map(itemRow).join('');
+    }
 
     var waUrl = A.waLink(phone);
     var contact = '<dl class="kv">' +
@@ -296,7 +311,7 @@
       '<div class="detail-grid">' +
         '<div class="panel"><h3>Items (' + items.length + ')</h3><div class="items">' + itemsHtml + '</div>' +
           '<div class="totals"><div><span>Subtotal</span><span>' + esc(A.formatNaira(o.subtotal)) + '</span></div>' +
-          '<div><span>Delivery fee</span><span>' + esc(A.formatNaira(o.delivery_fee)) + '</span></div>' +
+          '<div><span>' + (o.delivery_plan === 'split' ? 'Delivery (2 deliveries)' : o.delivery_plan === 'together' ? 'Delivery (all tomorrow)' : 'Delivery fee') + '</span><span>' + esc(A.formatNaira(o.delivery_fee)) + '</span></div>' +
           '<div class="grand"><span>Total</span><span>' + esc(A.formatNaira(o.total)) + '</span></div>' +
           (isPod(o)
             ? '<div><span>Paid online (delivery)</span><span>' + esc(A.formatNaira(o.online_amount != null ? o.online_amount : o.delivery_fee)) + '</span></div>' +

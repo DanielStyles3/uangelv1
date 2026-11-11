@@ -120,6 +120,8 @@ export interface Order {
     id: string;
     user_id: string;
     status: OrderStatus;
+    /** Mixed same-day + next-day carts only: 'together' (all tomorrow) or 'split' (two deliveries). */
+    delivery_plan?: DeliveryPlan | null;
     payment_method: PaymentMethod;
     payment_status: PaymentStatus;
     paystack_reference: string | null;
@@ -188,6 +190,19 @@ export interface PlaceOrderParams {
     /** Default 'paystack' (pay everything now). */
     paymentMethod?: CheckoutPaymentMethod;
     note?: string;
+    /** Same-day + next-day items: 'together' (all tomorrow, one fee) or 'split' (two runs, two fees). */
+    deliveryPlan?: DeliveryPlan;
+}
+
+export type DeliveryPlan = 'together' | 'split';
+
+/** delivery_quote(): fees for each choice, and whether the cart mixes same-day and next-day items. */
+export interface DeliveryQuote {
+    together: number;
+    today: number;
+    tomorrow: number;
+    split: number;
+    has_both: boolean;
 }
 
 export interface CartCustomization {

@@ -11,16 +11,18 @@ import StatePicker from "@/components/StatePicker";
 import PaymentInfoStripe from "@/components/PaymentInfoStripe";
 import { DELIVERY_FEE } from "@/constants";
 import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
-import { getCampaignProducts, placeOrder, updateProfile } from "@/lib/api";
+import { getCampaignProducts, getDeliveryQuote, placeOrder, updateProfile } from "@/lib/api";
 import useFetch from "@/lib/useFetch";
 import { openPayment } from "@/lib/payments";
 import useDeliveryFee from "@/lib/useDeliveryFee";
 import { Ionicons } from "@expo/vector-icons";
 import { useCartStore } from "@/store/cart.store";
 import useAuthStore from "@/store/auth.store";
-import { CheckoutPaymentMethod } from "@/type";
+import { CheckoutPaymentMethod, DeliveryPlan } from "@/type";
 
 import { notify } from "@/lib/notice";
+
+const loadQuote = ({ ids }: { ids: string }) => getDeliveryQuote(ids.split(','));
 
 /** Longest note for the recipient of a Christmas gift (printed and attached to the food). */
 const NOTE_MAX = 500;
@@ -68,7 +70,12 @@ export default function Checkout() {
     const [saveAddress, setSaveAddress] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>('paystack');
-    const { fee: deliveryFee, ready: feeReady } = useDeliveryFee(items.map((i) => i.id));
+    const { fee: standardFee, ready: feeReady } = useDeliveryFee(items.map((i) => i.id));
+    // Same-day items + next-day items (groceries / Local Market): deliver together tomorrow (one fee)
+    // or split into today + tomorrow (two fees). The server charges the same amounts.
+    const idsKey = [...new Set(items.map((i) => i.id))].sort().join(',');
+    const { data: quote } = useFetch({ fn: loadQuote, params: { ids: idsKey }, skip: !idsKey });
+    const [plan, setPlan] = useState<DeliveryPlan>('together');
     // Christmas giving: a cart with ONLY the Christmas Food Pack isn't delivered to the buyer,
     // so no address, no delivery fee and no pay-on-delivery (the server enforces the same).
     const { data: packs } = useFetch({ fn: getCampaignProducts });
@@ -83,6 +90,9 @@ export default function Checkout() {
     if (!isAuthenticated) return <Redirect href="/sign-in" />;
     if (items.length === 0 && !isSubmitting) return <Redirect href="/cart" />;
 
+    const mixed = !givingOnly && !!quote?.has_both;
+    const split = mixed && plan === 'split';
+    const deliveryFee = mixed ? (split ? quote!.split : quote!.together) : standardFee;
     const subtotal = getTotalPrice();
     const total = subtotal + deliveryFee;
     const payOnDelivery = !givingOnly && paymentMethod === 'pay_on_delivery';
@@ -122,6 +132,7 @@ export default function Checkout() {
                     phone,
                     note: form.note.trim() || undefined,
                     paymentMethod,
+                    deliveryPlan: split ? 'split' : 'together',
                 });
 
             if (!givingOnly && saveAddress && user) {
@@ -303,6 +314,28 @@ export default function Checkout() {
                     </View>
                     )}
 
+                    {/* Mixed cart: groceries / Local Market come next day, so choose one delivery or two. */}
+                    {mixed && quote && (
+                        <View className="gap-3">
+                            <Text className="h3-bold text-dark-100">Delivery</Text>
+                            <Text className="body-regular text-gray-200">Groceries and Local Market items are delivered the next day. How would you like your order?</Text>
+                            <PaymentOption
+                                icon="cube"
+                                title="Deliver everything tomorrow"
+                                body={`One delivery, ${formatNaira(quote.together)}. We bring all your items together tomorrow.`}
+                                selected={!split}
+                                onPress={() => setPlan('together')}
+                            />
+                            <PaymentOption
+                                icon="git-branch"
+                                title="Split into two deliveries"
+                                body={`Today: your other items (${formatNaira(quote.today)}). Tomorrow: groceries and market items (${formatNaira(quote.tomorrow)}). ${formatNaira(quote.split)} in total.`}
+                                selected={split}
+                                onPress={() => setPlan('split')}
+                            />
+                        </View>
+                    )}
+
                     {/* Pay everything now, or pay the delivery fee now and the items to the rider.
                         Online payments go through Paystack: card, bank transfer or USSD. */}
                     <View className="gap-3">
@@ -337,8 +370,15 @@ export default function Checkout() {
                         ))}
                         <View className="border-t border-gray-300 my-2" />
                         <PaymentInfoStripe label={`Subtotal (${getTotalItems()} item${getTotalItems() === 1 ? '' : 's'})`} value={formatNaira(subtotal)} />
-                        <PaymentInfoStripe label="Delivery fee" value={givingOnly ? 'Free' : feeReady ? formatNaira(deliveryFee) : '…'} />
-                        {feeReady && deliveryFee > DELIVERY_FEE && (
+                        {split ? (
+                            <>
+                                <PaymentInfoStripe label="Delivery today" value={formatNaira(quote!.today)} />
+                                <PaymentInfoStripe label="Delivery tomorrow (groceries & market)" value={formatNaira(quote!.tomorrow)} />
+                            </>
+                        ) : (
+                            <PaymentInfoStripe label={mixed ? 'Delivery (everything tomorrow)' : 'Delivery fee'} value={givingOnly ? 'Free' : feeReady || mixed ? formatNaira(deliveryFee) : '…'} />
+                        )}
+                        {!mixed && feeReady && deliveryFee > DELIVERY_FEE && (
                             <Text className="body-regular text-gray-200">{formatNaira(deliveryFee)} delivery: one fee per order, the highest among your items.</Text>
                         )}
                         <View className="border-t border-gray-300 my-2" />

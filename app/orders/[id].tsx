@@ -337,7 +337,15 @@ export default function OrderDetails() {
                     </View>
                     <View style={{ gap: 10 }}>
                         <Row label="Subtotal" value={formatNaira(order.subtotal)} />
-                        <Row label="Delivery fee" value={formatNaira(order.delivery_fee)} />
+                        <Row
+                            label={order.delivery_plan === 'split' ? 'Delivery (2 deliveries)' : order.delivery_plan === 'together' ? 'Delivery (all tomorrow)' : 'Delivery fee'}
+                            value={formatNaira(order.delivery_fee)}
+                        />
+                        {order.delivery_plan === 'split' && (
+                            <Text style={{ fontFamily: 'Quicksand-SemiBold', fontSize: 12.5, color: '#5B5B66', lineHeight: 18 }}>
+                                Your other items come first; groceries and Local Market items arrive the next day.
+                            </Text>
+                        )}
                         <View style={styles.dashed} />
                         <Row label="Total" value={formatNaira(order.total)} bold />
                         {isPod && (
