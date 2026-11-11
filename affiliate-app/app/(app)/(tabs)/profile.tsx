@@ -1,57 +1,57 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
-import { Fragment, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Fragment, useCallback, useState } from 'react';
 import { Linking, StyleSheet, Text, View } from 'react-native';
 
-import { Enter, PressableScale } from '@/components/motion';
+import { CountUpNaira, Enter, PressableScale } from '@/components/motion';
 import { Screen } from '@/components/Screen';
-import { Avatar, Button, Card, CardHeader, Chip, IconBubble, IconName } from '@/components/ui';
+import { Avatar, Button, Card, Chip, IconBubble, IconName } from '@/components/ui';
 import { useAffiliate } from '@/lib/affiliate';
-import { signOut } from '@/lib/api';
+import { getMyProfile, MyProfile, signOut } from '@/lib/api';
 import { displayName, useAuth } from '@/lib/auth';
-import { errorMessage, formatRate } from '@/lib/format';
+import { errorMessage, formatDate } from '@/lib/format';
+import { notify } from '@/lib/notice';
 import { colors, CONTACT, fonts } from '@/lib/theme';
 
-import { notify } from '@/lib/notice';
-const HOW_IT_WORKS: { icon: IconName; text: string }[] = [
-    { icon: 'share-social-outline', text: 'Share your code and link with people: family, friends and followers.' },
-    {
-        icon: 'person-add-outline',
-        text: 'Customers must sign up in the U Angel Foods app with your code before their first order. Codes can’t be added to existing customers.',
-    },
-    {
-        icon: 'cash-outline',
-        text: 'You earn your rate on the food total of every order they pay for. Delivery fees and Christmas giving packs don’t count.',
-    },
-    {
-        icon: 'time-outline',
-        text: 'Earnings show as Pending once the order is paid, then go On hold when it’s delivered. They become available to withdraw 7 days after delivery.',
-    },
-    {
-        icon: 'business-outline',
-        text: 'Withdraw from ₦2,000 to any Nigerian bank account, one request at a time. We check it and send the money by bank transfer.',
-    },
-];
+type Row = { icon: IconName; title: string; value?: string; onPress: () => void; tone?: 'orange' | 'green' | 'navy' };
 
-const TERMS: { icon: IconName; text: string }[] = [
-    { icon: 'people-circle-outline', text: 'No self-referrals: you can’t use your own code, or create extra accounts to use it.' },
-    { icon: 'megaphone-outline', text: 'No spam, misleading claims or paid ads using the U Angel Foods name without our permission.' },
-    { icon: 'close-circle-outline', text: 'Cancelled or refunded orders don’t earn, and earnings already made on them are removed.' },
-    { icon: 'shield-outline', text: 'We may put an account on hold and withhold earnings if we see abuse.' },
-    { icon: 'notifications-outline', text: 'Rates and terms may change; we’ll tell you in the app before they do.' },
-];
-
+/** Profile: who you are, your affiliate account at a glance, settings, payouts, help and the programme policy. */
 export default function Profile() {
+    const router = useRouter();
     const { session } = useAuth();
-    const { summary } = useAffiliate();
+    const { summary, refresh } = useAffiliate();
+    const [profile, setProfile] = useState<MyProfile | null>(null);
     const [busy, setBusy] = useState(false);
 
-    const name = displayName(session);
-    const email = session?.user.email ?? '';
-    const version = Constants.expoConfig?.version ?? '1.0.0';
+    // Re-read name/phone whenever the tab comes back into view (e.g. after editing them).
+    useFocusEffect(
+        useCallback(() => {
+            let alive = true;
+            getMyProfile().then((p) => alive && setProfile(p)).catch(() => {});
+            return () => { alive = false; };
+        }, []),
+    );
 
-    const open = (url: string, fallback: string) =>
-        Linking.openURL(url).catch(() => notify('Couldn’t open that', fallback));
+    const name = profile?.name || displayName(session);
+    const email = session?.user.email ?? profile?.email ?? '';
+    const phone = profile?.phone ?? '';
+    const version = Constants.expoConfig?.version ?? '1.0.0';
+    const code = summary?.code ?? '';
+    const blocked = summary?.status === 'blocked';
+    const since = summary?.reviewed_at ?? summary?.applied_at ?? null;
+    const hasBank = !!summary?.account_number;
+
+    const open = (url: string, fallback: string) => Linking.openURL(url).catch(() => notify('Couldn’t open that', fallback));
+
+    const copyCode = async () => {
+        if (!code) return;
+        await Clipboard.setStringAsync(code).catch(() => {});
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        notify('Code copied', `${code} is on your clipboard. Paste it anywhere to share.`, undefined, { tone: 'success' });
+    };
 
     const confirmSignOut = () =>
         notify('Sign out?', 'You can sign back in at any time.', [
@@ -71,66 +71,85 @@ export default function Profile() {
             },
         ]);
 
+    const account: Row[] = [
+        { icon: 'person-outline', title: 'Personal details', value: phone ? `${name} · ${phone}` : 'Add your phone number', onPress: () => router.push('/personal') },
+        { icon: 'lock-closed-outline', title: 'Change password', onPress: () => router.push('/password') },
+    ];
+    const money: Row[] = [
+        {
+            icon: 'card-outline',
+            title: 'Payout bank account',
+            value: hasBank ? `${summary?.bank_name} · ••••${String(summary?.account_number).slice(-4)}` : 'Add the account we pay you into',
+            onPress: () => router.push('/withdraw'),
+            tone: 'green',
+        },
+        { icon: 'wallet-outline', title: 'Withdrawals', value: 'Request a payout and see your history', onPress: () => router.push('/withdraw'), tone: 'green' },
+        { icon: 'share-social-outline', title: 'Share my code', value: 'Link, QR code and WhatsApp', onPress: () => router.push('/share') },
+    ];
+    const programme: Row[] = [
+        { icon: 'bulb-outline', title: 'How it works', value: 'Codes, earnings, reviews and payouts', onPress: () => router.push('/policy'), tone: 'navy' },
+        { icon: 'document-text-outline', title: 'Affiliate policy & terms', value: 'What’s allowed and what isn’t', onPress: () => router.push('/policy?section=terms'), tone: 'navy' },
+    ];
+    const help: Row[] = [
+        { icon: 'logo-whatsapp', title: 'WhatsApp', value: CONTACT.whatsappDisplay, onPress: () => open(`https://wa.me/${CONTACT.whatsappIntl}`, `Message us on WhatsApp: ${CONTACT.whatsappDisplay}`), tone: 'green' },
+        { icon: 'call-outline', title: 'Call us', value: CONTACT.whatsappDisplay, onPress: () => open(`tel:+${CONTACT.whatsappIntl}`, `Call us on ${CONTACT.whatsappDisplay}`) },
+        { icon: 'mail-outline', title: 'Email', value: CONTACT.email, onPress: () => open(`mailto:${CONTACT.email}`, `Email us at ${CONTACT.email}`) },
+    ];
+
     return (
-        <Screen title="Profile" kicker="Your account">
+        <Screen title="Profile" kicker="Your account" refreshing={false} onRefresh={() => { refresh().catch(() => {}); getMyProfile().then(setProfile).catch(() => {}); }}>
+            {/* Who you are */}
             <Enter index={0}>
                 <Card style={styles.me}>
                     <View style={styles.meTop}>
-                        <Avatar name={name} size={60} />
+                        <Avatar name={name} size={64} />
                         <View style={styles.flex}>
                             <Text style={styles.name} numberOfLines={1}>{name}</Text>
-                            <Text style={styles.email} numberOfLines={1}>{email}</Text>
+                            <Text style={styles.sub} numberOfLines={1}>{email}</Text>
+                            {phone ? <Text style={styles.sub} numberOfLines={1}>{phone}</Text> : null}
                         </View>
+                        <PressableScale onPress={() => router.push('/personal')} style={styles.editBtn} accessibilityLabel="Edit personal details">
+                            <Ionicons name="create-outline" size={18} color={colors.navy} />
+                        </PressableScale>
                     </View>
-                    {summary ? (
-                        <View style={styles.chips}>
-                            <Chip large icon="pricetag-outline" label={`Code ${summary.code}`} tone="orange" />
-                            <Chip large icon="trending-up-outline" label={`${formatRate(summary.rate)} rate`} tone="green" />
-                        </View>
+                    <View style={styles.chips}>
+                        <Chip large icon={blocked ? 'pause-circle-outline' : 'checkmark-circle-outline'} label={blocked ? 'On hold' : 'Active affiliate'} tone={blocked ? 'red' : 'green'} />
+                        {since ? <Chip large icon="calendar-outline" label={`Since ${formatDate(since)}`} tone="orange" /> : null}
+                    </View>
+                    {code ? (
+                        <PressableScale style={styles.code} onPress={copyCode} scaleTo={0.98} accessibilityLabel={`Your code is ${code}. Tap to copy`}>
+                            <View style={styles.flex}>
+                                <Text style={styles.codeLabel}>YOUR CODE</Text>
+                                <Text style={styles.codeText}>{code}</Text>
+                            </View>
+                            <View style={styles.copy}>
+                                <Ionicons name="copy-outline" size={16} color={colors.white} />
+                                <Text style={styles.copyText}>Copy</Text>
+                            </View>
+                        </PressableScale>
                     ) : null}
                 </Card>
             </Enter>
 
-            <Enter index={1}>
-                <Card style={styles.rowsCard}>
-                    <CardHeader title="How it works" icon="bulb-outline" />
-                    <Rows rows={HOW_IT_WORKS} />
-                </Card>
-            </Enter>
+            {/* At a glance */}
+            {summary ? (
+                <Enter index={1}>
+                    <Card style={styles.stats}>
+                        <Stat label="People joined" value={<Text style={styles.statValue}>{Number(summary.referrals) || 0}</Text>} />
+                        <View style={styles.vline} />
+                        <Stat label="Total earned" value={<CountUpNaira value={Number(summary.total_earned) || 0} style={styles.statValue} />} />
+                        <View style={styles.vline} />
+                        <Stat label="Paid out" value={<CountUpNaira value={Number(summary.withdrawn) || 0} style={styles.statValue} />} />
+                    </Card>
+                </Enter>
+            ) : null}
 
-            <Enter index={2}>
-                <Card style={styles.rowsCard}>
-                    <CardHeader title="Affiliate terms" icon="document-text-outline" />
-                    <Rows rows={TERMS} soft />
-                </Card>
-            </Enter>
+            <Enter index={2}><Section title="Account" rows={account} /></Enter>
+            <Enter index={3}><Section title="Money" rows={money} /></Enter>
+            <Enter index={4}><Section title="The programme" rows={programme} /></Enter>
+            <Enter index={5}><Section title="Help" rows={help} /></Enter>
 
-            <Enter index={3}>
-                <Card style={styles.rowsCard}>
-                    <CardHeader title="Questions? Talk to us" icon="chatbubbles-outline" />
-                    <View>
-                        <ContactRow
-                            icon="logo-whatsapp"
-                            color={colors.whatsapp}
-                            bg={colors.greenSoft}
-                            title="WhatsApp"
-                            value={CONTACT.whatsappDisplay}
-                            onPress={() => open(`https://wa.me/${CONTACT.whatsappIntl}`, `Message us on WhatsApp: ${CONTACT.whatsappDisplay}`)}
-                        />
-                        <View style={styles.line} />
-                        <ContactRow
-                            icon="mail-outline"
-                            color={colors.orangeDark}
-                            bg={colors.orangeSoft}
-                            title="Email"
-                            value={CONTACT.email}
-                            onPress={() => open(`mailto:${CONTACT.email}`, `Email us at ${CONTACT.email}`)}
-                        />
-                    </View>
-                </Card>
-            </Enter>
-
-            <Enter index={4} style={styles.footer}>
+            <Enter index={6} style={styles.footer}>
                 <Button title="Sign out" icon="log-out-outline" variant="outline" loading={busy} onPress={confirmSignOut} />
                 <Text style={styles.version}>U Angel Affiliates · version {version}</Text>
             </Enter>
@@ -138,44 +157,44 @@ export default function Profile() {
     );
 }
 
-function Rows({ rows, soft }: { rows: { icon: IconName; text: string }[]; soft?: boolean }) {
+function Stat({ label, value }: { label: string; value: React.ReactNode }) {
     return (
-        <View>
-            {rows.map((row, i) => (
-                <Fragment key={row.text}>
-                    {i > 0 ? <View style={styles.line} /> : null}
-                    <View style={styles.row}>
-                        <IconBubble
-                            name={row.icon}
-                            size={34}
-                            bg={soft ? colors.chip : colors.orangeSoft}
-                            color={soft ? colors.grey : colors.orangeDark}
-                        />
-                        <Text style={styles.rowText}>{row.text}</Text>
-                    </View>
-                </Fragment>
-            ))}
+        <View style={styles.stat}>
+            {value}
+            <Text style={styles.statLabel}>{label}</Text>
         </View>
     );
 }
 
-function ContactRow({ icon, color, bg, title, value, onPress }: {
-    icon: IconName;
-    color: string;
-    bg: string;
-    title: string;
-    value: string;
-    onPress: () => void;
-}) {
+const TONE = {
+    orange: { bg: colors.orangeSoft, fg: colors.orangeDark },
+    green: { bg: colors.greenSoft, fg: colors.green },
+    navy: { bg: colors.chip, fg: colors.navy },
+};
+
+function Section({ title, rows }: { title: string; rows: Row[] }) {
     return (
-        <PressableScale style={styles.contact} onPress={onPress} scaleTo={0.98} accessibilityRole="button" accessibilityLabel={`${title}: ${value}`}>
-            <IconBubble name={icon} size={40} bg={bg} color={color} />
-            <View style={styles.flex}>
-                <Text style={styles.contactTitle}>{title}</Text>
-                <Text style={styles.contactValue} numberOfLines={1}>{value}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.greyLight} />
-        </PressableScale>
+        <View style={{ gap: 8 }}>
+            <Text style={styles.section}>{title.toUpperCase()}</Text>
+            <Card style={styles.list}>
+                {rows.map((r, i) => {
+                    const t = TONE[r.tone ?? 'orange'];
+                    return (
+                        <Fragment key={r.title}>
+                            {i > 0 ? <View style={styles.line} /> : null}
+                            <PressableScale style={styles.row} onPress={r.onPress} scaleTo={0.98} accessibilityRole="button" accessibilityLabel={r.value ? `${r.title}: ${r.value}` : r.title}>
+                                <IconBubble name={r.icon} size={40} bg={t.bg} color={t.fg} />
+                                <View style={styles.flex}>
+                                    <Text style={styles.rowTitle}>{r.title}</Text>
+                                    {r.value ? <Text style={styles.rowValue} numberOfLines={1}>{r.value}</Text> : null}
+                                </View>
+                                <Ionicons name="chevron-forward" size={18} color={colors.greyLight} />
+                            </PressableScale>
+                        </Fragment>
+                    );
+                })}
+            </Card>
+        </View>
     );
 }
 
@@ -184,18 +203,28 @@ const styles = StyleSheet.create({
 
     me: { gap: 14 },
     meTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-    name: { fontFamily: fonts.bold, fontSize: 18, color: colors.navy },
-    email: { fontFamily: fonts.semibold, fontSize: 13, color: colors.grey, marginTop: 1 },
-    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.line },
+    name: { fontFamily: fonts.bold, fontSize: 19, color: colors.navy },
+    sub: { fontFamily: fonts.semibold, fontSize: 13, color: colors.grey, marginTop: 1 },
+    editBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.chip, alignItems: 'center', justifyContent: 'center' },
+    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    code: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18, backgroundColor: colors.navy },
+    codeLabel: { fontFamily: fonts.bold, fontSize: 10.5, letterSpacing: 1.4, color: colors.peach },
+    codeText: { fontFamily: fonts.bold, fontSize: 22, letterSpacing: 3, color: colors.white, marginTop: 2 },
+    copy: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.orange, paddingHorizontal: 14, height: 38, borderRadius: 999 },
+    copyText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.white },
 
-    rowsCard: { gap: 6 },
-    row: { flexDirection: 'row', gap: 12, alignItems: 'center', paddingVertical: 12 },
-    rowText: { flex: 1, fontFamily: fonts.semibold, fontSize: 13.5, lineHeight: 20, color: colors.navy },
+    stats: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
+    stat: { flex: 1, alignItems: 'center', gap: 2 },
+    statValue: { fontFamily: fonts.bold, fontSize: 18, color: colors.navy },
+    statLabel: { fontFamily: fonts.semibold, fontSize: 11.5, color: colors.grey, textAlign: 'center' },
+    vline: { width: 1, alignSelf: 'stretch', backgroundColor: colors.line },
+
+    section: { fontFamily: fonts.bold, fontSize: 11.5, letterSpacing: 1.3, color: colors.grey, marginLeft: 4 },
+    list: { paddingVertical: 4 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+    rowTitle: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.navy },
+    rowValue: { fontFamily: fonts.semibold, fontSize: 12.5, color: colors.grey, marginTop: 1 },
     line: { height: 1, backgroundColor: colors.line },
-
-    contact: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-    contactTitle: { fontFamily: fonts.bold, fontSize: 14.5, color: colors.navy },
-    contactValue: { fontFamily: fonts.semibold, fontSize: 13, color: colors.grey },
 
     footer: { gap: 12, marginTop: 4 },
     version: { textAlign: 'center', fontFamily: fonts.medium, fontSize: 12, color: colors.greyLight },

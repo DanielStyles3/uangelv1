@@ -225,6 +225,34 @@ export const resetPasswordWithCode = async (email: string, code: string, passwor
     fail(updateError);
 };
 
+export type MyProfile = { name: string; phone: string | null; email: string | null; created_at: string | null };
+
+/** Name and phone from the shared U Angel Foods profile (same account as the shopping app). */
+export const getMyProfile = async (): Promise<MyProfile | null> => {
+    const { data: auth } = await supabase.auth.getUser();
+    const id = auth.user?.id;
+    if (!id) return null;
+    const { data, error } = await supabase.from('profiles').select('name, phone, email, created_at').eq('id', id).maybeSingle();
+    fail(error);
+    return (data as MyProfile | null) ?? null;
+};
+
+export const updateMyProfile = async (name: string, phone: string | null) => {
+    const { data: auth } = await supabase.auth.getUser();
+    const id = auth.user?.id;
+    if (!id) throw new Error('Please sign in again.');
+    const { error } = await supabase.from('profiles').update({ name, phone }).eq('id', id);
+    fail(error);
+    // Keep the sign-in name in step, so greetings update straight away.
+    const { error: metaError } = await supabase.auth.updateUser({ data: { name } });
+    fail(metaError);
+};
+
+export const changePassword = async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    fail(error);
+};
+
 export const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     fail(error);

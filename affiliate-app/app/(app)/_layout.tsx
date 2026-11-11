@@ -103,6 +103,9 @@ export default function AppLayout() {
                 <Stack.Screen name="withdraw" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="customer/[id]" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="order/[id]" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="personal" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="password" options={{ animation: 'slide_from_right' }} />
+                <Stack.Screen name="policy" options={{ animation: 'slide_from_right' }} />
                 <Stack.Screen name="join" options={{ animation: 'fade' }} />
             </Stack>
         </AffiliateContext.Provider>
