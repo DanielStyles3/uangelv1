@@ -11,7 +11,7 @@ import CartItem from "@/components/CartItem";
 import ProductImage from "@/components/ProductImage";
 import {DELIVERY_FEE, images} from "@/constants";
 import {formatNaira} from "@/lib/format";
-import {getMenu, getProductsNeedingChoices} from "@/lib/api";
+import {getCampaignProducts, getMenu, getProductsNeedingChoices} from "@/lib/api";
 import useFetch from "@/lib/useFetch";
 import useDeliveryFee from "@/lib/useDeliveryFee";
 import {CartItemType, MenuItem} from "@/type";
@@ -77,7 +77,13 @@ const Cart = () => {
     const { user } = useAuthStore();
     const { data: menu } = useFetch({ fn: getMenu, params: { limit: 12 } });
 
-    const { fee: deliveryFee, ready: feeReady } = useDeliveryFee(items.map((i) => i.id));
+    const { fee: rawFee, ready: feeReady } = useDeliveryFee(items.map((i) => i.id));
+    // Christmas pre-order only: nothing is delivered to the buyer, so no address, no delivery fee
+    // and no pay-on-delivery (same rule as checkout and the server).
+    const { data: packs } = useFetch({ fn: getCampaignProducts });
+    const packIds = new Set((packs ?? []).map((p) => p.id));
+    const givingOnly = packIds.size > 0 && items.length > 0 && items.every((i) => packIds.has(i.id));
+    const deliveryFee = givingOnly ? 0 : rawFee;
 
     const totalItems = getTotalItems();
     const subtotal = getTotalPrice();
@@ -164,7 +170,16 @@ const Cart = () => {
                     {items.map((item, i) => <CartItem key={cartItemKey(item)} item={item} index={i} />)}
                 </View>
 
-                {/* Delivering to */}
+                {/* Delivering to (not for Christmas pre-orders: we give the food out for you) */}
+                {givingOnly ? (
+                    <View style={styles.giving}>
+                        <View style={styles.givingIcon}><Ionicons name="heart" size={18} color="#fff" /></View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.givingTitle}>Christmas pre-order</Text>
+                            <Text style={styles.givingText}>Nothing is delivered to you. U Angel Foods gives this food to someone in need on your behalf.</Text>
+                        </View>
+                    </View>
+                ) : (
                 <Pressable style={styles.deliver} onPress={() => router.push('/delivery-address')}>
                     <View style={styles.deliverIcon}>
                         <Ionicons name="location" size={18} color="#fff" />
@@ -175,22 +190,25 @@ const Cart = () => {
                     </View>
                     <Text style={styles.deliverChange}>{address ? 'Change' : 'Add'}</Text>
                 </Pressable>
+                )}
 
                 {/* Summary */}
                 <Animated.View entering={FadeInUp.delay(150)} style={styles.summary}>
                     <Text style={styles.sectionTitle}>Order summary</Text>
                     <View style={{ marginTop: 10, gap: 10 }}>
                         <Row label={`Subtotal (${totalItems} item${totalItems === 1 ? '' : 's'})`} value={formatNaira(subtotal)} />
-                        <Row label="Delivery fee" value={feeReady ? formatNaira(deliveryFee) : '…'} />
+                        {!givingOnly && <Row label="Delivery fee" value={feeReady ? formatNaira(deliveryFee) : '…'} />}
                         <View style={styles.divider} />
-                        <Row label="Total" value={feeReady ? formatNaira(total) : '…'} bold />
+                        <Row label="Total" value={feeReady || givingOnly ? formatNaira(total) : '…'} bold />
                     </View>
-                    {feeReady && deliveryFee > DELIVERY_FEE && (
+                    {!givingOnly && feeReady && deliveryFee > DELIVERY_FEE && (
                         <Text style={styles.feeNote}>{formatNaira(deliveryFee)} delivery for orders with groceries or Local Market items.</Text>
                     )}
                     <View style={styles.payNote}>
                         <Ionicons name="shield-checkmark-outline" size={16} color="#2F9B65" />
-                        <Text style={styles.payNoteText}>Pay online with Paystack, or pay on delivery (delivery fee online first)</Text>
+                        <Text style={styles.payNoteText}>
+                            {givingOnly ? 'Secure online payment with Paystack. No delivery fee.' : 'Pay online with Paystack, or pay on delivery (delivery fee online first)'}
+                        </Text>
                     </View>
                 </Animated.View>
 
@@ -201,7 +219,7 @@ const Cart = () => {
             <View style={styles.checkoutBar}>
                 <View>
                     <Text style={styles.barLabel}>Total</Text>
-                    <Text style={styles.barTotal}>{feeReady ? formatNaira(total) : '…'}</Text>
+                    <Text style={styles.barTotal}>{feeReady || givingOnly ? formatNaira(total) : '…'}</Text>
                 </View>
                 <TouchableOpacity
                     style={[styles.primaryBtn, styles.barBtn]}
@@ -237,6 +255,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8, padding: 14,
         borderRadius: 20, backgroundColor: '#181C2E',
     },
+    giving: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 8, padding: 14, borderRadius: 20, backgroundColor: '#FDECEC' },
+    givingIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#C8102E', alignItems: 'center', justifyContent: 'center' },
+    givingTitle: { fontFamily: 'Quicksand-Bold', fontSize: 14.5, color: '#991B1B' },
+    givingText: { fontFamily: 'Quicksand-SemiBold', fontSize: 13, lineHeight: 18, color: '#7F1D1D', marginTop: 2 },
     deliverIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: '#FD652A', alignItems: 'center', justifyContent: 'center' },
     deliverLabel: { fontFamily: 'Quicksand-Bold', fontSize: 10, letterSpacing: 1.5, color: '#FD652A' },
     deliverValue: { fontFamily: 'Quicksand-SemiBold', fontSize: 14, color: '#fff', marginTop: 2 },

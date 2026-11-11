@@ -263,7 +263,7 @@ export default function ProductDetails() {
                         {item.is_campaign ? (
                             <>
                                 <InfoTile icon="heart-outline" value="Next day" label="Given out" />
-                                <InfoTile icon="bicycle-outline" value="Free" label="Delivery fee" />
+                                <InfoTile icon="card-outline" value="Online" label="Payment" />
                                 <InfoTile icon="people-outline" value="Less privileged" label="Who it feeds" />
                             </>
                         ) : (

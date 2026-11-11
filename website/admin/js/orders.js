@@ -15,10 +15,12 @@
     { id: 'delivered', label: 'Delivered' }
   ];
   var STATUS_CHIPS = [
-    { id: 'all', label: 'All' },
+    // "All orders" = real orders only. Unpaid checkouts and cancelled orders stay out of the way
+    // (kept in the database, one tap away under their own chips).
+    { id: 'all', label: 'All orders' },
     { id: 'fulfil', label: 'To fulfil' },
-    { id: 'awaiting', label: 'Awaiting payment' },
     { id: 'delivered', label: 'Delivered' },
+    { id: 'awaiting', label: 'Unpaid checkouts' },
     { id: 'cancelled', label: 'Cancelled' }
   ];
   var RANGES = { today: 0, '7d': -6, '30d': -29 };
@@ -93,7 +95,7 @@
       case 'awaiting': q = q.eq('status', 'awaiting_payment'); break;
       case 'delivered': q = q.eq('status', 'delivered'); break;
       case 'cancelled': q = q.eq('status', 'cancelled'); break;
-      default: break;
+      default: q = q.not('status', 'in', '(cancelled,awaiting_payment)'); break;
     }
     if (S.payment) q = q.eq('payment_status', S.payment);
     if (RANGES[S.range] !== undefined) q = q.gte('created_at', A.startOfLagosDay(RANGES[S.range]).toISOString());

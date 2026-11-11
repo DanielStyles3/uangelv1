@@ -8,6 +8,7 @@
   if (!window.Admin || typeof window.Admin.registerSection !== 'function') return;
   var A = window.Admin;
   var I = A.icons;
+  var GIFT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>';
 
   var IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   var MAX_BYTES = 5 * 1024 * 1024;
@@ -87,18 +88,22 @@
 
   function renderAll() {
     if (!root) return;
-    var off = S.products.filter(function (p) { return p.is_available === false; }).length;
-    var nophoto = S.products.filter(function (p) { return !p.image_url; }).length;
+    var shop = shopProducts(), xmas = xmasProducts();
+    var off = shop.filter(function (p) { return p.is_available === false; }).length;
+    var nophoto = shop.filter(function (p) { return !p.image_url; }).length;
     root.innerHTML =
-      '<div class="page-head pp-head"><div><h1>Products</h1><p class="pp-sub">' + plural(S.products.length, 'product') + ' · ' + plural(S.customs.length, 'add-on') + '</p></div>' +
+      '<div class="page-head pp-head"><div><h1>Products</h1><p class="pp-sub">' + plural(shop.length, 'product') + ' · ' + plural(xmas.length, 'pre-order package') + ' · ' + plural(S.customs.length, 'add-on') + '</p></div>' +
         '<div class="actions">' +
-          (ui.tab === 'products'
+          (ui.tab === 'xmas'
+            ? '<button type="button" class="btn btn-primary" data-new-xmas>' + I.plus + 'New pre-order package</button>'
+            : ui.tab === 'products'
             ? '<button type="button" class="btn btn-primary" data-new>' + I.plus + 'New product</button>'
             : '<button type="button" class="btn btn-primary" data-new-addon>' + I.plus + 'New add-on</button>') +
         '</div></div>' +
       '<div class="pp-tabs" role="tablist">' +
         '<button type="button" role="tab" aria-selected="' + (ui.tab === 'products') + '" data-tab="products">Products</button>' +
-        '<button type="button" role="tab" aria-selected="' + (ui.tab === 'addons') + '" data-tab="addons">Add-ons &amp; extras</button></div>' +
+        '<button type="button" role="tab" aria-selected="' + (ui.tab === 'addons') + '" data-tab="addons">Add-ons &amp; extras</button>' +
+        '<button type="button" role="tab" aria-selected="' + (ui.tab === 'xmas') + '" data-tab="xmas" class="pp-tab-xmas">' + GIFT + 'Christmas pre-order <b>' + xmas.length + '</b></button></div>' +
       (ui.tab === 'products'
         ? '<div class="toolbar pp-toolbar">' +
             '<label class="search"><span class="sr-only">Search products</span>' + I.search + '<input class="input" type="search" data-q placeholder="Search products" value="' + esc(ui.q) + '" autocomplete="off"></label>' +
@@ -111,10 +116,43 @@
                 return '<option value="' + o[0] + '"' + (ui.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
               }).join('') + '</select></div>' +
           '<div class="pp-chips" role="group" aria-label="Quick filters">' +
-            chip('', 'All', S.products.length) + chip('off', 'Sold out', off, true) + chip('nophoto', 'Missing photo', nophoto, true) + chip('best', 'Best sellers', bestIds().length) +
+            chip('', 'All', shop.length) + chip('off', 'Sold out', off, true) + chip('nophoto', 'Missing photo', nophoto, true) + chip('best', 'Best sellers', bestIds().length) +
           '</div><div data-results></div>'
-        : '<div data-addons></div>');
-    if (ui.tab === 'products') renderResults(); else renderAddons();
+        : ui.tab === 'xmas' ? '<div data-xmas></div>' : '<div data-addons></div>');
+    if (ui.tab === 'products') renderResults(); else if (ui.tab === 'xmas') renderXmas(); else renderAddons();
+  }
+
+  /* ---------------- Christmas pre-order ---------------- */
+
+  // Pre-order packages (menu.is_campaign) live on their own tab, separate from the normal shop.
+  function shopProducts() { return S.products.filter(function (p) { return !p.is_campaign; }); }
+  function xmasProducts() { return S.products.filter(function (p) { return p.is_campaign; }).sort(function (a, b) { return (Number(a.price) || 0) - (Number(b.price) || 0); }); }
+
+  async function renderXmas() {
+    var box = root.querySelector('[data-xmas]');
+    if (!box) return;
+    var list = xmasProducts();
+    var live = list.filter(function (p) { return p.is_available !== false; }).length;
+    box.innerHTML =
+      '<div class="xm-hero"><div class="xm-hero-txt">' +
+          '<span class="xm-eyebrow">' + GIFT + 'Christmas 2026 · 10,000 pre-orders by 25 December</span>' +
+          '<h2>Pre-order packages</h2>' +
+          '<p>Everything here shows only on the app’s Christmas page, never in the normal menu. Customers pay online, with <b>no delivery fee and no address</b>, and every package bought counts toward the 10,000 goal.</p>' +
+        '</div><div class="xm-progress" data-xm-progress><b>…</b><span>pre-orders paid</span><div class="xm-bar"><i style="width:0"></i></div><small>Goal: 10,000</small></div></div>' +
+      (list.length
+        ? '<p class="pp-sub" style="margin:4px 0 12px">' + plural(list.length, 'package') + ' · ' + live + ' showing in the app · cheapest shows first</p>' +
+          '<div class="pp-grid">' + list.map(cardHtml).join('') +
+          '<button type="button" class="pp-new xm-new" data-new-xmas><span>+</span>New pre-order package</button></div>'
+        : A.emptyState('No pre-order packages yet', 'Create a package (e.g. “Christmas Food Pack”, “Family Giving Box”). Set its name, price, photo and description, and it appears on the app’s Christmas page.', I.box) +
+          '<div style="text-align:center;margin-top:12px"><button type="button" class="btn btn-primary" data-new-xmas>' + I.plus + 'New pre-order package</button></div>');
+    try {
+      var r = await A.sb.rpc('campaign_progress');
+      var n = Number(r.data) || 0, el = box.querySelector('[data-xm-progress]');
+      if (el && !r.error) {
+        el.querySelector('b').textContent = A.formatNumber(n);
+        el.querySelector('.xm-bar i').style.width = Math.max(2, Math.min(100, n / 100)) + '%';
+      }
+    } catch (e) { /* progress is a nice-to-have */ }
   }
   function chip(id, label, n, warn) {
     return '<button type="button" class="pp-chip' + (warn ? ' warn' : '') + (ui.chip === id ? ' on' : '') + '" data-chip="' + id + '" aria-pressed="' + (ui.chip === id) + '">' + esc(label) + ' <b>' + n + '</b></button>';
@@ -122,7 +160,7 @@
 
   function filtered() {
     var q = norm(ui.q), best = ui.chip === 'best' ? bestIds() : null;
-    var list = S.products.filter(function (p) {
+    var list = shopProducts().filter(function (p) {
       if (q && norm(p.name).indexOf(q) === -1 && norm(p.description).indexOf(q) === -1) return false;
       if (ui.sub && p.category_id !== ui.sub) return false;
       if (ui.main && !ui.sub) { var m = mainOf(p); if (!m || m.id !== ui.main) return false; }
@@ -201,6 +239,7 @@
     var v;
     if ((v = b.getAttribute('data-tab'))) { ui.tab = v; renderAll(); return; }
     if (b.hasAttribute('data-new')) return openProduct(null);
+    if (b.hasAttribute('data-new-xmas')) return openProduct(null, { giving: true });
     if (b.hasAttribute('data-new-addon')) return openAddon(null);
     if ((v = b.getAttribute('data-edit'))) { var p = S.products.find(function (x) { return x.id === v; }); if (p) openProduct(p); return; }
     if ((v = b.getAttribute('data-stock'))) { var ps = S.products.find(function (x) { return x.id === v; }); if (ps) toggleStock(ps, b); return; }
@@ -223,7 +262,7 @@
 
   /* ---------------- Product editor ---------------- */
 
-  function openProduct(p) {
+  function openProduct(p, preset) {
     var editing = !!p;
     var startSub = editing ? subOf(p) : null;
     var draft = {
@@ -233,7 +272,7 @@
       sub: startSub && startSub.parent_id ? startSub.id : (!editing && ui.sub ? ui.sub : ''),
       description: editing ? (p.description || '') : '',
       on: editing ? p.is_available !== false : true,
-      giving: editing ? !!p.is_campaign : false,
+      giving: editing ? !!p.is_campaign : !!(preset && preset.giving),
       rating: editing && p.rating != null ? String(p.rating) : '',
       calories: editing && p.calories != null ? String(p.calories) : '',
       protein: editing && p.protein != null ? String(p.protein) : '',
@@ -340,7 +379,8 @@
           (draft.rating ? '<span class="pp-app-r">★ ' + esc(Number(draft.rating).toFixed(1)) + '</span>' : '') + (draft.on ? '' : '<span class="pp-app-sold">Sold out</span>') + '</div>' +
           '<b>' + esc(draft.name.trim() || 'Product name') + '</b><div class="pp-app-f"><span>' + esc(naira(price)) + '</span>' + (draft.on ? '<i>+</i>' : '') + '</div></div>' +
         '<p>' + (draft.on
-          ? (m ? 'Appears in the ' + esc(m.name) + ' row on Home' + (s ? ' and on the ' + esc(s.name) + ' page' : '') + '.' : 'Choose a category to see where it appears.')
+          ? (draft.giving ? 'Appears on the app’s Christmas pre-order page (not in the normal menu).'
+            : m ? 'Appears in the ' + esc(m.name) + ' row on Home' + (s ? ' and on the ' + esc(s.name) + ' page' : '') + '.' : 'Choose a category to see where it appears.')
           : 'Customers can still see it but can’t add it to their cart.') + '</p>';
     }
     function fieldError(name, msg) {
@@ -508,7 +548,7 @@
     if (editing) actions.push({ label: 'Delete', variant: 'danger', onClick: function (close) { deleteProduct(p, close); } });
     actions.push({ label: 'Cancel', variant: 'ghost', onClick: function (close) { dispose(); close(); } });
     actions.push({ label: editing ? 'Save changes' : 'Add product', variant: 'primary', onClick: function () { save(); } });
-    m = A.modal({ title: editing ? 'Edit product' : 'New product', body: form, className: 'cg-drawer', actions: actions, onClose: dispose });
+    m = A.modal({ title: draft.giving ? (editing ? 'Edit pre-order package' : 'New pre-order package') : (editing ? 'Edit product' : 'New product'), body: form, className: 'cg-drawer', actions: actions, onClose: dispose });
   }
 
   async function deleteProduct(p, closeEditor) {
