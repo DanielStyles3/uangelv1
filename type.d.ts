@@ -18,6 +18,9 @@ export interface MenuItem {
     is_available?: boolean;
     /** Christmas giving pack: no delivery to the buyer, hidden from normal lists. */
     is_campaign?: boolean;
+    /** Set in Admin › Products. null = the category's standard fee / delivery note. */
+    delivery_fee?: number | string | null;
+    delivery_note?: string | null;
     /** Always a subcategory id. */
     category_id: string | null;
     created_at: string;

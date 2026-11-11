@@ -13,7 +13,11 @@
   var IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   var MAX_BYTES = 5 * 1024 * 1024;
   var PAGE = 48;
-  var MENU_COLS = 'id,name,description,image_url,emoji,price,rating,calories,protein,is_available,is_campaign,category_id,created_at';
+  var MENU_COLS = 'id,name,description,image_url,emoji,price,rating,calories,protein,is_available,is_campaign,category_id,delivery_fee,delivery_note,affiliate_rate,created_at';
+  // When it arrives (menu.delivery_note). '' = use the category's note.
+  var DELIVERY_TIMES = ['', 'Same-day delivery', 'Next-day delivery', 'Delivery varies'];
+  /** The category's standard fee (same rule as delivery_fee_for in the database). */
+  function standardFee(mainName) { return /^(Groceries & Essentials|The Local Market)$/.test(mainName || '') ? 5000 : 2000; }
 
   var S = null, root = null;
   var ui = { tab: 'products', q: '', main: '', sub: '', chip: '', sort: 'name', limit: PAGE };
@@ -204,6 +208,13 @@
           ? '<small style="color:#C8102E;font-weight:700">Christmas pre-order · no delivery</small>'
           : '<small>' + esc(main ? main.name : 'No category') + (sub && sub.parent_id ? ' › ' + esc(sub.name) : '') + '</small>') +
         '<div class="pp-row"><span class="pp-price">' + esc(naira(p.price)) + '</span><span class="pp-sold">' + n + ' sold · 30d</span></div>' +
+        (!p.is_campaign && (p.delivery_fee != null || p.delivery_note || p.affiliate_rate != null)
+          ? '<div class="pp-custom">' +
+              (p.delivery_fee != null ? '<span>Delivery ' + esc(naira(p.delivery_fee)) + '</span>' : '') +
+              (p.delivery_note ? '<span>' + esc(p.delivery_note.replace(/ delivery$/i, '')) + '</span>' : '') +
+              (p.affiliate_rate != null ? '<span>Affiliate ' + esc(String(Math.round(Number(p.affiliate_rate) * 1000) / 10)) + '%</span>' : '') +
+            '</div>'
+          : '') +
         '<div class="pp-row"><button type="button" class="pp-switch" role="switch" aria-checked="' + on + '" data-stock="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' in stock"><i></i>' + (on ? 'In stock' : 'Sold out') + '</button>' +
           '<button type="button" class="btn btn-ghost btn-sm" data-edit="' + esc(p.id) + '">Edit</button></div>' +
         (hasOptionsUI(p) ? '<button type="button" class="btn btn-ghost btn-sm pp-optbtn" data-options="' + esc(p.id) + '" style="margin-top:6px;width:100%;justify-content:center">Sizes &amp; options</button>' : '') +
@@ -273,6 +284,9 @@
       description: editing ? (p.description || '') : '',
       on: editing ? p.is_available !== false : true,
       giving: editing ? !!p.is_campaign : !!(preset && preset.giving),
+      fee: editing && p.delivery_fee != null && !p.is_campaign ? String(Number(p.delivery_fee)) : '',
+      when: editing ? (p.delivery_note || '') : '',
+      rate: editing && p.affiliate_rate != null ? String(Math.round(Number(p.affiliate_rate) * 1000) / 10) : '',
       rating: editing && p.rating != null ? String(p.rating) : '',
       calories: editing && p.calories != null ? String(p.calories) : '',
       protein: editing && p.protein != null ? String(p.protein) : '',
@@ -322,6 +336,22 @@
       '<div class="field"><label for="' + uid + '-price">Price <span class="cg-req" aria-hidden="true">*</span></label>' +
         '<div class="pp-money"><span aria-hidden="true">₦</span><input id="' + uid + '-price" name="price" class="input" inputmode="decimal" autocomplete="off" value="' + esc(draft.price) + '"></div>' +
         '<span class="cg-err" data-err="price" role="alert"></span></div>' +
+      // Delivery and affiliate commission for this product (hidden for Christmas pre-orders: no delivery, no commission).
+      '<fieldset class="pp-dlv" data-dlv' + (draft.giving ? ' style="display:none"' : '') + '><legend>Delivery &amp; affiliate</legend>' +
+        '<div class="pp-three">' +
+          '<div class="field"><label for="' + uid + '-fee">Delivery fee</label>' +
+            '<div class="pp-money"><span aria-hidden="true">₦</span><input id="' + uid + '-fee" name="fee" class="input" inputmode="decimal" autocomplete="off" value="' + esc(draft.fee) + '" data-fee-ph></div>' +
+            '<span class="cg-help" data-fee-help></span><span class="cg-err" data-err="fee" role="alert"></span></div>' +
+          '<div class="field"><label for="' + uid + '-when">When it arrives</label>' +
+            '<select id="' + uid + '-when" name="when" class="select">' + DELIVERY_TIMES.map(function (t) {
+              return '<option value="' + esc(t) + '"' + (draft.when === t ? ' selected' : '') + '>' + (t ? esc(t) : 'Same as its category') + '</option>';
+            }).join('') + (draft.when && DELIVERY_TIMES.indexOf(draft.when) === -1 ? '<option value="' + esc(draft.when) + '" selected>' + esc(draft.when) + '</option>' : '') + '</select></div>' +
+          '<div class="field"><label for="' + uid + '-rate">Affiliate earns</label>' +
+            '<div class="pp-money pp-pct"><input id="' + uid + '-rate" name="rate" class="input" inputmode="decimal" autocomplete="off" placeholder="5" value="' + esc(draft.rate) + '"><span aria-hidden="true">%</span></div>' +
+            '<span class="cg-help">Empty = standard 5%. 0 = no commission.</span><span class="cg-err" data-err="rate" role="alert"></span></div>' +
+        '</div>' +
+        '<span class="cg-help">An order pays the highest delivery fee of the products in it.</span>' +
+      '</fieldset>' +
       '<div class="pp-avail" style="border:1.5px solid #F5C2C7;background:#FFF5F5"><div><b>Christmas pre-order product</b>' +
         '<small>For the Christmas campaign: shown on the app’s Christmas page (not in the normal menu), no delivery fee or address, and every one bought counts toward the 10,000 goal.</small></div>' +
         '<button type="button" class="pp-switch" role="switch" aria-checked="' + draft.giving + '" data-giving aria-label="Christmas pre-order product"><i></i></button></div>' +
@@ -420,6 +450,15 @@
       if (draft.main) sel.focus();
     });
     $('[name="sub"]').addEventListener('change', function () { draft.sub = this.value; fieldError('sub', ''); paintPhoto(); });
+    // Placeholder/help shows the category's standard fee, so an empty box is self-explanatory.
+    function paintFeeHint() {
+      var m = S.catById[draft.main], std = standardFee(m && m.name);
+      $('[data-fee-ph]').placeholder = String(std);
+      $('[data-fee-help]').textContent = 'Empty = standard ' + naira(std) + (m ? ' for ' + m.name : '') + '.';
+    }
+    paintFeeHint();
+    $('[name="main"]').addEventListener('change', paintFeeHint);
+    $('[name="when"]').addEventListener('change', function () { draft.when = this.value; });
     form.addEventListener('click', function (e) {
       var a = e.target.closest('[data-addon]');
       if (a) {
@@ -437,6 +476,7 @@
         draft.giving = !draft.giving;
         $('[data-giving]').setAttribute('aria-checked', String(draft.giving));
         $('[data-cats]').style.display = draft.giving ? 'none' : '';
+        $('[data-dlv]').style.display = draft.giving ? 'none' : '';
         fieldError('main', ''); fieldError('sub', '');
         return;
       }
@@ -452,7 +492,7 @@
     var busy = false, m;
     async function save() {
       if (busy) return;
-      ['name', 'price', 'main', 'sub', 'rating', 'calories', 'protein'].forEach(function (n) { fieldError(n, ''); });
+      ['name', 'price', 'main', 'sub', 'rating', 'calories', 'protein', 'fee', 'rate'].forEach(function (n) { fieldError(n, ''); });
       var name = draft.name.trim().replace(/\s+/g, ' ');
       var price = Number(String(draft.price).replace(/[,\s₦]/g, ''));
       var bad = [];
@@ -474,6 +514,10 @@
       var rating = num('rating', 'Use a number from 0 to 5.', 0, 5, false);
       var calories = num('calories', 'Use a whole number.', 0, null, true);
       var protein = num('protein', 'Use a whole number.', 0, null, true);
+      var feeRaw = String(draft.fee).replace(/[,\s₦]/g, '');
+      draft.fee = feeRaw;
+      var fee = giving ? 0 : num('fee', 'Enter an amount in naira, e.g. 3000, or leave empty.', 0, null, false);
+      var ratePct = giving ? null : num('rate', 'Use a percentage from 0 to 50, e.g. 7.5, or leave empty.', 0, 50, false);
       if (bad.length) {
         bad.forEach(function (b) { fieldError(b[0], b[1]); });
         if (['rating', 'calories', 'protein'].indexOf(bad[0][0]) !== -1) form.querySelector('details').open = true;
@@ -492,8 +536,11 @@
           name: name, price: Math.round(price * 100) / 100, category_id: giving ? null : draft.sub,
           description: draft.description.trim() || null, image_url: imageUrl,
           rating: rating, calories: calories, protein: protein, is_available: draft.on,
-          // Christmas pre-order products: no category, ₦0 delivery. Switching it off clears the ₦0.
-          is_campaign: giving, delivery_fee: giving ? 0 : (editing && p.is_campaign ? null : undefined)
+          // Christmas pre-order products: no category, ₦0 delivery, no commission.
+          is_campaign: giving,
+          delivery_fee: giving ? 0 : fee,
+          delivery_note: giving ? null : (draft.when || null),
+          affiliate_rate: giving ? null : (ratePct == null ? null : Math.round(ratePct * 100) / 10000)
         };
         var res = editing
           ? await A.sb.from('menu').update(payload).eq('id', p.id).select(MENU_COLS).single()

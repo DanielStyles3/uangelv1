@@ -160,11 +160,12 @@ export default function ProductDetails() {
 
     const mainCategory = subcategory && !subcategory.parent_id ? subcategory : parentCategory;
     const accent = mainCategory?.color ?? ORANGE;
-    const deliveryNote = mainCategory?.delivery_note || "Same-day delivery";
+    // The product's own delivery settings (Admin › Products) win over its category's.
+    const deliveryNote = item.delivery_note || mainCategory?.delivery_note || "Same-day delivery";
     const deliveryShort = /var/i.test(deliveryNote) ? "Varies" : /next/i.test(deliveryNote) ? "Next day" : "Same day";
     // Made to order (Wedding Cakes): no cart. Customers send an enquiry; design and price are agreed on WhatsApp.
     const enquiry = !!subcategory?.enquiry_only || !!parentCategory?.enquiry_only;
-    const deliveryFee = deliveryFeeForCategory(mainCategory?.name);
+    const deliveryFee = item.delivery_fee != null ? Number(item.delivery_fee) : deliveryFeeForCategory(mainCategory?.name);
     const groups = optionGroups ?? [];
     const optionLines = answersToCart(groups, answers);
     const unitPrice = Number(item.price)

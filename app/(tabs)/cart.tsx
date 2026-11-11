@@ -202,7 +202,7 @@ const Cart = () => {
                         <Row label="Total" value={feeReady || givingOnly ? formatNaira(total) : '…'} bold />
                     </View>
                     {!givingOnly && feeReady && deliveryFee > DELIVERY_FEE && (
-                        <Text style={styles.feeNote}>{formatNaira(deliveryFee)} delivery for orders with groceries or Local Market items.</Text>
+                        <Text style={styles.feeNote}>{formatNaira(deliveryFee)} delivery: one fee per order, the highest among your items.</Text>
                     )}
                     <View style={styles.payNote}>
                         <Ionicons name="shield-checkmark-outline" size={16} color="#2F9B65" />

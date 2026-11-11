@@ -19,7 +19,7 @@ import {
 
 // Also embed the product's subcategory photo: products without their own photo
 // (until the admin uploads one) show their subcategory's picture instead.
-const MENU_COLUMNS = 'id, name, description, image_url, emoji, price, rating, calories, protein, is_available, is_campaign, category_id, created_at, categories(image_url)';
+const MENU_COLUMNS = 'id, name, description, image_url, emoji, price, rating, calories, protein, is_available, is_campaign, category_id, delivery_fee, delivery_note, created_at, categories(image_url)';
 
 type MenuRow = MenuItem & { categories?: { image_url: string | null } | null };
 const withFallbackPhoto = ({ categories, ...item }: MenuRow): MenuItem => ({

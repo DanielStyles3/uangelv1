@@ -50,7 +50,7 @@ export const SUPPORT_WHATSAPP = "2347049055555";
 export const DELIVERY_FEE = 2000;
 export const DELIVERY_FEE_MARKET = 5000;
 export const MARKET_CATEGORIES = ["Groceries & Essentials", "The Local Market"];
-export const DELIVERY_FEE_NOTE = "₦2,000, or ₦5,000 for orders with groceries or Local Market items";
+export const DELIVERY_FEE_NOTE = "usually ₦2,000, or ₦5,000 for groceries and Local Market items (some products have their own fee; each order pays the highest)";
 
 /** Delivery fee for a product page, from its main category's name. */
 export const deliveryFeeForCategory = (mainCategoryName?: string | null) =>

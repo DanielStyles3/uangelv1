@@ -339,7 +339,7 @@ export default function Checkout() {
                         <PaymentInfoStripe label={`Subtotal (${getTotalItems()} item${getTotalItems() === 1 ? '' : 's'})`} value={formatNaira(subtotal)} />
                         <PaymentInfoStripe label="Delivery fee" value={givingOnly ? 'Free' : feeReady ? formatNaira(deliveryFee) : '…'} />
                         {feeReady && deliveryFee > DELIVERY_FEE && (
-                            <Text className="body-regular text-gray-200">{formatNaira(deliveryFee)} delivery for orders with groceries or Local Market items.</Text>
+                            <Text className="body-regular text-gray-200">{formatNaira(deliveryFee)} delivery: one fee per order, the highest among your items.</Text>
                         )}
                         <View className="border-t border-gray-300 my-2" />
                         <PaymentInfoStripe
