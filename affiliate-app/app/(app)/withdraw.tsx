@@ -273,7 +273,7 @@ export default function Payouts() {
     const nextGoal = MILESTONES.find((g) => friends < g);
 
     return (
-        <Screen stack keyboard title="Payouts" onBack={goBack} refreshing={refreshing} onRefresh={onRefresh}>
+        <Screen stack keyboard title="Withdraw" onBack={goBack} refreshing={refreshing} onRefresh={onRefresh}>
             {blocked ? (
                 <Enter>
                     <Notice

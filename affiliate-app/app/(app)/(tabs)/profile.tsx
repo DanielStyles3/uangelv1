@@ -76,19 +76,19 @@ export default function Profile() {
         { icon: 'lock-closed-outline', title: 'Change password', onPress: () => router.push('/password') },
     ];
     const money: Row[] = [
+        // One place for money out: bank account, withdraw and history all live on the same screen.
         {
-            icon: 'card-outline',
-            title: 'Payout bank account',
-            value: hasBank ? `${summary?.bank_name} · ••••${String(summary?.account_number).slice(-4)}` : 'Add the account we pay you into',
+            icon: 'wallet-outline',
+            title: 'Withdraw',
+            value: hasBank ? `To ${summary?.bank_name} · ••••${String(summary?.account_number).slice(-4)}` : 'Add your bank account to get paid',
             onPress: () => router.push('/withdraw'),
             tone: 'green',
         },
-        { icon: 'wallet-outline', title: 'Withdrawals', value: 'Request a payout and see your history', onPress: () => router.push('/withdraw'), tone: 'green' },
         { icon: 'share-social-outline', title: 'Share my code', value: 'Link, QR code and WhatsApp', onPress: () => router.push('/share') },
     ];
     const programme: Row[] = [
-        { icon: 'bulb-outline', title: 'How it works', value: 'Codes, earnings, reviews and payouts', onPress: () => router.push('/policy'), tone: 'navy' },
-        { icon: 'document-text-outline', title: 'Affiliate policy & terms', value: 'What’s allowed and what isn’t', onPress: () => router.push('/policy?section=terms'), tone: 'navy' },
+        // How it works and the terms are one screen, so one row.
+        { icon: 'document-text-outline', title: 'Affiliate policy', value: 'How it works and the terms', onPress: () => router.push('/policy'), tone: 'navy' },
     ];
     const help: Row[] = [
         { icon: 'logo-whatsapp', title: 'WhatsApp', value: CONTACT.whatsappDisplay, onPress: () => open(`https://wa.me/${CONTACT.whatsappIntl}`, `Message us on WhatsApp: ${CONTACT.whatsappDisplay}`), tone: 'green' },

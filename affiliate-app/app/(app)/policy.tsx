@@ -1,4 +1,4 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Fragment } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -52,7 +52,7 @@ function HowItWorks() {
 function Terms() {
     return (
         <Card style={styles.card}>
-            <CardHeader title="Affiliate policy & terms" icon="document-text-outline" />
+            <CardHeader title="Rules" icon="document-text-outline" />
             {TERMS.map((t, i) => (
                 <Fragment key={t.text}>
                     {i > 0 ? <View style={styles.line} /> : null}
@@ -66,17 +66,15 @@ function Terms() {
     );
 }
 
-/** How the programme works, and the affiliate policy & terms. ?section=terms shows the terms first. */
+/** The affiliate policy: one screen with how the programme works, then the rules. */
 export default function Policy() {
     const router = useRouter();
-    const { section } = useLocalSearchParams<{ section?: string }>();
-    const termsFirst = section === 'terms';
     const goBack = () => (router.canGoBack() ? router.back() : router.replace('/profile'));
 
     return (
-        <Screen stack title={termsFirst ? 'Policy & terms' : 'How it works'} onBack={goBack}>
-            <Enter index={0}>{termsFirst ? <Terms /> : <HowItWorks />}</Enter>
-            <Enter index={1}>{termsFirst ? <HowItWorks /> : <Terms />}</Enter>
+        <Screen stack title="Affiliate policy" onBack={goBack}>
+            <Enter index={0}><HowItWorks /></Enter>
+            <Enter index={1}><Terms /></Enter>
         </Screen>
     );
 }
