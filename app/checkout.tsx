@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect } from "expo-router";
 import cn from "clsx";
@@ -21,6 +21,10 @@ import useAuthStore from "@/store/auth.store";
 import { CheckoutPaymentMethod } from "@/type";
 
 import { notify } from "@/lib/notice";
+
+/** Longest note for the recipient of a Christmas gift (printed and attached to the food). */
+const NOTE_MAX = 500;
+
 /** One choice in the Payment section (radio card). */
 const PaymentOption = ({ icon, title, body, selected, onPress }: {
     icon: keyof typeof Ionicons.glyphMap; title: string; body: string; selected: boolean; onPress: () => void;
@@ -71,6 +75,9 @@ export default function Checkout() {
     const packIds = new Set((packs ?? []).map((p) => p.id));
     const givingOnly = packIds.size > 0 && items.length > 0 && items.every((i) => packIds.has(i.id));
     const [handle, setHandle] = useState('');
+    // Christmas giving: who it's from (or "Anonymous") and a longer note we print and attach to the gift.
+    const [giftFrom, setGiftFrom] = useState('');
+    const [giftNote, setGiftNote] = useState('');
     const [platform, setPlatform] = useState<'Instagram' | 'X (Twitter)' | 'TikTok' | 'Facebook'>('Instagram');
 
     if (!isAuthenticated) return <Redirect href="/sign-in" />;
@@ -96,12 +103,15 @@ export default function Checkout() {
 
         setIsSubmitting(true);
         try {
-            // Giving orders: the dedication and optional social handle go in the order note (admin sees it).
+            // Giving orders: who it's from, the dedication, the note for the recipient and the optional
+            // social handle all go in the order note, one per line (the admin sees it on the order).
             const tag = handle.trim().replace(/^@*/, '');
             const givingNote = [
+                giftFrom.trim() ? `From: ${giftFrom.trim()}` : '',
                 form.note.trim() ? `Dedication: ${form.note.trim()}` : '',
+                giftNote.trim() ? `Note for the recipient: ${giftNote.trim()}` : '',
                 tag ? `${platform}: @${tag}` : '',
-            ].filter(Boolean).join(' · ');
+            ].filter(Boolean).join('\n');
             const orderId = await placeOrder(givingOnly
                 ? { items, address: '', city: '', state: '', phone, note: givingNote || undefined, paymentMethod: 'paystack' }
                 : {
@@ -150,8 +160,12 @@ export default function Checkout() {
                                 <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: '#C8102E', alignItems: 'center', justifyContent: 'center' }}>
                                     <Ionicons name="heart" size={20} color="#fff" />
                                 </View>
-                                <View style={{ flex: 1, gap: 4 }}>
-                                    <Text className="paragraph-bold text-dark-100">Christmas giving: no delivery to you</Text>
+                                <View style={{ flex: 1, gap: 6 }}>
+                                    <Text className="paragraph-bold text-dark-100">Christmas giving</Text>
+                                    <View style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E9F8EF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 }}>
+                                        <Ionicons name="checkmark-circle" size={13} color="#15803D" />
+                                        <Text style={{ fontFamily: 'Quicksand-Bold', fontSize: 12, color: '#15803D' }}>No delivery fees</Text>
+                                    </View>
                                     <Text className="body-regular text-gray-200">
                                         Your pre-order feeds the less privileged: cooked food for the homeless and handicapped, uncooked food for orphans and widows. We give it out the next day. No address or delivery fee needed.
                                     </Text>
@@ -165,13 +179,43 @@ export default function Checkout() {
                                 keyboardType="phone-pad"
                             />
                             <CustomInput
+                                label="From (optional)"
+                                placeholder="e.g. Mr. Okafor, the Okafor family, or Anonymous"
+                                value={giftFrom}
+                                onChangeText={setGiftFrom}
+                                autoCapitalize="words"
+                            />
+                            <CustomInput
                                 label="Dedication (optional)"
-                                placeholder="e.g. In memory of Mama, or from the Okafor family"
+                                placeholder="e.g. In memory of Mama"
                                 value={form.note}
                                 onChangeText={set('note')}
                                 autoCapitalize="sentences"
                                 multiline
                             />
+                            {/* A longer note we print and attach to the food we give out. */}
+                            <View style={{ gap: 8 }}>
+                                <Text className="paragraph-bold text-dark-100">Note for the recipient (optional)</Text>
+                                <Text className="body-regular text-gray-200">We print this and attach it to the food we give out on your behalf.</Text>
+                                <TextInput
+                                    value={giftNote}
+                                    onChangeText={setGiftNote}
+                                    placeholder="e.g. Merry Christmas! You are loved and remembered this season. May the new year bring you joy, good health and every good thing."
+                                    placeholderTextColor="#A0A0AB"
+                                    multiline
+                                    maxLength={NOTE_MAX}
+                                    textAlignVertical="top"
+                                    autoCapitalize="sentences"
+                                    style={{
+                                        minHeight: 130, borderWidth: 1.5, borderColor: '#E4E4EA', borderRadius: 18, padding: 14,
+                                        backgroundColor: '#FAFAFB', fontFamily: 'Quicksand-Medium', fontSize: 15, lineHeight: 21, color: '#181C2E',
+                                    }}
+                                    accessibilityLabel="Note for the recipient"
+                                />
+                                <Text style={{ alignSelf: 'flex-end', fontFamily: 'Quicksand-SemiBold', fontSize: 12, color: giftNote.length >= NOTE_MAX ? '#C8102E' : '#A0A0AB' }}>
+                                    {giftNote.length}/{NOTE_MAX}
+                                </Text>
+                            </View>
                             <View style={{ gap: 10 }}>
                                 <Text className="paragraph-bold text-dark-100">Your social media (optional)</Text>
                                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

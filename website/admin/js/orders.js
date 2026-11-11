@@ -275,7 +275,7 @@
 
     var address = [o.delivery_address, o.city, o.state].filter(Boolean).join(', ');
     var delivery = '<p>' + (address ? esc(address) : '<span class="muted">No address</span>') + '</p>' +
-      (o.note ? '<div style="margin-top:10px"><div class="small muted strong" style="margin-bottom:4px">Customer note</div><div class="note-box">' + esc(o.note) + '</div></div>' : '');
+      (o.note ? '<div style="margin-top:10px"><div class="small muted strong" style="margin-bottom:4px">Customer note</div><div class="note-box" style="white-space:pre-wrap">' + esc(o.note) + '</div></div>' : '');
 
     var payment = '<dl class="kv">' +
       '<dt>Method</dt><dd>' + esc(A.statusLabel(o.payment_method)) + '</dd>' +
