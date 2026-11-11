@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import {router} from "expo-router";
+import {Href, router} from "expo-router";
 import {useEffect, useState} from "react";
 import * as Sentry from '@sentry/react-native'
 import * as Haptics from "expo-haptics";
@@ -70,11 +70,8 @@ const SignUp = () => {
             const { needsEmailConfirmation } = await createUser({ email: email.trim(), password, name: name.trim(), referralCode: referral || undefined });
 
             if (needsEmailConfirmation) {
-                notify(
-                    'Check your email',
-                    'We sent you a confirmation link. Confirm your email, then sign in.',
-                    [{ text: 'OK', onPress: () => router.replace('/sign-in') }]
-                );
+                // Stay in the app: type the 6-digit code from the email on the next screen.
+                router.push(`/verify-email?email=${encodeURIComponent(email.trim())}` as Href);
                 return;
             }
 

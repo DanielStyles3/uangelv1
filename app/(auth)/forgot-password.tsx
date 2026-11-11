@@ -1,54 +1,19 @@
-import { ComponentRef, useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import AuthInput from "@/components/AuthInput";
 import AuthScreen, { AuthButton } from "@/components/AuthScreen";
+import CodeBoxes, { CODE_LEN } from "@/components/CodeBoxes";
 import { resetPasswordWithCode, sendPasswordReset } from "@/lib/api";
 import useAuthStore from "@/store/auth.store";
 
 import { notify } from "@/lib/notice";
 const ORANGE = "#FD652A";
 const INK = "#181C2E";
-const CODE_LEN = 6;
 const RESEND_AFTER = 60;
-
-/** Six boxes over one hidden input, so paste and SMS/email autofill work. */
-const CodeBoxes = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => {
-    const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
-    const [focused, setFocused] = useState(false);
-
-    return (
-        <Pressable onPress={() => inputRef.current?.focus()} accessibilityLabel="Reset code">
-            <View style={styles.codeRow}>
-                {Array.from({ length: CODE_LEN }, (_, i) => {
-                    const active = focused && i === Math.min(value.length, CODE_LEN - 1);
-                    return (
-                        <View key={i} style={[styles.codeBox, !!value[i] && styles.codeBoxFilled, active && styles.codeBoxActive]}>
-                            <Text style={styles.codeDigit}>{value[i] ?? ""}</Text>
-                        </View>
-                    );
-                })}
-            </View>
-            <TextInput
-                ref={inputRef}
-                value={value}
-                onChangeText={(t) => onChange(t.replace(/\D/g, "").slice(0, CODE_LEN))}
-                keyboardType="number-pad"
-                textContentType="oneTimeCode"
-                autoComplete="one-time-code"
-                maxLength={CODE_LEN}
-                autoFocus
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                style={styles.hiddenInput}
-                caretHidden
-            />
-        </Pressable>
-    );
-};
 
 export default function ForgotPassword() {
     const { fetchAuthenticatedUser } = useAuthStore();
@@ -156,13 +121,6 @@ export default function ForgotPassword() {
 
 const styles = StyleSheet.create({
     sentTo: { fontFamily: "Quicksand-SemiBold", fontSize: 14, lineHeight: 20, color: "#5B5B66" },
-
-    codeRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-    codeBox: { flex: 1, height: 58, borderRadius: 16, backgroundColor: "#F5F5F7", borderWidth: 1.5, borderColor: "#E4E4EA", alignItems: "center", justifyContent: "center" },
-    codeBoxFilled: { backgroundColor: "#FFF4EE", borderColor: "#FDBA9B" },
-    codeBoxActive: { borderColor: ORANGE, borderWidth: 2, backgroundColor: "#fff" },
-    codeDigit: { fontFamily: "Quicksand-Bold", fontSize: 24, color: INK },
-    hiddenInput: { position: "absolute", width: 1, height: 1, opacity: 0 },
 
     resendRow: { flexDirection: "row", justifyContent: "space-between", marginTop: -6 },
     link: { fontFamily: "Quicksand-Bold", fontSize: 14, color: ORANGE },

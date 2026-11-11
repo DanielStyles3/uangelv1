@@ -145,6 +145,21 @@ export const signUp = async (name: string, email: string, password: string) => {
     return !!data.session;
 };
 
+/** Sign-up: the 6-digit code from the confirmation email. Confirms the email and signs in. */
+export const verifySignupCode = async (email: string, code: string) => {
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' });
+    if (error) {
+        throw new Error(/expired|invalid/i.test(error.message)
+            ? 'That code is wrong or has expired. Check the latest email, or tap "Resend code".'
+            : error.message);
+    }
+};
+
+export const resendSignupCode = async (email: string) => {
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    fail(error);
+};
+
 export const sendPasswordReset = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email);
     fail(error);

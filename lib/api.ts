@@ -57,6 +57,18 @@ export const createUser = async ({ email, password, name, referralCode }: Create
     return { needsEmailConfirmation: !data.session };
 }
 
+/** Sign-up: the 6-digit code from the confirmation email. Confirms the email and signs in. */
+export const verifySignupCode = async (email: string, code: string) => {
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'signup' });
+    if (error) throw new Error(/expired|invalid/i.test(error.message) ? 'That code is wrong or has expired. Check the latest email, or tap "Resend code".' : error.message);
+}
+
+/** Sends the sign-up confirmation email (with a new code) again. */
+export const resendSignupCode = async (email: string) => {
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) throw new Error(error.message);
+}
+
 /** Is this affiliate code real? Returns the affiliate's first name (or null) when valid. */
 export const checkReferralCode = async (code: string): Promise<{ valid: boolean; firstName: string | null }> => {
     const { data, error } = await supabase.rpc('referral_code_info', { p_code: code });

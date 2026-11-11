@@ -6,7 +6,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import AuthShell from '@/components/AuthShell';
 import { Button, Field, Notice } from '@/components/ui';
-import { signIn, signUp } from '@/lib/api';
+import CodeBoxes, { CODE_LEN } from '@/components/CodeBoxes';
+import { resendSignupCode, signIn, signUp, verifySignupCode } from '@/lib/api';
 import { errorMessage } from '@/lib/format';
 import { colors, fonts } from '@/lib/theme';
 
@@ -21,6 +22,7 @@ export default function SignIn() {
     const [password, setPassword] = useState('');
     const [busy, setBusy] = useState(false);
     const [confirmEmail, setConfirmEmail] = useState<string | null>(null);
+    const [code, setCode] = useState('');
 
     const isSignUp = mode === 'signup';
 
@@ -34,7 +36,7 @@ export default function SignIn() {
         try {
             if (isSignUp) {
                 const signedIn = await signUp(name.trim(), mail, password);
-                if (!signedIn) setConfirmEmail(mail);
+                if (!signedIn) { setCode(''); setConfirmEmail(mail); }
             } else {
                 await signIn(mail, password);
             }
@@ -52,11 +54,53 @@ export default function SignIn() {
         setConfirmEmail(null);
     };
 
+    const confirmCode = async (value = code) => {
+        if (!confirmEmail) return;
+        if (value.length !== CODE_LEN) return notify('Enter the code', `Type the ${CODE_LEN}-digit code from the email.`);
+        setBusy(true);
+        try {
+            await verifySignupCode(confirmEmail, value);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            // Signed in: the root layout swaps to the affiliate screens by itself.
+        } catch (e) {
+            notify('Couldn’t confirm your email', errorMessage(e));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const resend = async () => {
+        if (!confirmEmail) return;
+        setBusy(true);
+        try {
+            await resendSignupCode(confirmEmail);
+            setCode('');
+            notify('New code sent', `Check ${confirmEmail}. It may take a minute; check spam too.`, undefined, { tone: 'success' });
+        } catch (e) {
+            notify('Couldn’t send a new code', errorMessage(e));
+        } finally {
+            setBusy(false);
+        }
+    };
+
     if (confirmEmail) {
         return (
-            <AuthShell title="Check your email" subtitle={`We sent a confirmation link to ${confirmEmail}. Open it, then come back and sign in.`}>
+            <AuthShell title="Confirm your email" subtitle={`We sent a 6-digit code to ${confirmEmail}. Type it here to finish.`}>
+                <CodeBoxes
+                    value={code}
+                    label="Confirmation code"
+                    onChange={(v) => { setCode(v); if (v.length === CODE_LEN && !busy) confirmCode(v); }}
+                />
+                <Button title="Confirm and continue" loading={busy} onPress={() => confirmCode()} />
+                <View style={styles.codeRow}>
+                    <TouchableOpacity onPress={() => switchMode('signup')} hitSlop={8}>
+                        <Text style={styles.muted}>Wrong email?</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={resend} disabled={busy} hitSlop={8}>
+                        <Text style={styles.link}>Resend code</Text>
+                    </TouchableOpacity>
+                </View>
                 <Notice icon="mail-unread-outline" text="It may take a minute to arrive. Check your spam or promotions folder too." />
-                <Button title="I’ve confirmed, sign in" onPress={() => switchMode('signin')} />
             </AuthShell>
         );
     }
@@ -149,6 +193,8 @@ const styles = StyleSheet.create({
     switchTextActive: { color: colors.navy },
     forgot: { alignSelf: 'flex-end', marginTop: -6 },
     link: { fontFamily: fonts.bold, fontSize: 14, color: colors.orange },
+    muted: { fontFamily: fonts.bold, fontSize: 14, color: colors.grey },
+    codeRow: { flexDirection: 'row', justifyContent: 'space-between' },
     footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
     footerText: { flexShrink: 1, fontFamily: fonts.semibold, fontSize: 13, color: colors.grey, textAlign: 'center' },
 });

@@ -427,6 +427,11 @@ ul, ol { padding: 0; list-style: none; }
 .how3 p { margin-top: 6px; color: rgba(255,255,255,.93); font-size: 15px; }
 .diff { margin-top: 16px; border: 1.5px dashed #F6C7B4; border-radius: var(--radius); padding: 18px 22px; font-size: 16.5px; color: var(--ink-2); }
 .diff b { color: var(--ink); }
+/* Earn with us (U Angel Affiliates) */
+.earn-cta { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; border: 1.5px dashed #F6C7B4; border-radius: var(--radius); padding: 18px 22px; }
+.earn-cta p { margin: 0; flex: 1 1 320px; font-size: 16.5px; color: var(--ink-2); }
+.earn-cta b { color: var(--ink); }
+@media (max-width: 560px) { .earn-cta .btn { width: 100%; justify-content: center; } }
 
 .letter2 { max-width: 760px; margin: 0 auto; border: 1px solid var(--line); border-left: 6px solid var(--orange); border-radius: var(--radius); padding: clamp(22px, 4vw, 42px); }
 .letter2 h3 { font-size: 26px; }
