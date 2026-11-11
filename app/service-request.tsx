@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeIn, FadeInDown, ZoomIn } from "react-native-reanimated";
 
-import EventCalendar, { durationLabel, toISODate } from "@/components/EventCalendar";
+import EventCalendar, { datesLabel, durationLabel, toISODate } from "@/components/EventCalendar";
 import StatePicker from "@/components/StatePicker";
 import ProductImage from "@/components/ProductImage";
 import { createServiceRequest, getCategory, getSubcategories } from "@/lib/api";
@@ -33,6 +33,8 @@ const PLACES: [IconName, string][] = [["home", "Indoor"], ["leaf", "Outdoor"], [
 const STEP_TITLES = ["Your event", "Guests & budget", "Venue", "Your details"];
 
 const digitsOnly = (s: string) => s.replace(/[^\d]/g, "");
+type DateMode = "one" | "range" | "specific";
+const DATE_MODES: [DateMode, string, IconName][] = [["one", "One day", "today"], ["range", "Date range", "calendar"], ["specific", "Specific dates", "apps"]];
 /** Quick lengths for long contracts (end = start + n days - 1). */
 const LENGTHS: [string, (d: Date) => Date][] = [
     ["1 week", (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 6)],
@@ -110,9 +112,11 @@ export default function ServiceRequestScreen() {
     const [form, setForm] = useState({
         customName: "",
         date: null as Date | null,
-        // Several days (a week of catering, a one-year contract…): the last day.
-        multiDay: false,
+        // One day; a date range (a week of catering, a one-year contract…: first + last day);
+        // or specific separate days (e.g. every Friday in December).
+        dateMode: "one" as DateMode,
         endDate: null as Date | null,
+        dates: [] as Date[],
         time: "Afternoon",
         guests: "",
         budget: "",
@@ -141,7 +145,8 @@ export default function ServiceRequestScreen() {
 
     // Cheap checks, so no memo needed (the React Compiler couldn't preserve one here).
     const valid = [
-        !!picked && (!isCustom || !!form.customName.trim()) && !!form.date && (!form.multiDay || !!form.endDate),
+        !!picked && (!isCustom || !!form.customName.trim())
+            && (form.dateMode === "specific" ? form.dates.length > 0 : !!form.date && (form.dateMode !== "range" || !!form.endDate)),
         guests > 0 && budget > 0,
         !!form.address.trim() && !!form.city.trim() && !!form.state,
         !!form.fullName.trim() && !!normalizeNigerianPhone(form.phone),
@@ -160,7 +165,8 @@ export default function ServiceRequestScreen() {
         const msg = [
             !picked ? "Please choose your type of event."
                 : isCustom && !form.customName.trim() ? "Please tell us what you’re celebrating."
-                : !form.date ? (form.multiDay ? "Please tap the first day on the calendar." : "Please pick the date of your event.")
+                : form.dateMode === "specific" ? "Please tap every day you need us on the calendar."
+                : !form.date ? (form.dateMode === "range" ? "Please tap the first day on the calendar." : "Please pick the date of your event.")
                 : "Please tap the last day on the calendar, or choose a length like 1 month.",
             !guests ? "Please enter the number of guests." : "Please enter your budget in naira.",
             "Please enter the venue address, city/area and state.",
@@ -177,7 +183,9 @@ export default function ServiceRequestScreen() {
     };
 
     const submit = async () => {
-        if (!category || !picked || !form.date) return;
+        const specific = form.dateMode === "specific";
+        const firstDay = specific ? form.dates[0] : form.date;
+        if (!category || !picked || !firstDay) return;
         const phone = normalizeNigerianPhone(form.phone);
         if (!phone) return notify("Phone number", "Please enter a valid Nigerian phone number, e.g. 0803 123 4567.");
         setIsSubmitting(true);
@@ -192,8 +200,9 @@ export default function ServiceRequestScreen() {
                 full_name: form.fullName.trim(),
                 phone,
                 email: form.email.trim() || null,
-                event_date: toISODate(form.date),
-                end_date: form.multiDay && form.endDate ? toISODate(form.endDate) : null,
+                event_date: toISODate(firstDay),
+                end_date: form.dateMode === "range" && form.endDate ? toISODate(form.endDate) : null,
+                event_dates: specific ? form.dates.map(toISODate) : null,
                 guest_count: guests,
                 budget,
                 address: form.address.trim(),
@@ -347,28 +356,41 @@ export default function ServiceRequestScreen() {
                                     </Animated.View>
                                 )}
 
-                                <Section title="When?" hint="One event, or catering over several days, weeks or months.">
+                                <Section title="When?" hint="One event, a run of days (up to a year), or separate days.">
                                     <View style={styles.seg}>
-                                        {([["One day", false], ["Several days", true]] as [string, boolean][]).map(([label, multi]) => {
-                                            const on = form.multiDay === multi;
+                                        {DATE_MODES.map(([mode, label, icon]) => {
+                                            const on = form.dateMode === mode;
                                             return (
-                                                <TouchableOpacity key={label} style={[styles.segBtn, on && styles.segOn]} activeOpacity={0.85}
-                                                    onPress={() => { tap(); setForm((p) => ({ ...p, multiDay: multi, endDate: multi ? p.endDate : null })); }}
+                                                <TouchableOpacity key={mode} style={[styles.segBtn, on && styles.segOn]} activeOpacity={0.85}
+                                                    onPress={() => { tap(); setForm((p) => ({ ...p, dateMode: mode, endDate: mode === "range" ? p.endDate : null })); }}
                                                     accessibilityRole="radio" accessibilityState={{ checked: on }}>
-                                                    <Ionicons name={multi ? "calendar" : "today"} size={16} color={on ? "#fff" : GREY} />
-                                                    <Text style={[styles.segText, on && { color: "#fff" }]}>{label}</Text>
+                                                    <Ionicons name={icon} size={15} color={on ? "#fff" : GREY} />
+                                                    <Text style={[styles.segText, on && { color: "#fff" }]} numberOfLines={1}>{label}</Text>
                                                 </TouchableOpacity>
                                             );
                                         })}
                                     </View>
+                                    <Text style={styles.labelHint}>
+                                        {form.dateMode === "range" ? "Tap the first day, then the last day. Every day in between is included."
+                                            : form.dateMode === "specific" ? "Tap every day you need us. Tap a day again to remove it."
+                                            : "Tap the day of your event."}
+                                    </Text>
                                     <EventCalendar
-                                        range={form.multiDay}
+                                        range={form.dateMode === "range"}
+                                        multi={form.dateMode === "specific"}
                                         start={form.date}
                                         end={form.endDate}
+                                        dates={form.dates}
                                         onChange={(s, e) => setForm((p) => ({ ...p, date: s, endDate: e }))}
-                                        emptyText={form.multiDay ? "Tap the first day, then the last day" : "Pick the date of your event"}
+                                        onDatesChange={(d) => set("dates", d)}
+                                        emptyText={form.dateMode === "range" ? "Tap the first day, then the last day" : form.dateMode === "specific" ? "Tap every day you need us" : "Pick the date of your event"}
                                     />
-                                    {form.multiDay && (
+                                    {form.dateMode === "specific" && form.dates.length > 0 && (
+                                        <TouchableOpacity onPress={() => { tap(); set("dates", []); }} hitSlop={8} style={{ alignSelf: "flex-end" }}>
+                                            <Text style={styles.ticketEdit}>Clear dates</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    {form.dateMode === "range" && (
                                         <View style={{ gap: 8 }}>
                                             <Text style={styles.labelHint}>{form.date ? "Or choose how long:" : "Pick the first day, then choose how long:"}</Text>
                                             <View style={styles.chips}>
@@ -497,8 +519,10 @@ export default function ServiceRequestScreen() {
                                             <View style={[styles.notch, { right: -10 }]} />
                                         </View>
                                         {([
-                                            ["calendar-outline", "When", !form.date ? "—"
-                                                : form.multiDay && form.endDate
+                                            ["calendar-outline", "When", form.dateMode === "specific"
+                                                ? (form.dates.length ? `${form.dates.length} date${form.dates.length === 1 ? "" : "s"}: ${datesLabel(form.dates, 6)} · ${form.time}` : "—")
+                                                : !form.date ? "—"
+                                                : form.dateMode === "range" && form.endDate
                                                     ? `${shortDate(form.date)} – ${shortDate(form.endDate)} (${durationLabel(form.date, form.endDate)}) · ${form.time}`
                                                     : `${shortDate(form.date)} · ${form.time}`, 0],
                                             ["people-outline", "Guests", `${guests} guests`, 1],
@@ -582,7 +606,7 @@ const styles = StyleSheet.create({
     seg: { flexDirection: "row", gap: 6, padding: 4, borderRadius: 999, backgroundColor: BG },
     segBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, height: 42, borderRadius: 999 },
     segOn: { backgroundColor: ORANGE },
-    segText: { fontFamily: "Quicksand-Bold", fontSize: 14, color: GREY },
+    segText: { fontFamily: "Quicksand-Bold", fontSize: 12.5, color: GREY, flexShrink: 1 },
 
     row3: { flexDirection: "row", gap: 8 },
     timeCard: { flex: 1, alignItems: "center", gap: 3, paddingVertical: 14, paddingHorizontal: 6, borderRadius: 18, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#fff" },

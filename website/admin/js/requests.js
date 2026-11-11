@@ -39,6 +39,11 @@
   function dateParts(r) { var d = eventDate(r); return d ? { wd: WD[d.getUTCDay()], day: d.getUTCDate(), mon: MON[d.getUTCMonth()], year: d.getUTCFullYear() } : null; }
   /** Catering over several days: " → 5 Dec 2027 (1 year)", or '' for one day. */
   function untilText(r) {
+    // "Specific dates": list them (first one is already shown as the event date).
+    if (r.event_dates && r.event_dates.length > 1) {
+      var ds = r.event_dates.map(function (x) { var d = new Date(String(x).slice(0, 10) + 'T12:00:00+01:00'); return WD[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MON[d.getUTCMonth()]; });
+      return ' + ' + (ds.length - 1) + ' more date' + (ds.length === 2 ? '' : 's') + ' (' + ds.slice(1, 7).join(', ') + (ds.length > 7 ? ', …' : '') + ')';
+    }
     if (!r.end_date) return '';
     var s = eventDate(r), e = new Date(String(r.end_date).slice(0, 10) + 'T12:00:00+01:00');
     if (!s || isNaN(e.getTime())) return '';
@@ -224,7 +229,7 @@
             return '<a class="rq-tpl" href="' + esc(waUrl(r, t[1])) + '" target="_blank" rel="noopener" title="' + esc(t[1]) + '">' + esc(t[0]) + '</a>';
           }).join('') + '</div>' : '') + '</div>' +
         '<dl class="rq-kv">' +
-          '<dt>' + (r.end_date ? 'Dates' : 'Event date') + '</dt><dd>' + (p ? esc(p.wd + ', ' + p.day + ' ' + p.mon + ' ' + p.year) + esc(untilText(r)) + (n != null ? ' · <b>' + esc(whenText(n)) + '</b>' : '') : '—') + '</dd>' +
+          '<dt>' + (r.end_date || (r.event_dates && r.event_dates.length > 1) ? 'Dates' : 'Event date') + '</dt><dd>' + (p ? esc(p.wd + ', ' + p.day + ' ' + p.mon + ' ' + p.year) + esc(untilText(r)) + (n != null ? ' · <b>' + esc(whenText(n)) + '</b>' : '') : '—') + '</dd>' +
           (r.event_time ? '<dt>Time of day</dt><dd>' + esc(r.event_time) + '</dd>' : '') +
           '<dt>Guests</dt><dd>' + A.formatNumber(r.guest_count) + '</dd>' +
           (r.needs && r.needs.length ? '<dt>They need</dt><dd>' + esc(r.needs.join(', ')) + '</dd>' : '') +

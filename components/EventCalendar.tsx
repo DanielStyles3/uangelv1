@@ -23,15 +23,27 @@ export function durationLabel(start: Date, end: Date) {
     return `${days} day${days === 1 ? "" : "s"}`;
 }
 
+/** "Fri 5 Dec, Fri 12 Dec and Sat 20 Dec" (first few, then "+ N more"). */
+export function datesLabel(dates: Date[], max = 4) {
+    const fmt = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+    const shown = dates.slice(0, max).map(fmt);
+    if (dates.length > max) return `${shown.join(", ")} + ${dates.length - max} more`;
+    return shown.length > 1 ? `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}` : shown.join("");
+}
+
 /**
  * Month calendar; past days can't be picked.
  * range = false: one date. range = true: tap the first day, then the last day.
+ * multi = true: tap as many separate days as you like (tap again to remove); uses dates/onDatesChange.
  */
-export default function EventCalendar({ start, end, range = false, onChange, emptyText }: {
+export default function EventCalendar({ start, end, range = false, multi = false, dates = [], onChange, onDatesChange, emptyText }: {
     start: Date | null;
     end?: Date | null;
     range?: boolean;
+    multi?: boolean;
+    dates?: Date[];
     onChange: (start: Date | null, end: Date | null) => void;
+    onDatesChange?: (dates: Date[]) => void;
     emptyText?: string;
 }) {
     const today = startOfDay(new Date());
@@ -42,8 +54,14 @@ export default function EventCalendar({ start, end, range = false, onChange, emp
     const cells: (number | null)[] = [...Array(first).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
     while (cells.length % 7) cells.push(null);
 
+    const picked = new Set(dates.map((x) => x.getTime()));
     const pick = (d: Date) => {
         Haptics.selectionAsync().catch(() => {});
+        if (multi) {
+            const t = d.getTime();
+            const next = picked.has(t) ? dates.filter((x) => x.getTime() !== t) : [...dates, d];
+            return onDatesChange?.(next.sort((a, b) => a.getTime() - b.getTime()));
+        }
         if (!range) return onChange(d, null);
         // First tap (or a new range): the start. Second tap: the end (or a new start if earlier).
         if (!start || end) return onChange(d, null);
@@ -52,7 +70,9 @@ export default function EventCalendar({ start, end, range = false, onChange, emp
         onChange(start, d);
     };
 
-    const note = !start
+    const note = multi
+        ? (dates.length ? `${dates.length} date${dates.length === 1 ? "" : "s"}: ${datesLabel(dates, 3)}` : (emptyText ?? "Tap every day you need us"))
+        : !start
         ? (emptyText ?? (range ? "Tap the first day, then the last day" : "Pick the date"))
         : range && end
             ? `${long(start)} – ${long(end)} · ${durationLabel(start, end)}`
@@ -82,10 +102,10 @@ export default function EventCalendar({ start, end, range = false, onChange, emp
                         const date = new Date(view.getFullYear(), view.getMonth(), d);
                         const t = date.getTime();
                         const past = date < today;
-                        const isStart = !!start && start.getTime() === t;
-                        const isEnd = !!end && end.getTime() === t;
-                        const inside = !!start && !!end && t > start.getTime() && t < end.getTime();
-                        const sel = isStart || isEnd;
+                        const isStart = !multi && !!start && start.getTime() === t;
+                        const isEnd = !multi && !!end && end.getTime() === t;
+                        const inside = !multi && !!start && !!end && t > start.getTime() && t < end.getTime();
+                        const sel = multi ? picked.has(t) : isStart || isEnd;
                         const isToday = t === today.getTime();
                         return (
                             <TouchableOpacity key={i} style={styles.calCell} disabled={past} onPress={() => pick(date)}
@@ -102,9 +122,9 @@ export default function EventCalendar({ start, end, range = false, onChange, emp
                     })}
                 </View>
             ))}
-            <View style={[styles.calNote, start && { backgroundColor: "#FFF1EA" }]}>
-                <Ionicons name="calendar" size={15} color={start ? ORANGE : GREY} />
-                <Text style={[styles.calNoteText, start && { color: INK }]}>{note}</Text>
+            <View style={[styles.calNote, (multi ? dates.length > 0 : !!start) && { backgroundColor: "#FFF1EA" }]}>
+                <Ionicons name="calendar" size={15} color={(multi ? dates.length > 0 : !!start) ? ORANGE : GREY} />
+                <Text style={[styles.calNoteText, (multi ? dates.length > 0 : !!start) && { color: INK }]}>{note}</Text>
             </View>
         </View>
     );

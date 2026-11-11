@@ -15,7 +15,7 @@ import { popIn, riseIn, settle } from "@/lib/motion";
 import { ServiceRequest, ServiceRequestStatus } from "@/type";
 
 import { notify } from "@/lib/notice";
-import { durationLabel } from "@/components/EventCalendar";
+import { datesLabel, durationLabel } from "@/components/EventCalendar";
 const ORANGE = "#FD652A";
 const RUST = "#C2410C";   // orange text on light backgrounds (readable)
 const INK = "#181C2E";
@@ -174,6 +174,9 @@ const RequestCard = ({ request, index, onCancelled }: { request: ServiceRequest;
             ) : null}
 
             <View style={styles.chips}>
+                {request.event_dates && request.event_dates.length > 1 ? (
+                    <Chip text={`${request.event_dates.length} dates: ${datesLabel(request.event_dates.map(eventDate), 3)}`} />
+                ) : null}
                 {request.end_date ? (
                     <Chip text={`Until ${eventDate(request.end_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · ${durationLabel(eventDate(request.event_date), eventDate(request.end_date))}`} />
                 ) : null}

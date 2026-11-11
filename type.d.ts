@@ -157,6 +157,8 @@ export interface ServiceRequest {
     event_date: string;
     /** Last day, for catering over several days (a week, a month, a year…). null = one day. */
     end_date?: string | null;
+    /** "Specific dates": every chosen day (event_date is the first). null otherwise. */
+    event_dates?: string[] | null;
     guest_count: number;
     budget: number;
     address: string;
