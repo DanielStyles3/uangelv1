@@ -669,7 +669,7 @@
               ? '<div class="pp-ov">' + g.option_values.map(function (v, vi) {
                   return '<span class="pp-ovc">' +
                     (g.option_values.length > 1 ? '<button type="button" data-vmove="' + v.id + '" data-g="' + g.id + '" data-dir="-1" aria-label="Move ' + esc(v.name) + ' left"' + (vi === 0 ? ' disabled' : '') + '>◀</button>' : '') +
-                    (v.swatch ? '<i style="background:' + esc(v.swatch) + '"></i>' : '') + esc(v.name) +
+                    (v.swatch ? '<i style="background:' + esc(v.swatch) + '"></i>' : '') + esc(cleanName(v.name)) +
                     ' <small>' + (Number(v.price) ? '+' + esc(naira(v.price)) + ' = ' + esc(naira(Number(p.price) + Number(v.price))) : 'included') + (v.hint ? ' · ' + esc(v.hint) : '') + '</small>' +
                     (g.option_values.length > 1 ? '<button type="button" data-vmove="' + v.id + '" data-g="' + g.id + '" data-dir="1" aria-label="Move ' + esc(v.name) + ' right"' + (vi === g.option_values.length - 1 ? ' disabled' : '') + '>▶</button>' : '') +
                     '<button type="button" data-vedit="' + v.id + '" data-g="' + g.id + '" aria-label="Edit ' + esc(v.name) + '">✎</button>' +
@@ -691,6 +691,20 @@
       return new Promise(function (resolve) {
         var f = document.createElement('form'); f.className = 'cg-form'; f.noValidate = true;
         f.innerHTML = fields.map(function (x) {
+          if (x.type === 'swatch') {
+            // Colour picker: preset dots, "any colour", or no colour. The value lives in a hidden input.
+            var curV = /^#[0-9a-f]{6}$/i.test(initial[x.name] || '') ? initial[x.name].toUpperCase() : '';
+            return '<div class="field"><span class="cg-lbl">' + esc(x.label) + '</span>' +
+              '<input type="hidden" name="' + x.name + '" value="' + esc(curV) + '">' +
+              '<div class="cg-swatches" role="radiogroup" aria-label="' + esc(x.label) + '" data-ovsw>' +
+                '<button type="button" class="cg-sw ov-none' + (curV ? '' : ' on') + '" data-ovc="" title="No colour" aria-label="No colour">∅</button>' +
+                OPTION_SWATCHES.map(function (s) {
+                  return '<button type="button" class="cg-sw' + (curV === s[1] ? ' on' : '') + '" data-ovc="' + s[1] + '" style="background:' + s[1] + '" title="' + esc(s[0]) + '" aria-label="' + esc(s[0]) + '"></button>';
+                }).join('') +
+                '<label class="cg-sw cg-sw-custom' + (curV && !OPTION_SWATCHES.some(function (s) { return s[1] === curV; }) ? ' on' : '') + '" title="Pick any colour">' +
+                  '<input type="color" value="' + esc((curV || '#FD652A').toLowerCase()) + '" aria-label="Pick any colour" data-ovcustom></label>' +
+              '</div>' + (x.help ? '<span class="cg-help">' + esc(x.help) + '</span>' : '') + '</div>';
+          }
           if (x.type === 'check') return '<label style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" name="' + x.name + '"' + (initial[x.name] ? ' checked' : '') + '> ' + esc(x.label) + '</label>';
           return '<div class="field"><label for="og-' + x.name + '">' + esc(x.label) + '</label><input id="og-' + x.name + '" name="' + x.name + '" class="input"' +
             (x.type === 'color' ? ' type="color"' : '') + (x.mode ? ' inputmode="' + x.mode + '"' : '') + ' placeholder="' + esc(x.ph || '') + '" value="' + esc(initial[x.name] == null ? '' : initial[x.name]) + '">' +
@@ -706,7 +720,54 @@
         var mm = A.modal({ title: title, body: f, onClose: function () { if (!done) resolve(null); },
           actions: [{ label: 'Cancel', variant: 'ghost', onClick: function (close) { close(); } }, { label: 'Save', variant: 'primary', onClick: function (close) { submit(close); } }] });
         f.addEventListener('submit', function (e) { e.preventDefault(); submit(mm.close); });
+        // Colour picker: choosing a dot (or any colour) sets the hidden value; typing a colour name pre-picks it.
+        var swBox = f.querySelector('[data-ovsw]');
+        if (swBox) {
+          var hidden = swBox.previousElementSibling, touched = !!hidden.value;
+          var setSw = function (val, custom) {
+            hidden.value = val;
+            swBox.querySelectorAll('.cg-sw').forEach(function (el) {
+              el.classList.toggle('on', custom ? el.classList.contains('cg-sw-custom') : el.getAttribute('data-ovc') === val);
+            });
+          };
+          swBox.addEventListener('click', function (e) {
+            var bb = e.target.closest('[data-ovc]'); if (!bb) return;
+            touched = true; setSw(bb.getAttribute('data-ovc'), false);
+          });
+          swBox.addEventListener('input', function (e) {
+            if (!e.target.hasAttribute('data-ovcustom')) return;
+            touched = true; var hv = e.target.value.toUpperCase();
+            setSw(hv, !OPTION_SWATCHES.some(function (s) { return s[1] === hv; }));
+          });
+          var nameEl = f.elements[fields[0].name];
+          nameEl.addEventListener('input', function () {
+            if (touched) return;
+            var guess = colourFromName(cleanName(nameEl.value));
+            setSw(guess || '', false);
+          });
+        }
       });
+    }
+    // Colour choices: "🟢 Green" → "Green" with a green swatch, so every colour shows as a dot in the app.
+    var COLOURS = [['vanilla cream', '#F5E6B8'], ['chocolate brown', '#8B5A3C'], ['baby blue', '#BFDBFE'], ['light blue', '#BFDBFE'],
+      ['sky blue', '#7DD3FC'], ['navy blue', '#1E3A8A'], ['royal blue', '#2563EB'], ['baby pink', '#FBCFE8'], ['hot pink', '#EC4899'],
+      ['light pink', '#FBCFE8'], ['rose gold', '#E8B4A0'], ['lilac', '#D8B4FE'], ['lavender', '#DDD6FE'], ['mint', '#A7F3D0'],
+      ['teal', '#2DD4BF'], ['turquoise', '#5EEAD4'], ['peach', '#FDBA8C'], ['coral', '#FB7185'], ['maroon', '#9F1239'],
+      ['burgundy', '#881337'], ['wine', '#7F1D1D'], ['navy', '#1E3A8A'], ['cream', '#FFF4D6'], ['ivory', '#FFFBEB'], ['beige', '#E7D7B8'],
+      ['champagne', '#F3E5C0'], ['nude', '#E8C4A8'], ['brown', '#8B5A3C'], ['chocolate', '#7B4A2E'], ['caramel', '#C68A4E'],
+      ['silver', '#CBD5E1'], ['grey', '#9CA3AF'], ['gray', '#9CA3AF'], ['gold', '#FBBF24'], ['white', '#FFFFFF'], ['black', '#1F2937'],
+      ['red', '#F87171'], ['pink', '#F9A8C8'], ['orange', '#FB923C'], ['yellow', '#FDE047'], ['green', '#4ADE80'], ['blue', '#93C5FD'],
+      ['purple', '#C4B5FD'], ['violet', '#A78BFA'], ['rainbow', '#FBBF24']].sort(function (a, b) { return b[0].length - a[0].length; });
+    // The dots offered in the colour picker (name, colour).
+    var OPTION_SWATCHES = [['White', '#FFFFFF'], ['Cream', '#FFF4D6'], ['Vanilla cream', '#F5E6B8'], ['Gold', '#FBBF24'], ['Yellow', '#FDE047'],
+      ['Orange', '#FB923C'], ['Peach', '#FDBA8C'], ['Red', '#F87171'], ['Maroon', '#9F1239'], ['Pink', '#F9A8C8'], ['Baby pink', '#FBCFE8'],
+      ['Rose gold', '#E8B4A0'], ['Purple', '#C4B5FD'], ['Lilac', '#D8B4FE'], ['Blue', '#93C5FD'], ['Royal blue', '#2563EB'], ['Navy', '#1E3A8A'],
+      ['Teal', '#2DD4BF'], ['Mint', '#A7F3D0'], ['Green', '#4ADE80'], ['Brown', '#8B5A3C'], ['Silver', '#CBD5E1'], ['Black', '#1F2937']];
+    function cleanName(n) { var s = String(n || '').replace(/^[^A-Za-z0-9À-ɏ]+/, '').trim(); return s || String(n || '').trim(); }
+    function colourFromName(n) {
+      var s = String(n || '').toLowerCase();
+      var hit = COLOURS.find(function (c) { return new RegExp('\\b' + c[0] + '\\b').test(s); });
+      return hit ? hit[1] : null;
     }
     function money(v) { var n = Number(String(v || '0').replace(/[,\s₦]/g, '')); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null; }
 
@@ -765,13 +826,15 @@
           { name: 'price', label: 'Extra price (₦)', mode: 'decimal', ph: '0',
             help: 'Added to the base price of ' + naira(p.price) + '. 0 means it’s included. Example: for a size that should cost ' + naira(Number(p.price) + 7000) + ' in total, enter 7000.' },
           { name: 'hint', label: 'Small note (optional)', ph: 'e.g. serves 15–20' },
-          { name: 'swatch', label: 'Colour swatch (optional, for colour choices)', ph: '#F9A8C8' }
-        ], cur ? { name: cur.name, price: Number(cur.price) || '', hint: cur.hint, swatch: cur.swatch } : {});
+          { name: 'swatch', label: 'Colour (for colour choices)', type: 'swatch',
+            help: 'Pick the colour customers will see as a dot in the app; no emoji needed. Typing a name like “Green” picks it for you. Choose ∅ for choices that aren’t colours (sizes, flavours).' }
+        ], cur ? { name: cleanName(cur.name), price: Number(cur.price) || '', hint: cur.hint, swatch: cur.swatch || colourFromName(cleanName(cur.name)) } : {});
         if (!c) return;
         var price = money(c.price);
         if (price == null) { A.toast('Enter the extra price as a number, e.g. 2500.', 'error'); return; }
-        var sw = /^#[0-9a-f]{6}$/i.test(c.swatch || '') ? c.swatch : null;
-        var row = { name: c.name, price: price, hint: c.hint || null, swatch: sw };
+        var nm = cleanName(c.name);
+        var sw = /^#[0-9a-f]{6}$/i.test(c.swatch || '') ? c.swatch.toUpperCase() : null; // ∅ = not a colour
+        var row = { name: nm, price: price, hint: c.hint || null, swatch: sw };
         if (cur) await run(A.sb.from('option_values').update(row).eq('id', cur.id), 'Saved');
         else { row.group_id = g.id; row.sort_order = g.option_values.length + 1; await run(A.sb.from('option_values').insert(row), 'Choice added'); }
         return;

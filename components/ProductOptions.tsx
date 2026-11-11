@@ -2,11 +2,22 @@ import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-nativ
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
+import { cleanOptionName, optionColour, RAINBOW, rainbowBands } from "@/lib/colours";
 import { formatNaira } from "@/lib/format";
 import { CartCustomization, OptionGroup } from "@/type";
 
 const ORANGE = "#FD652A";
 const INK = "#181C2E";
+
+/** A round colour sample; rainbow is drawn as stripes. */
+const Swatch = ({ colour, size }: { colour: string; size: number }) =>
+    colour === RAINBOW ? (
+        <View style={[styles.swatchBase, { width: size, height: size, borderRadius: size / 2, flexDirection: 'row' }]}>
+            {rainbowBands.map((c) => <View key={c} style={{ flex: 1, backgroundColor: c }} />)}
+        </View>
+    ) : (
+        <View style={[styles.swatchBase, { width: size, height: size, borderRadius: size / 2, backgroundColor: colour }]} />
+    );
 
 /** What the customer has chosen: option value per 'single' group, text per 'text' group. */
 export type OptionAnswers = { picks: Record<string, string>; texts: Record<string, string> };
@@ -22,7 +33,7 @@ export const answersToCart = (groups: OptionGroup[], a: OptionAnswers): CartCust
     groups.flatMap((g): CartCustomization[] => {
         if (g.kind === 'single') {
             const v = g.option_values.find((x) => x.id === a.picks[g.id]);
-            return v ? [{ id: v.id, name: `${g.name}: ${v.name}`, price: Number(v.price), type: 'option' }] : [];
+            return v ? [{ id: v.id, name: `${g.name}: ${cleanOptionName(v.name)}`, price: Number(v.price), type: 'option' }] : [];
         }
         const text = (a.texts[g.id] ?? '').trim();
         return text ? [{ id: g.id, name: `${g.name}: "${text}"`, price: 0, type: 'text', text }] : [];
@@ -65,8 +76,10 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
         <View style={{ gap: 26 }}>
             {groups.map((g, gi) => {
                 const step = startStep + gi;
-                const swatches = g.kind === 'single' && g.option_values.every((v) => !!v.swatch);
-                const chosen = g.kind === 'single' ? g.option_values.find((v) => v.id === answers.picks[g.id]) : undefined;
+                // Colour from the swatch, or worked out from the name ("🟢 Green" → green); names without emoji.
+                const values = g.option_values.map((v) => ({ ...v, name: cleanOptionName(v.name), colour: optionColour(v.name, v.swatch) }));
+                const swatches = g.kind === 'single' && values.length > 0 && values.every((v) => !!v.colour);
+                const chosen = g.kind === 'single' ? values.find((v) => v.id === answers.picks[g.id]) : undefined;
 
                 if (g.kind === 'text') {
                     const max = g.max_length ?? 300;
@@ -98,14 +111,14 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                         <View key={g.id} style={styles.group}>
                             <StepHeader step={step} title={g.name} required={g.required} right={chosen?.name} />
                             <View style={styles.swatchRow}>
-                                {g.option_values.map((v) => {
+                                {values.map((v) => {
                                     const on = answers.picks[g.id] === v.id;
                                     return (
                                         <TouchableOpacity key={v.id} onPress={() => pick(g.id, v.id, g.required)} style={styles.swatchItem}
                                             accessibilityRole="radio" accessibilityState={{ checked: on }}
                                             accessibilityLabel={`${v.name}${Number(v.price) ? `, plus ${formatNaira(v.price)}` : ''}`}>
                                             <View style={[styles.swatchRing, on && styles.swatchRingOn]}>
-                                                <View style={[styles.swatch, { backgroundColor: v.swatch! }]} />
+                                                <Swatch colour={v.colour!} size={40} />
                                             </View>
                                             <Text style={[styles.swatchName, on && { color: INK }]} numberOfLines={2}>{v.name}</Text>
                                             {Number(v.price) ? <Text style={styles.swatchPrice}>+{formatNaira(v.price)}</Text> : null}
@@ -118,12 +131,12 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                 }
 
                 // Cards: 3 across for short lists (sizes), 2 across otherwise.
-                const cols = g.option_values.length <= 3 ? 3 : 2;
+                const cols = values.length <= 3 ? 3 : 2;
                 return (
                     <View key={g.id} style={styles.group}>
                         <StepHeader step={step} title={g.name} required={g.required} />
                         <View style={styles.cardGrid}>
-                            {g.option_values.map((v) => {
+                            {values.map((v) => {
                                 const on = answers.picks[g.id] === v.id;
                                 return (
                                     <TouchableOpacity key={v.id} onPress={() => pick(g.id, v.id, g.required)} activeOpacity={0.85}
@@ -133,7 +146,10 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                                         {on && (
                                             <View style={styles.cardTick}><Ionicons name="checkmark" size={12} color="#fff" /></View>
                                         )}
-                                        <Text style={styles.cardName} numberOfLines={2}>{v.name}</Text>
+                                        <View style={styles.cardNameRow}>
+                                            {v.colour ? <Swatch colour={v.colour} size={16} /> : null}
+                                            <Text style={styles.cardName} numberOfLines={2}>{v.name}</Text>
+                                        </View>
                                         {v.hint ? <Text style={styles.cardHint} numberOfLines={2}>{v.hint}</Text> : null}
                                         <Text style={styles.cardPrice}>{Number(v.price) ? `+${formatNaira(v.price)}` : 'Included'}</Text>
                                     </TouchableOpacity>
@@ -169,7 +185,8 @@ const styles = StyleSheet.create({
     swatchItem: { width: 70, alignItems: 'center', gap: 6 },
     swatchRing: { width: 54, height: 54, borderRadius: 27, borderWidth: 3, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
     swatchRingOn: { borderColor: ORANGE },
-    swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(0,0,0,0.08)' },
+    swatchBase: { borderWidth: 1, borderColor: 'rgba(0,0,0,0.12)', overflow: 'hidden' },
+    cardNameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
     swatchName: { fontFamily: 'Quicksand-Bold', fontSize: 11.5, color: '#5B5B66', textAlign: 'center' },
     swatchPrice: { fontFamily: 'Quicksand-Bold', fontSize: 11, color: '#C2410C' },
 
