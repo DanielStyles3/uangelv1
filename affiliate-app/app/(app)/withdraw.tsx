@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withSpring } from 'react-native-reanimated';
 
 import { Enter } from '@/components/motion';
@@ -14,6 +14,7 @@ import { errorMessage, formatDate, formatNaira, formatShortDate } from '@/lib/fo
 import { withdrawalChip } from '@/lib/status';
 import { colors, CONTACT, fonts, SPRING } from '@/lib/theme';
 
+import { notify } from '@/lib/notice';
 const MILESTONES = [5, 20, 50];
 
 /** Amount as typed → number (commas and spaces ignored), NaN if not a number. */
@@ -92,7 +93,7 @@ export default function Payouts() {
         try {
             await Promise.all([refresh(), loadHistory()]);
         } catch (e) {
-            Alert.alert('Couldn’t refresh', errorMessage(e));
+            notify('Couldn’t refresh', errorMessage(e));
         } finally {
             setRefreshing(false);
         }
@@ -109,9 +110,9 @@ export default function Payouts() {
         const bank = bankName.trim();
         const number = accountNumber.replace(/\D/g, '');
         const holder = accountName.trim();
-        if (!bank) return Alert.alert('Bank name', 'Enter the name of your bank, e.g. GTBank or Opay.');
-        if (number.length !== 10) return Alert.alert('Account number', 'Your account number must be 10 digits (NUBAN).');
-        if (!holder) return Alert.alert('Account name', 'Enter the name on the account exactly as your bank shows it.');
+        if (!bank) return notify('Bank name', 'Enter the name of your bank, e.g. GTBank or Opay.');
+        if (number.length !== 10) return notify('Account number', 'Your account number must be 10 digits (NUBAN).');
+        if (!holder) return notify('Account name', 'Enter the name on the account exactly as your bank shows it.');
         setSavingBank(true);
         try {
             await setBank(bank, number, holder);
@@ -119,21 +120,21 @@ export default function Payouts() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             setEditingBank(false);
         } catch (e) {
-            Alert.alert('Couldn’t save your bank details', errorMessage(e));
+            notify('Couldn’t save your bank details', errorMessage(e));
         } finally {
             setSavingBank(false);
         }
     };
 
     const submit = async () => {
-        if (blocked) return Alert.alert('Withdrawals paused', 'Your affiliate account is on hold. Please contact us.');
-        if (open) return Alert.alert('Already requested', 'You already have a withdrawal waiting to be paid.');
-        if (!hasBank || editingBank) return Alert.alert('Bank details', 'Save your bank details first.');
-        if (!Number.isFinite(value) || value <= 0) return Alert.alert('Amount', 'Enter how much you want to withdraw.');
-        if (value < min) return Alert.alert('Amount too small', `The minimum withdrawal is ${formatNaira(min)}.`);
-        if (value > available) return Alert.alert('Amount too big', `You can withdraw up to ${formatNaira(available)}.`);
+        if (blocked) return notify('Withdrawals paused', 'Your affiliate account is on hold. Please contact us.');
+        if (open) return notify('Already requested', 'You already have a withdrawal waiting to be paid.');
+        if (!hasBank || editingBank) return notify('Bank details', 'Save your bank details first.');
+        if (!Number.isFinite(value) || value <= 0) return notify('Amount', 'Enter how much you want to withdraw.');
+        if (value < min) return notify('Amount too small', `The minimum withdrawal is ${formatNaira(min)}.`);
+        if (value > available) return notify('Amount too big', `You can withdraw up to ${formatNaira(available)}.`);
 
-        Alert.alert(
+        notify(
             `Withdraw ${formatNaira(value)}?`,
             `We’ll pay it into ${bankLine(summary)} (${summary.account_name}).`,
             [
@@ -147,10 +148,10 @@ export default function Payouts() {
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
                             await Promise.all([refresh(), loadHistory()]);
                             setAmount('');
-                            Alert.alert('Request sent', 'We’ll check it and send the money to your bank. You’ll see it marked Paid here.');
+                            notify('Request sent', 'We’ll check it and send the money to your bank. You’ll see it marked Paid here.');
                         } catch (e) {
                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-                            Alert.alert('Couldn’t request withdrawal', errorMessage(e));
+                            notify('Couldn’t request withdrawal', errorMessage(e));
                         } finally {
                             setRequesting(false);
                         }

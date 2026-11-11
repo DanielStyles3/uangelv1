@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import * as Linking from "expo-linking";
@@ -9,6 +9,7 @@ import CustomButton from "@/components/CustomButton";
 import { createSessionFromUrl, updatePassword } from "@/lib/api";
 import useAuthStore from "@/store/auth.store";
 
+import { notify } from "@/lib/notice";
 type LinkState = 'checking' | 'ready' | 'invalid';
 
 /** Opened from the password-reset email (fastfood://reset-password#access_token=...). */
@@ -37,17 +38,17 @@ export default function ResetPassword() {
     }, [url]);
 
     const save = async () => {
-        if (password.length < 6) return Alert.alert('Error', 'Password must be at least 6 characters.');
-        if (password !== confirm) return Alert.alert('Error', 'The passwords do not match.');
+        if (password.length < 6) return notify('Password too short', 'Use at least 6 characters.');
+        if (password !== confirm) return notify('Passwords don’t match', 'Type the same new password twice.');
 
         setIsSaving(true);
         try {
             await updatePassword(password);
             await fetchAuthenticatedUser();
-            Alert.alert('Password updated', 'You are now signed in with your new password.');
+            notify('Password updated', 'You are now signed in with your new password.');
             router.replace('/');
         } catch (e: any) {
-            Alert.alert('Error', e.message);
+            notify('Couldn’t update your password', e.message);
         } finally {
             setIsSaving(false);
         }

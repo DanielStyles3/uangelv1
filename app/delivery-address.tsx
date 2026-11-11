@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +14,7 @@ import { updateProfile } from "@/lib/api";
 import { formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
 import useAuthStore from "@/store/auth.store";
 
+import { notify } from "@/lib/notice";
 /** Where we deliver. We deliver only (no pick-up). Used to fill in checkout. */
 export default function DeliveryAddress() {
     const { user, setUser } = useAuthStore();
@@ -35,12 +36,12 @@ export default function DeliveryAddress() {
     const save = async () => {
         const address = form.address.trim();
         const city = form.city.trim();
-        if (!address || !city || !form.state) return Alert.alert('Delivery address', 'Please enter your street address, city/area and state.');
+        if (!address || !city || !form.state) return notify('Delivery address', 'Please enter your street address, city/area and state.');
 
         let deliveryPhone: string | null = null;
         if (otherPhone) {
             deliveryPhone = normalizeNigerianPhone(form.deliveryPhone);
-            if (!deliveryPhone) return Alert.alert('Phone for the rider', 'Please enter a valid Nigerian phone number, e.g. 0803 123 4567.');
+            if (!deliveryPhone) return notify('Phone for the rider', 'Please enter a valid Nigerian phone number, e.g. 0803 123 4567.');
         }
 
         setIsSaving(true);
@@ -52,7 +53,7 @@ export default function DeliveryAddress() {
             }));
             router.back();
         } catch (e: any) {
-            Alert.alert('Could not save', e.message);
+            notify('Could not save', e.message);
         } finally {
             setIsSaving(false);
         }

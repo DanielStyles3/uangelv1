@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { Fragment, useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { Linking, StyleSheet, Text, View } from 'react-native';
 
 import { Enter, PressableScale } from '@/components/motion';
 import { Screen } from '@/components/Screen';
@@ -12,6 +12,7 @@ import { displayName, useAuth } from '@/lib/auth';
 import { errorMessage, formatRate } from '@/lib/format';
 import { colors, CONTACT, fonts } from '@/lib/theme';
 
+import { notify } from '@/lib/notice';
 const HOW_IT_WORKS: { icon: IconName; text: string }[] = [
     { icon: 'share-social-outline', text: 'Share your code or link with friends, family and followers.' },
     {
@@ -51,10 +52,10 @@ export default function Profile() {
     const version = Constants.expoConfig?.version ?? '1.0.0';
 
     const open = (url: string, fallback: string) =>
-        Linking.openURL(url).catch(() => Alert.alert('Couldn’t open that', fallback));
+        Linking.openURL(url).catch(() => notify('Couldn’t open that', fallback));
 
     const confirmSignOut = () =>
-        Alert.alert('Sign out?', 'You can sign back in at any time.', [
+        notify('Sign out?', 'You can sign back in at any time.', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Sign out',
@@ -64,7 +65,7 @@ export default function Profile() {
                     try {
                         await signOut();
                     } catch (e) {
-                        Alert.alert('Couldn’t sign out', errorMessage(e));
+                        notify('Couldn’t sign out', errorMessage(e));
                         setBusy(false);
                     }
                 },

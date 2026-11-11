@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Redirect, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,6 +16,7 @@ import { fadeIn, riseIn } from "@/lib/motion";
 import useFetch from "@/lib/useFetch";
 import useAuthStore from "@/store/auth.store";
 
+import { notify } from "@/lib/notice";
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const ORANGE = "#FD652A";
@@ -108,7 +109,7 @@ export default function Invite() {
             success();
             await refetch();
         } catch (e: any) {
-            Alert.alert("Couldn’t send your application", e.message);
+            notify("Couldn’t send your application", e.message);
         } finally {
             setJoining(false);
         }
@@ -123,7 +124,7 @@ export default function Invite() {
             if (copiedTimer.current) clearTimeout(copiedTimer.current);
             copiedTimer.current = setTimeout(() => setCopied(null), 1800);
         } catch {
-            Alert.alert("Couldn’t copy", `Your code is ${code}.`);
+            notify("Couldn’t copy", `Your code is ${code}.`);
         }
     };
 
@@ -143,7 +144,7 @@ export default function Invite() {
 
     const openAffiliatesApp = () => {
         tap();
-        Linking.openURL(AFFILIATES_APP_URL).catch(() => Alert.alert("Couldn’t open the link", `Please visit ${AFFILIATES_APP_URL.replace("https://", "")} in your browser.`));
+        Linking.openURL(AFFILIATES_APP_URL).catch(() => notify("Couldn’t open the link", `Please visit ${AFFILIATES_APP_URL.replace("https://", "")} in your browser.`));
     };
 
     const onRefresh = async () => {

@@ -1,4 +1,4 @@
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { useState } from "react";
 import * as Sentry from "@sentry/react-native";
@@ -8,6 +8,7 @@ import AuthScreen, { AuthButton, AuthGhostButton, authStyles } from "@/component
 import { signIn } from "@/lib/api";
 import useAuthStore from "@/store/auth.store";
 
+import { notify } from "@/lib/notice";
 const SignIn = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [form, setForm] = useState({ email: "", password: "" });
@@ -16,7 +17,7 @@ const SignIn = () => {
     const submit = async () => {
         const { email, password } = form;
 
-        if (!email || !password) return Alert.alert("Error", "Please enter valid email address & password.");
+        if (!email || !password) return notify("Enter your details", "Please type your email address and password.");
 
         setIsSubmitting(true);
 
@@ -26,7 +27,7 @@ const SignIn = () => {
 
             router.replace("/");
         } catch (error: any) {
-            Alert.alert("Error", error.message);
+            notify("Couldn’t sign you in", error.message);
             Sentry.captureException(error);
         } finally {
             setIsSubmitting(false);

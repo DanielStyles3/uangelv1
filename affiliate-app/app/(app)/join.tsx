@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { Alert, AppState, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Enter } from '@/components/motion';
@@ -13,6 +13,7 @@ import { displayName, useAuth } from '@/lib/auth';
 import { errorMessage, formatDate } from '@/lib/format';
 import { colors, fonts } from '@/lib/theme';
 
+import { notify } from '@/lib/notice';
 const STEPS: { icon: IconName; title: string; body: string; green?: boolean }[] = [
     {
         icon: 'share-social-outline',
@@ -88,14 +89,14 @@ export default function Join() {
     }, [state, refresh]);
 
     const join = async () => {
-        if (!agreed) return Alert.alert('One more thing', 'Please tick the box to agree to the affiliate terms.');
+        if (!agreed) return notify('One more thing', 'Please tick the box to agree to the affiliate terms.');
         setBusy(true);
         try {
             await becomeAffiliate();
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             await refresh(); // now pending: this screen shows "Application received"
         } catch (e) {
-            Alert.alert('Couldn’t send your application', errorMessage(e));
+            notify('Couldn’t send your application', errorMessage(e));
         } finally {
             setBusy(false);
         }
@@ -106,14 +107,14 @@ export default function Join() {
         try {
             await refresh(); // approved → the layout opens the dashboard
         } catch (e) {
-            Alert.alert('Couldn’t check just now', errorMessage(e));
+            notify('Couldn’t check just now', errorMessage(e));
         } finally {
             setChecking(false);
         }
     };
 
     const confirmSignOut = () =>
-        Alert.alert('Sign out?', 'You can sign back in at any time.', [
+        notify('Sign out?', 'You can sign back in at any time.', [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Sign out', style: 'destructive', onPress: () => signOut().catch(() => {}) },
         ]);

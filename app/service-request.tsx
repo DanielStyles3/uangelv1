@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Alert, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +13,7 @@ import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/
 import useFetch from "@/lib/useFetch";
 import useAuthStore from "@/store/auth.store";
 
+import { notify } from "@/lib/notice";
 type IconName = keyof typeof Ionicons.glyphMap;
 
 const ORANGE = "#FD652A";
@@ -208,7 +209,7 @@ export default function ServiceRequestScreen() {
             !form.fullName.trim() ? "Please enter your full name." : "Please enter a valid Nigerian phone number, e.g. 0803 123 4567.",
         ][step];
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-        Alert.alert(STEP_TITLES[step], msg);
+        notify(STEP_TITLES[step], msg);
     };
 
     const next = () => {
@@ -220,7 +221,7 @@ export default function ServiceRequestScreen() {
     const submit = async () => {
         if (!category || !picked || !form.date) return;
         const phone = normalizeNigerianPhone(form.phone);
-        if (!phone) return Alert.alert("Phone number", "Please enter a valid Nigerian phone number, e.g. 0803 123 4567.");
+        if (!phone) return notify("Phone number", "Please enter a valid Nigerian phone number, e.g. 0803 123 4567.");
         setIsSubmitting(true);
         try {
             // Service = the top-level service (Catering), even when the request starts under Catering › Events.
@@ -247,7 +248,7 @@ export default function ServiceRequestScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             setSubmitted(true);
         } catch (e: any) {
-            Alert.alert("Could not send request", e.message);
+            notify("Could not send request", e.message);
         } finally {
             setIsSubmitting(false);
         }

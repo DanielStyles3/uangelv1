@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,6 +7,7 @@ import { WebView, WebViewNavigation } from "react-native-webview";
 
 import { startPayment, verifyPayment } from "@/lib/api";
 
+import { notify } from "@/lib/notice";
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
 // Paystack redirects here after a successful payment; we intercept it inside the WebView
 // (the page itself is never shown), so the customer lands back in the app instantly.
@@ -89,7 +90,7 @@ export default function PayScreen() {
     };
 
     const confirmClose = () =>
-        Alert.alert('Leave payment?', "If you've already paid, we'll confirm it. Otherwise you can pay later from your order.", [
+        notify('Leave payment?', "If you've already paid, we'll confirm it. Otherwise you can pay later from your order.", [
             { text: 'Stay', style: 'cancel' },
             { text: 'Leave', style: 'destructive', onPress: () => finish('cancelled') },
         ]);

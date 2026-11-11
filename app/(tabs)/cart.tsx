@@ -1,4 +1,4 @@
-import {Alert, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native'
+import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {router} from "expo-router";
 import {Ionicons} from "@expo/vector-icons";
@@ -16,6 +16,7 @@ import useFetch from "@/lib/useFetch";
 import useDeliveryFee from "@/lib/useDeliveryFee";
 import {CartItemType, MenuItem} from "@/type";
 
+import { notify } from "@/lib/notice";
 const cartItemKey = (item: CartItemType) =>
     [item.id, ...(item.customizations ?? []).map((c) => c.id).sort()].join('|');
 
@@ -86,7 +87,7 @@ const Cart = () => {
     const address = [user?.address, user?.city, user?.state].filter(Boolean).join(', ');
 
     const confirmClear = () =>
-        Alert.alert('Clear cart', 'Remove all items from your cart?', [
+        notify('Clear cart', 'Remove all items from your cart?', [
             { text: 'Cancel', style: 'cancel' },
             { text: 'Clear', style: 'destructive', onPress: clearCart },
         ]);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -10,6 +10,7 @@ import AuthInput from "@/components/AuthInput";
 import useFetch from "@/lib/useFetch";
 import { applyReferralCode, getMyReferral } from "@/lib/api";
 
+import { notify } from "@/lib/notice";
 const ORANGE = "#FD652A";
 const INK = "#181C2E";
 const GREY = "#5B5B66";
@@ -22,16 +23,16 @@ export default function ReferralCode() {
 
     const apply = async () => {
         const clean = code.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-        if (!clean) return Alert.alert("Referral code", "Enter the code your friend gave you.");
+        if (!clean) return notify("Referral code", "Enter the code your friend gave you.");
         setBusy(true);
         try {
             const name = await applyReferralCode(clean);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-            Alert.alert("Code added", `You joined with ${name}’s code. Thank you!`);
+            notify("Code added", `You joined with ${name}’s code. Thank you!`);
             setCode("");
             await refetch();
         } catch (e: any) {
-            Alert.alert("Couldn’t add the code", e.message);
+            notify("Couldn’t add the code", e.message);
         } finally {
             setBusy(false);
         }

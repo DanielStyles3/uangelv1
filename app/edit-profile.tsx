@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, KeyboardAvoidingView, ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect, router } from "expo-router";
 
@@ -10,6 +10,7 @@ import { updateProfile } from "@/lib/api";
 import { formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
 import useAuthStore from "@/store/auth.store";
 
+import { notify } from "@/lib/notice";
 /** Personal details only: who you are. The delivery address has its own screen (delivery-address.tsx). */
 export default function PersonalDetails() {
     const { user, setUser } = useAuthStore();
@@ -26,12 +27,12 @@ export default function PersonalDetails() {
 
     const save = async () => {
         const name = form.name.trim();
-        if (!name) return Alert.alert('Name', 'Please enter your name.');
+        if (!name) return notify('Name', 'Please enter your name.');
 
         let phone: string | null = null;
         if (form.phone.trim()) {
             phone = normalizeNigerianPhone(form.phone);
-            if (!phone) return Alert.alert('Phone number', 'Please enter a valid Nigerian phone number, e.g. 0803 123 4567.');
+            if (!phone) return notify('Phone number', 'Please enter a valid Nigerian phone number, e.g. 0803 123 4567.');
         }
 
         setIsSaving(true);
@@ -39,7 +40,7 @@ export default function PersonalDetails() {
             setUser(await updateProfile(user.id, { name, phone }));
             router.back();
         } catch (e: any) {
-            Alert.alert('Could not save', e.message);
+            notify('Could not save', e.message);
         } finally {
             setIsSaving(false);
         }

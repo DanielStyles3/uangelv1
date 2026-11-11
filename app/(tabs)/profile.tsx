@@ -1,5 +1,5 @@
 import {useCallback, useState} from 'react'
-import {ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native'
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import {useSafeAreaInsets} from "react-native-safe-area-context";
 import {router, useFocusEffect} from "expo-router";
 import Constants from "expo-constants";
@@ -13,6 +13,7 @@ import {deleteAccount, getAffiliateSummary, getProfileStats} from "@/lib/api";
 import {formatNigerianPhone} from "@/lib/format";
 import ProfileInviteCard from "@/components/ProfileInviteCard";
 
+import { notify } from "@/lib/notice";
 // The invite card is a nice-to-have: if it can't load, show the "Get my code" version quietly.
 const loadAffiliate = () => getAffiliateSummary().catch(() => null);
 
@@ -65,7 +66,7 @@ const Profile = () => {
     useFocusEffect(useCallback(() => { refetch(); refetchAffiliate(); }, [])); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleLogout = () => {
-        Alert.alert('Log out', 'Are you sure you want to log out?', [
+        notify('Log out', 'Are you sure you want to log out?', [
             { text: 'Cancel', style: 'cancel' },
             {
                 text: 'Log out',
@@ -84,7 +85,7 @@ const Profile = () => {
     };
 
     const handleDelete = () => {
-        Alert.alert(
+        notify(
             'Delete account?',
             'This permanently deletes your account, profile and saved address. This cannot be undone.',
             [
@@ -92,7 +93,7 @@ const Profile = () => {
                 {
                     text: 'Continue',
                     style: 'destructive',
-                    onPress: () => Alert.alert('Are you absolutely sure?', `Delete the account for ${user?.email}?`, [
+                    onPress: () => notify('Are you absolutely sure?', `Delete the account for ${user?.email}?`, [
                         { text: 'Keep my account', style: 'cancel' },
                         {
                             text: 'Delete forever',
@@ -105,9 +106,9 @@ const Profile = () => {
                                     setUser(null);
                                     setIsAuthenticated(false);
                                     router.replace('/sign-in');
-                                    Alert.alert('Account deleted', 'Your account has been deleted.');
+                                    notify('Account deleted', 'Your account has been deleted.');
                                 } catch (e: any) {
-                                    Alert.alert('Could not delete account', e.message);
+                                    notify('Could not delete account', e.message);
                                 } finally {
                                     setBusy(null);
                                 }

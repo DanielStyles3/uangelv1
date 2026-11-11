@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import AuthShell from '@/components/AuthShell';
 import { Button, Field, Notice } from '@/components/ui';
@@ -10,6 +10,7 @@ import { signIn, signUp } from '@/lib/api';
 import { errorMessage } from '@/lib/format';
 import { colors, fonts } from '@/lib/theme';
 
+import { notify } from '@/lib/notice';
 type Mode = 'signin' | 'signup';
 
 export default function SignIn() {
@@ -25,9 +26,9 @@ export default function SignIn() {
 
     const submit = async () => {
         const mail = email.trim().toLowerCase();
-        if (isSignUp && name.trim().length < 2) return Alert.alert('Your name', 'Please enter your full name.');
-        if (!/^\S+@\S+\.\S+$/.test(mail)) return Alert.alert('Check your email', 'Please enter a valid email address.');
-        if (password.length < 6) return Alert.alert('Password too short', 'Use at least 6 characters.');
+        if (isSignUp && name.trim().length < 2) return notify('Your name', 'Please enter your full name.');
+        if (!/^\S+@\S+\.\S+$/.test(mail)) return notify('Check your email', 'Please enter a valid email address.');
+        if (password.length < 6) return notify('Password too short', 'Use at least 6 characters.');
 
         setBusy(true);
         try {
@@ -40,7 +41,7 @@ export default function SignIn() {
             // Signed in: the root layout swaps to the affiliate screens by itself.
         } catch (e) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-            Alert.alert(isSignUp ? 'Couldn’t create your account' : 'Couldn’t sign you in', errorMessage(e));
+            notify(isSignUp ? 'Couldn’t create your account' : 'Couldn’t sign you in', errorMessage(e));
         } finally {
             setBusy(false);
         }

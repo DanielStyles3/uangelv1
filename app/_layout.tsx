@@ -8,6 +8,7 @@ import './globals.css';
 import * as Sentry from '@sentry/react-native';
 import useAuthStore from "@/store/auth.store";
 import AnimatedSplash from "@/components/AnimatedSplash";
+import { NoticeHost } from "@/lib/notice";
 
 // Keep the native splash up until <AnimatedSplash> has drawn its first frame.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -61,7 +62,8 @@ export default Sentry.wrap(function RootLayout() {
   // so show it from an effect (after mount) rather than at module load.
   const ready = fontsLoaded && !isLoading;
   useEffect(() => {
-    if (ready && SENTRY_DSN) Sentry.showFeedbackWidget();
+    // Developer builds only: customers shouldn't see a floating "Report a bug" button.
+    if (ready && SENTRY_DSN && __DEV__) Sentry.showFeedbackWidget();
   }, [ready]);
 
   return (
@@ -70,6 +72,7 @@ export default Sentry.wrap(function RootLayout() {
       <StatusBar style="dark" />
       {ready && <Stack screenOptions={{ headerShown: false }} />}
       {!splashDone && <AnimatedSplash ready={ready} onFinish={finishSplash} />}
+      <NoticeHost />
     </>
   );
 });

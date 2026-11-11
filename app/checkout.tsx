@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Redirect } from "expo-router";
 import cn from "clsx";
@@ -20,6 +20,7 @@ import { useCartStore } from "@/store/cart.store";
 import useAuthStore from "@/store/auth.store";
 import { CheckoutPaymentMethod } from "@/type";
 
+import { notify } from "@/lib/notice";
 /** One choice in the Payment section (radio card). */
 const PaymentOption = ({ icon, title, body, selected, onPress }: {
     icon: keyof typeof Ionicons.glyphMap; title: string; body: string; selected: boolean; onPress: () => void;
@@ -88,8 +89,8 @@ export default function Checkout() {
         const city = form.city.trim();
         const phone = normalizeNigerianPhone(form.phone);
 
-        if (!givingOnly && (!address || !city || !form.state)) return Alert.alert('Delivery address', 'Please enter your street address, city/area and state.');
-        if (!phone) return Alert.alert('Phone number', 'Please enter a valid Nigerian phone number, e.g. 0803 123 4567.');
+        if (!givingOnly && (!address || !city || !form.state)) return notify('Delivery address', 'Please enter your street address, city/area and state.');
+        if (!phone) return notify('Phone number', 'Please enter a valid Nigerian phone number, e.g. 0803 123 4567.');
 
         const landmark = form.landmark.trim();
 
@@ -133,7 +134,7 @@ export default function Checkout() {
             // Opens Paystack inside the app; returns to the order page as soon as it's paid.
             openPayment(orderId);
         } catch (e: any) {
-            Alert.alert('Could not place order', e.message);
+            notify('Could not place order', e.message);
             setIsSubmitting(false);
         }
     };

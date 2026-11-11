@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import AnimatedSplash from '@/components/AnimatedSplash';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { NoticeHost } from '@/lib/notice';
 import { colors } from '@/lib/theme';
 
 // Keep the plain orange native splash up until <AnimatedSplash> has drawn its first frame.
@@ -33,6 +34,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
                 </Stack>
             ) : null}
             {!splashDone ? <AnimatedSplash ready={ready} onFinish={finishSplash} /> : null}
+            <NoticeHost />
         </>
     );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 
@@ -8,23 +8,24 @@ import CustomButton from "@/components/CustomButton";
 import AuthInput from "@/components/AuthInput";
 import { updatePassword } from "@/lib/api";
 
+import { notify } from "@/lib/notice";
 export default function ChangePassword() {
     const [password, setPassword] = useState('');
     const [confirm, setConfirm] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     const save = async () => {
-        if (password.length < 6) return Alert.alert('Password', 'Your new password must be at least 6 characters.');
-        if (password !== confirm) return Alert.alert('Password', 'The two passwords do not match.');
+        if (password.length < 6) return notify('Password', 'Your new password must be at least 6 characters.');
+        if (password !== confirm) return notify('Password', 'The two passwords do not match.');
 
         setIsSaving(true);
         try {
             await updatePassword(password);
-            Alert.alert('Password changed', 'Use your new password next time you sign in.', [
+            notify('Password changed', 'Use your new password next time you sign in.', [
                 { text: 'OK', onPress: () => router.back() },
             ]);
         } catch (e: any) {
-            Alert.alert('Could not change password', e.message);
+            notify('Could not change password', e.message);
         } finally {
             setIsSaving(false);
         }

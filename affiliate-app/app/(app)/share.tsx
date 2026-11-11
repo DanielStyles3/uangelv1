@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import { Enter, PressableScale } from '@/components/motion';
@@ -13,6 +13,7 @@ import { Button, Notice } from '@/components/ui';
 import { useAffiliate } from '@/lib/affiliate';
 import { colors, fonts, referralLink, shareMessage } from '@/lib/theme';
 
+import { notify } from '@/lib/notice';
 const QR_SIZE = 190;
 
 const qrUrl = (link: string) =>
@@ -85,7 +86,7 @@ export default function ShareScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             setCopied(true);
         } catch {
-            Alert.alert('Couldn’t copy', `Your link is ${link}`);
+            notify('Couldn’t copy', `Your link is ${link}`);
         }
     };
 
@@ -94,7 +95,7 @@ export default function ShareScreen() {
         try {
             await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(shareMessage(code))}`);
         } catch {
-            Alert.alert('Couldn’t open WhatsApp', 'Copy your link and paste it into WhatsApp instead.');
+            notify('Couldn’t open WhatsApp', 'Copy your link and paste it into WhatsApp instead.');
         }
     };
 
@@ -116,7 +117,7 @@ export default function ShareScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             await Sharing.shareAsync(uri, { mimeType: 'image/png', UTI: 'public.png', dialogTitle: 'Share your invite' });
         } catch {
-            Alert.alert('Couldn’t make the picture', 'Please try again, or use “More ways” to share your link instead.');
+            notify('Couldn’t make the picture', 'Please try again, or use “More ways” to share your link instead.');
         } finally {
             setMakingPicture(false);
         }

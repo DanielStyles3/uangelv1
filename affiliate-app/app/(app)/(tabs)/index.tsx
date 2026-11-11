@@ -3,7 +3,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { CountUpNaira, Enter, PressableScale } from '@/components/motion';
 import { Screen } from '@/components/Screen';
@@ -16,6 +16,7 @@ import { errorMessage, formatNaira, formatShortDate } from '@/lib/format';
 import { commissionStatus } from '@/lib/status';
 import { cardShadow, colors, fonts } from '@/lib/theme';
 
+import { notify } from '@/lib/notice';
 type Earnings = { items: Commission[]; now: number } | null;
 
 const PREVIEW = 5; // rows shown before "See all"
@@ -80,7 +81,7 @@ export default function EarningsTab() {
         try {
             await Promise.all([refresh(), loadEarnings(), reloadWeek()]);
         } catch (e) {
-            Alert.alert('Couldn’t refresh', errorMessage(e));
+            notify('Couldn’t refresh', errorMessage(e));
         } finally {
             setRefreshing(false);
         }
@@ -99,7 +100,7 @@ export default function EarningsTab() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             setCopied(true);
         } catch {
-            Alert.alert('Couldn’t copy', `Your code is ${code}.`);
+            notify('Couldn’t copy', `Your code is ${code}.`);
         }
     };
 

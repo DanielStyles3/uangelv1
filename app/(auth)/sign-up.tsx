@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import {ActivityIndicator, View, Text, Alert, StyleSheet, TouchableOpacity} from 'react-native'
+import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import {router} from "expo-router";
 import {useEffect, useState} from "react";
 import * as Sentry from '@sentry/react-native'
@@ -13,6 +13,7 @@ import {checkReferralCode, createUser} from "@/lib/api";
 import {popIn} from "@/lib/motion";
 import useAuthStore from "@/store/auth.store";
 
+import { notify } from "@/lib/notice";
 /** Affiliate codes are 4 to 12 capital letters / digits (supabase/affiliates.sql). */
 const MIN_CODE = 4;
 const cleanCode = (text: string) => text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
@@ -52,8 +53,8 @@ const SignUp = () => {
         const { name, email, password } = form;
         const referral = code;
 
-        if(!name || !email || !password) return Alert.alert('Error', 'Please fill in your name, email address & password.');
-        if(password.length < 6) return Alert.alert('Error', 'Password must be at least 6 characters.');
+        if(!name || !email || !password) return notify('A few details missing', 'Please fill in your name, email address and password.');
+        if(password.length < 6) return notify('Password too short', 'Use at least 6 characters.');
 
         setIsSubmitting(true)
 
@@ -62,14 +63,14 @@ const SignUp = () => {
             if (referral) {
                 const { valid } = await checkReferralCode(referral);
                 if (!valid) {
-                    Alert.alert('Referral code', `"${referral}" isn’t a valid code. Check it with your friend, or leave it empty.`);
+                    notify('Referral code', `"${referral}" isn’t a valid code. Check it with your friend, or leave it empty.`);
                     return;
                 }
             }
             const { needsEmailConfirmation } = await createUser({ email: email.trim(), password, name: name.trim(), referralCode: referral || undefined });
 
             if (needsEmailConfirmation) {
-                Alert.alert(
+                notify(
                     'Check your email',
                     'We sent you a confirmation link. Confirm your email, then sign in.',
                     [{ text: 'OK', onPress: () => router.replace('/sign-in') }]
@@ -81,7 +82,7 @@ const SignUp = () => {
 
             router.replace('/');
         } catch(error: any) {
-            Alert.alert('Error', error.message);
+            notify('Couldn’t create your account', error.message);
             Sentry.captureException(error);
         } finally {
             setIsSubmitting(false);

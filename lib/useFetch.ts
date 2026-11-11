@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert } from "react-native";
+
+import { notify } from "@/lib/notice";
 
 type Params = Record<string, string | number | undefined>;
 
@@ -37,7 +38,7 @@ const useFetch = <T, P extends Params>({
                 const errorMessage =
                     err instanceof Error ? err.message : "An unknown error occurred";
                 setError(errorMessage);
-                Alert.alert("Error", errorMessage);
+                notify("Couldn’t load this", errorMessage);
             } finally {
                 setLoading(false);
             }

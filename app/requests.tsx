@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Linking, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Linking, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, Stack, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,6 +14,7 @@ import { formatNaira, formatNigerianPhone } from "@/lib/format";
 import { popIn, riseIn, settle } from "@/lib/motion";
 import { ServiceRequest, ServiceRequestStatus } from "@/type";
 
+import { notify } from "@/lib/notice";
 const ORANGE = "#FD652A";
 const RUST = "#C2410C";   // orange text on light backgrounds (readable)
 const INK = "#181C2E";
@@ -66,11 +67,11 @@ const whatsapp = (r: ServiceRequest) => {
     tap();
     const text = `Hello U Angel Foods, I'm following up on my ${r.event_type} request for ${eventDate(r.event_date).toDateString()} (ref ${reference(r)}).`;
     Linking.openURL(`https://wa.me/${SUPPORT_PHONE.replace("+", "")}?text=${encodeURIComponent(text)}`).catch(() =>
-        Alert.alert("WhatsApp not available", "Please call us on 0704 905 5555."));
+        notify("WhatsApp not available", "Please call us on 0704 905 5555."));
 };
 const call = () => {
     tap();
-    Linking.openURL(`tel:${SUPPORT_PHONE}`).catch(() => Alert.alert("Couldn’t start the call", "Please call us on 0704 905 5555."));
+    Linking.openURL(`tel:${SUPPORT_PHONE}`).catch(() => notify("Couldn’t start the call", "Please call us on 0704 905 5555."));
 };
 
 const Chip = ({ text }: { text: string }) => (
@@ -114,7 +115,7 @@ const RequestCard = ({ request, index, onCancelled }: { request: ServiceRequest;
     const contact = [request.full_name, formatNigerianPhone(request.phone)].filter(Boolean).join(" · ");
 
     const confirmCancel = () =>
-        Alert.alert("Cancel this request?", `Your ${request.event_type} request will be cancelled.`, [
+        notify("Cancel this request?", `Your ${request.event_type} request will be cancelled.`, [
             { text: "Keep it", style: "cancel" },
             {
                 text: "Cancel request", style: "destructive",
@@ -125,7 +126,7 @@ const RequestCard = ({ request, index, onCancelled }: { request: ServiceRequest;
                         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
                         onCancelled();
                     } catch (e: any) {
-                        Alert.alert("Couldn’t cancel", e.message);
+                        notify("Couldn’t cancel", e.message);
                     } finally {
                         setIsCancelling(false);
                     }

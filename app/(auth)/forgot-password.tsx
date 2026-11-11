@@ -1,5 +1,5 @@
 import { ComponentRef, useEffect, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -9,6 +9,7 @@ import AuthScreen, { AuthButton } from "@/components/AuthScreen";
 import { resetPasswordWithCode, sendPasswordReset } from "@/lib/api";
 import useAuthStore from "@/store/auth.store";
 
+import { notify } from "@/lib/notice";
 const ORANGE = "#FD652A";
 const INK = "#181C2E";
 const CODE_LEN = 6;
@@ -67,7 +68,7 @@ export default function ForgotPassword() {
 
     const sendCode = async () => {
         const trimmed = email.trim();
-        if (!/^\S+@\S+\.\S+$/.test(trimmed)) return Alert.alert("Check your email", "Please enter the email you signed up with.");
+        if (!/^\S+@\S+\.\S+$/.test(trimmed)) return notify("Check your email", "Please enter the email you signed up with.");
         setBusy(true);
         try {
             await sendPasswordReset(trimmed);
@@ -75,25 +76,25 @@ export default function ForgotPassword() {
             setCode("");
             setCooldown(RESEND_AFTER);
         } catch (e: any) {
-            Alert.alert("Couldn't send the code", e.message);
+            notify("Couldn't send the code", e.message);
         } finally {
             setBusy(false);
         }
     };
 
     const save = async () => {
-        if (code.length !== CODE_LEN) return Alert.alert("Enter the code", `Type the ${CODE_LEN}-digit code from the email.`);
-        if (password.length < 6) return Alert.alert("Password too short", "Use at least 6 characters.");
-        if (password !== confirm) return Alert.alert("Passwords don't match", "Type the same new password twice.");
+        if (code.length !== CODE_LEN) return notify("Enter the code", `Type the ${CODE_LEN}-digit code from the email.`);
+        if (password.length < 6) return notify("Password too short", "Use at least 6 characters.");
+        if (password !== confirm) return notify("Passwords don't match", "Type the same new password twice.");
         setBusy(true);
         try {
             await resetPasswordWithCode(email.trim(), code, password);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             await fetchAuthenticatedUser(); // signed in → the auth layout sends them home
-            Alert.alert("Password updated", "You're signed in with your new password.");
+            notify("Password updated", "You're signed in with your new password.");
         } catch (e: any) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-            Alert.alert("Couldn't reset password", e.message);
+            notify("Couldn't reset password", e.message);
         } finally {
             setBusy(false);
         }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +17,7 @@ import { formatDateTime, formatNaira, formatNigerianPhone } from "@/lib/format";
 import { useCartStore } from "@/store/cart.store";
 import { Order, OrderStatus } from "@/type";
 
+import { notify } from "@/lib/notice";
 type IconName = keyof typeof Ionicons.glyphMap;
 
 // Hero card copy + colours per status.
@@ -181,7 +182,7 @@ export default function OrderDetails() {
             }, item.quantity);
             added++;
         }
-        if (added === 0) return Alert.alert('Order again', "These items aren't available anymore.");
+        if (added === 0) return notify('Order again', "These items aren't available anymore.");
         router.push('/cart');
     };
 
@@ -203,7 +204,7 @@ export default function OrderDetails() {
     };
 
     const confirmCancel = () => {
-        Alert.alert('Cancel order', 'Cancel this unpaid order?', [
+        notify('Cancel order', 'Cancel this unpaid order?', [
             { text: 'Keep order', style: 'cancel' },
             {
                 text: 'Cancel order',
@@ -214,7 +215,7 @@ export default function OrderDetails() {
                         await cancelOrder(order.id);
                         await refetch();
                     } catch (e: any) {
-                        Alert.alert('Error', e.message);
+                        notify('Something went wrong', e.message);
                     } finally {
                         setIsCancelling(false);
                     }
