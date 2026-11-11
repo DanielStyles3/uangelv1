@@ -46,12 +46,12 @@
                       },
                       {
                           "source":  "/download",
-                          "destination":  "https://expo.dev/artifacts/eas/Xasy7t_YXI9hmuSAJPMEmoojI5rlcjNbA2wyzo7nFQI.apk",
+                          "destination":  "https://expo.dev/artifacts/eas/9DkooNNPH3d9rTW7WhZdP5rlGNo5_xcOqs9XPr8VDfg.apk",
                           "permanent":  false
                       },
                       {
                           "source":  "/affiliates",
-                          "destination":  "https://expo.dev/artifacts/eas/zypU85_aUdySjM9gUY33Y7tI4vgnq-8kr5cq4tMvoYw.apk",
+                          "destination":  "https://expo.dev/artifacts/eas/AI4lINTtPGBNuOME-YUTVPyJIY8UZh2wa14FAymGjxM.apk",
                           "permanent":  false
                       }
                   ],
