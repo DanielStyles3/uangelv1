@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dimensions, Image, ImageSourcePropType, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Image, ImageSourcePropType, StyleSheet } from "react-native";
 import Animated, {
     Easing,
     useAnimatedStyle,
@@ -49,7 +49,7 @@ interface AnimatedSplashProps {
 /**
  * Motion splash: the U Angel Foods logo builds itself piece by piece (U rises, the A
  * swings in, the i-dot drops and bounces, the served dish pops and its lid peeks),
- * light rings pulse while the app loads, then the orange lifts away like a curtain.
+ * then the orange lifts away like a curtain once the app is ready.
  */
 const AnimatedSplash = ({ ready, onFinish }: AnimatedSplashProps) => {
     const reduceMotion = useReducedMotion();
@@ -64,9 +64,6 @@ const AnimatedSplash = ({ ready, onFinish }: AnimatedSplashProps) => {
     const dotY = useSharedValue(-SCREEN_H * 0.45), dotO = useSharedValue(0);
     const dishS = useSharedValue(0), dishR = useSharedValue(-28), dishLift = useSharedValue(0);
     const textY = useSharedValue(26), textO = useSharedValue(0);
-    const tagO = useSharedValue(0);
-    // Loading rings
-    const ring1 = useSharedValue(0), ring2 = useSharedValue(0);
     // Exit
     const logoExit = useSharedValue(1);
     const curtainY = useSharedValue(0);
@@ -76,7 +73,7 @@ const AnimatedSplash = ({ ready, onFinish }: AnimatedSplashProps) => {
 
         if (reduceMotion) {
             // Respect "reduce motion": just show the finished logo.
-            [uO, aO, dotO, textO, tagO].forEach((v) => (v.value = withTiming(1, { duration: 300 })));
+            [uO, aO, dotO, textO].forEach((v) => (v.value = withTiming(1, { duration: 300 })));
             uY.value = 0; aX.value = 0; aR.value = 0; dotY.value = 0; dishS.value = 1; dishR.value = 0; textY.value = 0;
             glowA.value = 1; glowB.value = 1;
             return () => clearTimeout(timer);
@@ -104,14 +101,9 @@ const AnimatedSplash = ({ ready, onFinish }: AnimatedSplashProps) => {
             withTiming(0, { duration: 260, easing: Easing.bounce }),
             withTiming(0, { duration: 1400 }),
         ), -1));
-        // 5) Name + tagline
+        // 5) Name
         textO.value = withDelay(1300, withTiming(1, { duration: 450 }));
         textY.value = withDelay(1300, withTiming(0, { duration: 550, easing: ease }));
-        tagO.value = withDelay(1650, withTiming(1, { duration: 500 }));
-        // 6) Loading rings pulse outwards
-        const pulse = () => withRepeat(withTiming(1, { duration: 1800, easing: Easing.out(Easing.quad) }), -1, false);
-        ring1.value = withDelay(1700, pulse());
-        ring2.value = withDelay(2600, pulse());
 
         return () => clearTimeout(timer);
         // Shared values are stable refs; run the timeline once on mount.
@@ -151,16 +143,6 @@ const AnimatedSplash = ({ ready, onFinish }: AnimatedSplashProps) => {
         };
     });
     const textStyle = useAnimatedStyle(() => ({ opacity: textO.value, transform: [{ translateY: textY.value }] }));
-    const tagStyle = useAnimatedStyle(() => ({ opacity: tagO.value, transform: [{ translateY: (1 - tagO.value) * 10 }] }));
-    // (Inline worklets: Reanimated only workletizes functions passed directly to the hook.)
-    const ring1Style = useAnimatedStyle(() => ({
-        opacity: (1 - ring1.value) * 0.5,
-        transform: [{ scale: 0.55 + ring1.value * 1.35 }],
-    }));
-    const ring2Style = useAnimatedStyle(() => ({
-        opacity: (1 - ring2.value) * 0.5,
-        transform: [{ scale: 0.55 + ring2.value * 1.35 }],
-    }));
 
     return (
         <Animated.View
@@ -176,10 +158,6 @@ const AnimatedSplash = ({ ready, onFinish }: AnimatedSplashProps) => {
             <Animated.View style={[styles.glow, styles.glowA, glowAStyle]} />
             <Animated.View style={[styles.glow, styles.glowB, glowBStyle]} />
 
-            {/* Loading rings */}
-            <Animated.View style={[styles.ring, ring1Style]} />
-            <Animated.View style={[styles.ring, ring2Style]} />
-
             {/* Logo, assembled from aligned layers */}
             <Animated.View style={[{ width: LOGO, height: LOGO }, logoGroupStyle]}>
                 <Layer source={PARTS.u} style={uStyle} />
@@ -187,15 +165,6 @@ const AnimatedSplash = ({ ready, onFinish }: AnimatedSplashProps) => {
                 <Layer source={PARTS.dot} style={dotStyle} />
                 <Layer source={PARTS.dish} style={dishStyle} />
                 <Layer source={PARTS.text} style={textStyle} />
-            </Animated.View>
-
-            <Animated.View style={[styles.bottom, tagStyle]}>
-                <Text style={styles.tagline}>CAKES  ·  CATERING  ·  DRINKS  ·  GROCERIES</Text>
-                <View style={styles.dots}>
-                    <View style={[styles.dotSmall, { opacity: 1 }]} />
-                    <View style={[styles.dotSmall, { opacity: 0.6 }]} />
-                    <View style={[styles.dotSmall, { opacity: 0.3 }]} />
-                </View>
             </Animated.View>
         </Animated.View>
     );
@@ -218,27 +187,6 @@ const styles = StyleSheet.create({
     },
     glowA: { width: SCREEN_W * 1.3, height: SCREEN_W * 1.3, top: -SCREEN_W * 0.45, right: -SCREEN_W * 0.5 },
     glowB: { width: SCREEN_W * 1.1, height: SCREEN_W * 1.1, bottom: -SCREEN_W * 0.4, left: -SCREEN_W * 0.45 },
-    ring: {
-        position: "absolute",
-        width: LOGO,
-        height: LOGO,
-        borderRadius: LOGO / 2,
-        borderWidth: 2,
-        borderColor: "rgba(255,255,255,0.9)",
-    },
-    bottom: {
-        position: "absolute",
-        bottom: 72,
-        alignItems: "center",
-    },
-    tagline: {
-        color: "rgba(255,255,255,0.92)",
-        fontSize: 12,
-        fontWeight: "700",
-        letterSpacing: 2,
-    },
-    dots: { flexDirection: "row", gap: 6, marginTop: 14 },
-    dotSmall: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#ffffff" },
 });
 
 export default AnimatedSplash;

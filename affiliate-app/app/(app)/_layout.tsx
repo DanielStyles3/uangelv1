@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Stack, useSegments } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { Image, StyleSheet, Text, View } from 'react-native';
+
+import brandLogo from '@/assets/images/uangel-affiliates-logo-white.png';
 
 import { Button } from '@/components/ui';
 import { AffiliateContext } from '@/lib/affiliate';
@@ -67,9 +70,11 @@ export default function AppLayout() {
     if (!signedIn) return <Redirect href="/sign-in" />;
 
     if (phase.kind === 'loading') {
+        // Brand screen (same orange as the splash) instead of a spinner while the account loads.
         return (
-            <View style={styles.center}>
-                <ActivityIndicator size="large" color={colors.orange} />
+            <View style={styles.brand} accessibilityLabel="Loading your account">
+                <StatusBar style="light" />
+                <Image source={brandLogo} style={styles.brandLogo} resizeMode="contain" />
             </View>
         );
     }
@@ -114,6 +119,8 @@ export default function AppLayout() {
 
 const styles = StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 10, backgroundColor: colors.bg },
+    brand: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.orange },
+    brandLogo: { width: 220, height: 220 },
     title: { fontFamily: fonts.bold, fontSize: 19, color: colors.navy, textAlign: 'center', marginTop: 6 },
     body: { fontFamily: fonts.semibold, fontSize: 14, color: colors.grey, textAlign: 'center', lineHeight: 20 },
     button: { alignSelf: 'stretch', marginTop: 10 },

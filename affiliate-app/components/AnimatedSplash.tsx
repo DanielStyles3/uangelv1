@@ -16,7 +16,8 @@ import Animated, {
     withTiming,
 } from 'react-native-reanimated';
 
-import logo from '@/assets/images/uangel-logo-white.png';
+// Symbol only: the "U Angel Affiliates" wordmark is drawn (and animated) below it.
+import logo from '@/assets/images/uangel-symbol-white.png';
 import { IconName } from '@/components/ui';
 import { colors, fonts } from '@/lib/theme';
 

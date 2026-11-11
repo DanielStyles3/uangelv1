@@ -3,7 +3,7 @@ import { ReactNode } from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import logo from '@/assets/images/uangel-logo-white.png';
+import logo from '@/assets/images/uangel-affiliates-logo-white.png';
 import { Enter } from '@/components/motion';
 import { colors, fonts } from '@/lib/theme';
 
