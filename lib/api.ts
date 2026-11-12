@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { rememberCategory, rememberOptions, rememberProducts } from "@/lib/productCache";
 import {
     Category,
     CreateUserParams,
@@ -262,7 +263,7 @@ export const getMenu = async ({ category, query, limit }: GetMenuParams): Promis
     if (query) request = request.ilike('name', `%${query.replace(/[%_]/g, '\\$&')}%`);
     if (limit) request = request.limit(Number(limit));
 
-    return (unwrap(await request) as unknown as MenuRow[]).map(withFallbackPhoto);
+    return rememberProducts((unwrap(await request) as unknown as MenuRow[]).map(withFallbackPhoto));
 }
 
 /**
@@ -316,12 +317,12 @@ export const getHomeProducts = async (): Promise<HomeProduct[]> => {
             .limit(500)
     ) as unknown as Row[];
 
-    return rows.map(({ categories, ...item }) => ({
+    return rememberProducts(rows.map(({ categories, ...item }) => ({
         ...item,
         image_url: item.image_url ?? categories?.image_url ?? null,
         // Products sit in a subcategory; its parent is the main category (or it IS one).
         main_category_id: categories?.parent_id ?? item.category_id,
-    }));
+    })));
 }
 
 /**
@@ -331,13 +332,15 @@ export const getHomeProducts = async (): Promise<HomeProduct[]> => {
 export const getCampaignProducts = async (): Promise<MenuItem[]> => {
     const { data, error } = await supabase.from('menu').select(MENU_COLUMNS).eq('is_campaign', true).order('price');
     if (error || !data) return [];
-    return (data as unknown as MenuRow[]).map(withFallbackPhoto);
+    return rememberProducts((data as unknown as MenuRow[]).map(withFallbackPhoto));
 }
 
 export const getMenuItem = async ({ id }: { id: string }): Promise<MenuItem> => {
-    return withFallbackPhoto(unwrap(
+    const item = withFallbackPhoto(unwrap(
         await supabase.from('menu').select(MENU_COLUMNS).eq('id', id).single()
     ) as unknown as MenuRow);
+    rememberProducts([item]);
+    return item;
 }
 
 // Only the toppings/sides linked to this menu item via menu_customizations.
@@ -363,10 +366,10 @@ export const getProductOptions = async ({ id }: { id: string }): Promise<OptionG
         .eq('menu_id', id)
         .order('sort_order');
     if (error) return [];   // e.g. before schema.sql adds the tables: the product just has no options
-    return ((data ?? []) as OptionGroup[]).map((g) => ({
+    return rememberOptions(id, ((data ?? []) as OptionGroup[]).map((g) => ({
         ...g,
         option_values: [...(g.option_values ?? [])].sort((a, b) => a.sort_order - b.sort_order),
-    }));
+    })));
 }
 
 /**
@@ -394,15 +397,17 @@ export const getProductsNeedingChoices = (): Promise<Set<string>> => {
 
 /** The 7 main categories (Home cards, Search filter chips), in display order. */
 export const getCategories = async (): Promise<Category[]> => {
-    return unwrap(
+    const list = unwrap(
         await supabase.from('categories').select(CATEGORY_COLUMNS).is('parent_id', null).order('sort_order')
     ) as Category[];
+    list.forEach(rememberCategory);
+    return list;
 }
 
 export const getCategory = async ({ id }: { id: string }): Promise<Category> => {
-    return unwrap(
+    return rememberCategory(unwrap(
         await supabase.from('categories').select(CATEGORY_COLUMNS).eq('id', id).single()
-    ) as Category;
+    ) as Category);
 }
 
 /** Subcategories of a main category, each with how many products it has. */

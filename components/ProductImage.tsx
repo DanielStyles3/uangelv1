@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Image } from "react-native";
+import { Image } from "expo-image";
 
 // Brand picture shown when there's no photo (or it fails to load) — no emoji placeholders.
 const FALLBACK = require("../assets/images/app-icon.png");
@@ -8,18 +8,21 @@ interface ProductImageProps {
     imageUrl?: string | null;
     /** @deprecated kept for compatibility; pictures are used instead of emoji now. */
     emoji?: string | null;
-    /** Tailwind classes for the box, e.g. "size-32" or "absolute inset-0 size-full". */
+    /** @deprecated sizing comes from the parent frame (the image always fills it). */
     className?: string;
     /** @deprecated no longer used (no emoji fallback). */
     emojiClassName?: string;
     resizeMode?: "contain" | "cover";
+    /** Load this one before the others (e.g. the big photo on a product page). */
+    priority?: "low" | "normal" | "high";
 }
 
 /**
- * Shows the photo (web URL). If there's no URL or it fails to load (offline, link
- * removed), shows the U Angel Foods brand picture instead.
+ * Shows the photo (web URL), cached in memory and on disk: a photo seen once (in a list) shows
+ * instantly everywhere else (the product page) and next time the app opens, even offline.
+ * No URL or a broken link → the U Angel Foods brand picture.
  */
-const ProductImage = ({ imageUrl, className = "size-32", resizeMode = "contain" }: ProductImageProps) => {
+const ProductImage = ({ imageUrl, resizeMode = "contain", priority = "normal" }: ProductImageProps) => {
     // Remember WHICH url failed, so a recycled list cell that receives a different
     // url automatically gets a fresh try (no effect needed to reset it).
     const [failedUrl, setFailedUrl] = useState<string | null>(null);
@@ -28,10 +31,13 @@ const ProductImage = ({ imageUrl, className = "size-32", resizeMode = "contain" 
     return (
         <Image
             source={useFallback ? FALLBACK : { uri: imageUrl }}
-            className={className}
-            // Always fill the parent frame, even if NativeWind's className doesn't apply on a device.
-            style={{ width: '100%', height: '100%' }}
-            resizeMode={useFallback ? "cover" : resizeMode}
+            // Always fill the parent frame.
+            style={{ width: "100%", height: "100%" }}
+            contentFit={useFallback ? "cover" : resizeMode}
+            cachePolicy="memory-disk"
+            recyclingKey={imageUrl ?? "fallback"}
+            transition={150}
+            priority={priority}
             onError={() => imageUrl && setFailedUrl(imageUrl)}
         />
     );

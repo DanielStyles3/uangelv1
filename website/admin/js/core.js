@@ -498,12 +498,47 @@
   // Storage upload
   // ---------------------------------------------------------------------------
   var IMAGE_TYPES = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
-  Admin.uploadImage = function (file, folder) {
+  var MAX_SIDE = 1400;          // px: sharp on any phone, a fraction of a camera photo's size
+  var SMALL_ENOUGH = 250 * 1024;
+
+  /**
+   * Shrinks a photo before upload so it loads fast in the app: at most 1400px on its longest side,
+   * saved as WebP (keeps transparency) or JPEG. Small images, or anything that fails, upload as they are.
+   */
+  function shrinkImage(file) {
+    return new Promise(function (resolve) {
+      if (!window.createImageBitmap || !document.createElement('canvas').getContext) return resolve(file);
+      createImageBitmap(file).then(function (bmp) {
+        var scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+        if (scale === 1 && file.size <= SMALL_ENOUGH) { bmp.close && bmp.close(); return resolve(file); }
+        var c = document.createElement('canvas');
+        c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+        var ctx = c.getContext('2d'); ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
+        c.toBlob(function (webp) {
+          var done = function (blob) {
+            if (!blob || blob.size >= file.size) return resolve(file);   // never make it bigger
+            var ext = blob.type === 'image/webp' ? '.webp' : '.jpg';
+            resolve(new File([blob], String(file.name || 'image').replace(/\.[^.]+$/, '') + ext, { type: blob.type }));
+          };
+          if (webp && webp.type === 'image/webp') return done(webp);
+          c.toBlob(done, 'image/jpeg', 0.82);   // browsers that can't write WebP (older Safari)
+        }, 'image/webp', 0.8);
+      }).catch(function () { resolve(file); });
+    });
+  }
+
+  Admin.uploadImage = function (original, folder) {
+    var file;
     return Promise.resolve().then(function () {
       if (!Admin.sb) throw new Error('Not connected to Supabase.');
-      if (!file) throw new Error('Choose an image first.');
+      if (!original) throw new Error('Choose an image first.');
+      if (!IMAGE_TYPES[String(original.type || '').toLowerCase()]) throw new Error('Please choose a JPG, PNG or WebP image.');
+      if (original.size > 15 * 1024 * 1024) throw new Error('Image is too large (max 15 MB).');
+      return shrinkImage(original);
+    }).then(function (shrunk) {
+      file = shrunk;
       var ext = IMAGE_TYPES[String(file.type || '').toLowerCase()];
-      if (!ext) throw new Error('Please choose a JPG, PNG or WebP image.');
       if (file.size > 5 * 1024 * 1024) throw new Error('Image is too large (max 5 MB).');
       var base = String(file.name || 'image').replace(/\.[^.]+$/, '');
       var slug = base.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')

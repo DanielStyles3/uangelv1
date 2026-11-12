@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Dimensions, FlatList, Image, ImageSourcePropType, Pressable, StyleSheet, Text, View } from "react-native";
+import { Dimensions, FlatList, ImageSourcePropType, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 
 const { width: SCREEN_W } = Dimensions.get("window");
@@ -85,7 +86,7 @@ const PromoCarousel = ({ slides }: { slides: PromoSlide[] }) => {
                             </View>
                         </View>
                         <View style={styles.photoWrap}>
-                            <Image source={item.image} style={styles.photo} resizeMode="cover" />
+                            <Image source={item.image as number | { uri: string }} style={styles.photo} contentFit="cover" cachePolicy="memory-disk" transition={150} />
                         </View>
                         {/* soft decorative circle */}
                         <View style={styles.circle} />

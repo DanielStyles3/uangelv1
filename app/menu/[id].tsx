@@ -10,6 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 
 import useFetch from "@/lib/useFetch";
+import { cachedCategory, cachedOptions, cachedProduct } from "@/lib/productCache";
 import { getCategory, getMenu, getMenuItem, getMenuItemCustomizations, getProductOptions } from "@/lib/api";
 import ProductOptions, { answersToCart, missingRequired, OptionAnswers, StepHeader } from "@/components/ProductOptions";
 import { useCartStore } from "@/store/cart.store";
@@ -94,16 +95,21 @@ export default function ProductDetails() {
     const insets = useSafeAreaInsets();
     const { addItem, getTotalItems, getTotalPrice } = useCartStore();
 
-    const { data: item, loading } = useFetch({ fn: getMenuItem, params: { id } });
+    // Open instantly with the copy from the list the customer tapped; the fresh copy replaces it when it arrives.
+    const { data: fetchedItem, loading } = useFetch({ fn: getMenuItem, params: { id } });
+    const item = fetchedItem ?? cachedProduct(id);
     const { data: customizations } = useFetch({ fn: getMenuItemCustomizations, params: { id } });
-    const { data: optionGroups } = useFetch({ fn: getProductOptions, params: { id } });
+    const { data: fetchedOptions } = useFetch({ fn: getProductOptions, params: { id } });
+    const optionGroups = fetchedOptions ?? cachedOptions(id);
     const [answers, setAnswers] = useState<OptionAnswers>({ picks: {}, texts: {} });
 
     // Product → its subcategory → main category (which carries the delivery note).
     const subcategoryId = item?.category_id ?? "";
-    const { data: subcategory } = useFetch({ fn: getCategory, params: { id: subcategoryId }, skip: !subcategoryId });
+    const { data: fetchedSub } = useFetch({ fn: getCategory, params: { id: subcategoryId }, skip: !subcategoryId });
+    const subcategory = fetchedSub ?? cachedCategory(subcategoryId);
     const parentId = subcategory?.parent_id ?? "";
-    const { data: parentCategory } = useFetch({ fn: getCategory, params: { id: parentId }, skip: !parentId });
+    const { data: fetchedParent } = useFetch({ fn: getCategory, params: { id: parentId }, skip: !parentId });
+    const parentCategory = fetchedParent ?? cachedCategory(parentId);
     const { data: similarRaw } = useFetch({ fn: getMenu, params: { category: subcategoryId, limit: 10 }, skip: !subcategoryId });
 
     const [selected, setSelected] = useState<Customization[]>([]);
@@ -142,7 +148,8 @@ export default function ProductDetails() {
         setSelected((prev) => (prev.some((s) => s.id === c.id) ? prev.filter((s) => s.id !== c.id) : [...prev, c]));
     };
 
-    if (loading || !item) {
+    // Spinner only when we have nothing to show yet (opened from a link, not from a list).
+    if (!item) {
         return (
             <View style={[styles.screen, styles.center]}>
                 {loading ? <ActivityIndicator color={ORANGE} size="large" /> : (
@@ -167,6 +174,9 @@ export default function ProductDetails() {
     const enquiry = !!subcategory?.enquiry_only || !!parentCategory?.enquiry_only;
     const deliveryFee = item.delivery_fee != null ? Number(item.delivery_fee) : deliveryFeeForCategory(mainCategory?.name);
     const groups = optionGroups ?? [];
+    // The page opens before its choices (size, flavour…) and category arrive; adding waits for them
+    // so a required choice or a made-to-order product is never skipped.
+    const ready = optionGroups != null && (!subcategoryId || !!subcategory) && (!parentId || !!parentCategory);
     const optionLines = answersToCart(groups, answers);
     const unitPrice = Number(item.price)
         + selected.reduce((sum, c) => sum + Number(c.price), 0)
@@ -199,7 +209,7 @@ export default function ProductDetails() {
     };
 
     const handleAddToCart = () => {
-        if (soldOut) return;
+        if (soldOut || !ready) return;
         if (missing.length) {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
             return scrollToOptions();
@@ -220,7 +230,7 @@ export default function ProductDetails() {
         <View style={styles.screen}>
             {/* Hero photo (behind the scrolling sheet) */}
             <Animated.View style={[styles.hero, heroStyle]}>
-                <ProductImage imageUrl={item.image_url} className="size-full" resizeMode="cover" />
+                <ProductImage imageUrl={item.image_url} className="size-full" resizeMode="cover" priority="high" />
                 <View style={styles.heroShade} />
             </Animated.View>
 
@@ -475,12 +485,15 @@ export default function ProductDetails() {
                         style={[styles.addBtn, soldOut ? styles.addBtnOff : missing.length ? styles.addBtnNeedsChoice : null]}
                         onPress={handleAddToCart}
                         activeOpacity={0.88}
-                        disabled={soldOut}
-                        accessibilityState={{ disabled: soldOut }}
+                        disabled={soldOut || !ready}
+                        accessibilityState={{ disabled: soldOut || !ready }}
                     >
-                        <Ionicons name={soldOut ? "close-circle-outline" : missing.length ? "arrow-down-circle-outline" : "bag-add"} size={18} color="#fff" />
+                        {!ready && !soldOut ? <ActivityIndicator color="#fff" size="small" /> : (
+                            <Ionicons name={soldOut ? "close-circle-outline" : missing.length ? "arrow-down-circle-outline" : "bag-add"} size={18} color="#fff" />
+                        )}
                         <Text style={styles.addBtnText} numberOfLines={1}>
                             {soldOut ? "Sold out right now"
+                                : !ready ? "Loading choices…"
                                 : missing.length ? `Choose ${missing[0].toLowerCase()} to continue`
                                 : `Add to cart · ${formatNaira(total)}`}
                         </Text>
