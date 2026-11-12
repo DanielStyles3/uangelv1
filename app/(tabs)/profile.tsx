@@ -1,5 +1,5 @@
 import {useCallback, useState} from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import {useSafeAreaInsets} from "react-native-safe-area-context";
 import {router, useFocusEffect} from "expo-router";
 import Constants from "expo-constants";
@@ -178,7 +178,8 @@ const Profile = () => {
 
                 <Section title="About & support">
                     <Row icon="heart-outline" label="About U Angel Foods" detail="Our mission: U Are An Angel" onPress={() => router.push('/about')} />
-                    <Row icon="help-circle-outline" label="Help & FAQs" onPress={() => router.push('/help')} last />
+                    <Row icon="help-circle-outline" label="Help & FAQs" onPress={() => router.push('/help')} />
+                    <Row icon="shield-checkmark-outline" label="Privacy policy" detail="How we use your information" onPress={() => Linking.openURL('https://uangelfoods.com/privacy').catch(() => notify("Couldn’t open the link", 'Visit uangelfoods.com/privacy in your browser.'))} last />
                 </Section>
 
                 <View style={styles.section}>

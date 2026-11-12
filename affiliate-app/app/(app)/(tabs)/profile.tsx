@@ -10,7 +10,7 @@ import { CountUpNaira, Enter, PressableScale } from '@/components/motion';
 import { Screen } from '@/components/Screen';
 import { Avatar, Button, Card, Chip, IconBubble, IconName } from '@/components/ui';
 import { useAffiliate } from '@/lib/affiliate';
-import { getMyProfile, MyProfile, signOut } from '@/lib/api';
+import { deleteAccount, getMyProfile, MyProfile, signOut } from '@/lib/api';
 import { displayName, useAuth } from '@/lib/auth';
 import { errorMessage, formatDate } from '@/lib/format';
 import { notify } from '@/lib/notice';
@@ -71,6 +71,38 @@ export default function Profile() {
             },
         ]);
 
+    // Two steps, because it can't be undone and also removes their U Angel Foods account.
+    const confirmDelete = () =>
+        notify(
+            'Delete your account?',
+            'This permanently deletes your U Angel account in both apps: Affiliates and U Angel Foods. Your code stops working, your referrals are unlinked, and any earnings not yet paid out are lost.',
+            [
+                { text: 'Keep my account', style: 'cancel' },
+                {
+                    text: 'Continue',
+                    style: 'destructive',
+                    onPress: () =>
+                        notify('Are you sure?', 'This can’t be undone.', [
+                            { text: 'Cancel', style: 'cancel' },
+                            {
+                                text: 'Delete for good',
+                                style: 'destructive',
+                                onPress: async () => {
+                                    setBusy(true);
+                                    try {
+                                        await deleteAccount();
+                                    } catch (e) {
+                                        notify('Couldn’t delete your account', errorMessage(e));
+                                        setBusy(false);
+                                    }
+                                },
+                            },
+                        ], { tone: 'danger' }),
+                },
+            ],
+            { tone: 'danger' },
+        );
+
     const account: Row[] = [
         { icon: 'person-outline', title: 'Personal details', value: phone ? `${name} · ${phone}` : 'Add your phone number', onPress: () => router.push('/personal') },
         { icon: 'lock-closed-outline', title: 'Change password', onPress: () => router.push('/password') },
@@ -94,6 +126,7 @@ export default function Profile() {
         { icon: 'logo-whatsapp', title: 'WhatsApp', value: CONTACT.whatsappDisplay, onPress: () => open(`https://wa.me/${CONTACT.whatsappIntl}`, `Message us on WhatsApp: ${CONTACT.whatsappDisplay}`), tone: 'green' },
         { icon: 'call-outline', title: 'Call us', value: CONTACT.whatsappDisplay, onPress: () => open(`tel:+${CONTACT.whatsappIntl}`, `Call us on ${CONTACT.whatsappDisplay}`) },
         { icon: 'mail-outline', title: 'Email', value: CONTACT.email, onPress: () => open(`mailto:${CONTACT.email}`, `Email us at ${CONTACT.email}`) },
+        { icon: 'shield-checkmark-outline', title: 'Privacy policy', value: 'How we use your information', onPress: () => open('https://uangelfoods.com/privacy', 'Visit uangelfoods.com/privacy in your browser.'), tone: 'navy' },
     ];
 
     return (
@@ -151,6 +184,9 @@ export default function Profile() {
 
             <Enter index={6} style={styles.footer}>
                 <Button title="Sign out" icon="log-out-outline" variant="outline" loading={busy} onPress={confirmSignOut} />
+                <PressableScale onPress={confirmDelete} disabled={busy} style={styles.deleteBtn} accessibilityRole="button" accessibilityLabel="Delete account">
+                    <Text style={styles.deleteText}>Delete account</Text>
+                </PressableScale>
                 <Text style={styles.version}>U Angel Affiliates · version {version}</Text>
             </Enter>
         </Screen>
@@ -227,5 +263,7 @@ const styles = StyleSheet.create({
     line: { height: 1, backgroundColor: colors.line },
 
     footer: { gap: 12, marginTop: 4 },
+    deleteBtn: { alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 16 },
+    deleteText: { fontFamily: fonts.bold, fontSize: 13.5, color: colors.red },
     version: { textAlign: 'center', fontFamily: fonts.medium, fontSize: 12, color: colors.greyLight },
 });

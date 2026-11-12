@@ -262,3 +262,18 @@ export const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     fail(error);
 };
+
+/**
+ * Permanently deletes the signed-in account (same delete-account function as the shop app; Play Store
+ * requirement). The account is shared with U Angel Foods, so it's gone from both apps.
+ */
+export const deleteAccount = async () => {
+    const { data, error } = await supabase.functions.invoke<{ deleted?: boolean; error?: string }>('delete-account', { body: {} });
+    if (error) {
+        let message = error.message;
+        try { message = (await (error as { context?: Response }).context?.json())?.error ?? message; } catch { /* keep message */ }
+        throw new Error(message);
+    }
+    if (!data?.deleted) throw new Error(data?.error ?? 'Couldn’t delete your account. Please try again.');
+    await supabase.auth.signOut().catch(() => {});
+};
