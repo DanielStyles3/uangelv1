@@ -1,77 +1,77 @@
-﻿{
-    "expo":  {
-                 "name":  "U Angel Foods",
-                 "slug":  "u-angel-foods",
-                 "version":  "1.0.0",
-                 "orientation":  "portrait",
-                 "icon":  "./assets/images/app-icon.png",
-                 "scheme":  "fastfood",
-                 "userInterfaceStyle":  "light",
-                 "ios":  {
-                             "supportsTablet":  true,
-                             "bundleIdentifier":  "com.uangelfoods.app"
-                         },
-                 "android":  {
-                                 "adaptiveIcon":  {
-                                                      "foregroundImage":  "./assets/images/app-adaptive-icon.png",
-                                                      "backgroundColor":  "#FD652A"
-                                                  },
-                                 "package":  "com.uangelfoods.app",
-                                 "versionCode":  18
-                             },
-                 "web":  {
-                             "bundler":  "metro",
-                             "output":  "static",
-                             "favicon":  "./assets/images/app-favicon.png"
-                         },
-                 "plugins":  [
-                                 "expo-router",
-                                 [
-                                     "expo-splash-screen",
-                                     {
-                                         "image":  "./assets/images/splash/blank.png",
-                                         "imageWidth":  240,
-                                         "resizeMode":  "contain",
-                                         "backgroundColor":  "#FD652A",
-                                         "dark":  {
-                                                      "image":  "./assets/images/splash/blank.png",
-                                                      "backgroundColor":  "#FD652A"
-                                                  }
-                                     }
-                                 ],
-                                 [
-                                     "@sentry/react-native/expo",
-                                     {
-                                         "url":  "https://sentry.io/",
-                                         "project":  "jsm_reactnative_food-ordering",
-                                         "organization":  "jsmpro"
-                                     }
-                                 ],
-                                 [
-                                     "expo-build-properties",
-                                     {
-                                         "android":  {
-                                                         "buildArchs":  [
-                                                                            "armeabi-v7a",
-                                                                            "arm64-v8a"
-                                                                        ]
-                                                     }
-                                     }
-                                 ]
-                             ],
-                 "experiments":  {
-                                     "typedRoutes":  true
-                                 },
-                 "extra":  {
-                               "router":  {
-                                              "asyncRoutes":  {
-                                                                  "web":  true
-                                                              }
-                                          },
-                               "eas":  {
-                                           "projectId":  "efb377bf-e1ca-4e5b-bfa7-9712e3f9e46a"
-                                       }
-                           },
-                 "owner":  "styles12"
-             }
+{
+  "expo": {
+    "name": "U Angel Foods",
+    "slug": "u-angel-foods",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/app-icon.png",
+    "scheme": "fastfood",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.uangelfoods.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/app-adaptive-icon.png",
+        "backgroundColor": "#FD652A"
+      },
+      "package": "com.uangelfoods.app",
+      "versionCode": 18
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/app-favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash/blank.png",
+          "imageWidth": 240,
+          "resizeMode": "contain",
+          "backgroundColor": "#FD652A",
+          "dark": {
+            "image": "./assets/images/splash/blank.png",
+            "backgroundColor": "#FD652A"
+          }
+        }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "jsm_reactnative_food-ordering",
+          "organization": "jsmpro"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "buildArchs": [
+              "armeabi-v7a",
+              "arm64-v8a"
+            ]
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "a62290b1-504e-430b-bcf4-a12aa1657c8f"
+      }
+    },
+    "owner": "styleszz"
+  }
 }

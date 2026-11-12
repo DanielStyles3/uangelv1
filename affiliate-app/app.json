@@ -1,4 +1,4 @@
-﻿{
+{
   "expo": {
     "name": "U Angel Affiliates",
     "slug": "u-angel-affiliates",
@@ -60,9 +60,9 @@
         }
       },
       "eas": {
-        "projectId": "8a656507-1ee7-4829-a978-9ee48e0710aa"
+        "projectId": "327692bd-41be-49b0-951a-d7d6b2a249e3"
       }
     },
-    "owner": "styles12"
+    "owner": "styleszz"
   }
 }
