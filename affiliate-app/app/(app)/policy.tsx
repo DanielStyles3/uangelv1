@@ -34,10 +34,7 @@ function HowItWorks() {
                 <Fragment key={s.title}>
                     {i > 0 ? <View style={styles.line} /> : null}
                     <View style={styles.row}>
-                        <View style={{ alignItems: 'center' }}>
-                            <IconBubble name={s.icon} size={36} />
-                            <Text style={styles.num}>{i + 1}</Text>
-                        </View>
+                        <IconBubble name={s.icon} size={36} />
                         <View style={{ flex: 1, gap: 2 }}>
                             <Text style={styles.title}>{s.title}</Text>
                             <Text style={styles.text}>{s.text}</Text>

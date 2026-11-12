@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { ReactNode } from 'react';
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ComponentRef, ReactNode, useEffect, useRef } from 'react';
+import { Image, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import logo from '@/assets/images/uangel-affiliates-logo-white.png';
@@ -15,12 +15,36 @@ export default function AuthShell({ title, subtitle, top, children }: {
     children: ReactNode;
 }) {
     const insets = useSafeAreaInsets();
+    const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+    const offsetY = useRef(0);
+
+    // When the keyboard opens, scroll just enough that the field being typed in (and a bit below it)
+    // sits above the keyboard.
+    useEffect(() => {
+        const sub = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', (e) => {
+            setTimeout(() => {
+                const input = TextInput.State.currentlyFocusedInput();
+                if (!input) return;
+                input.measureInWindow((_x, y, _w, h) => {
+                    const keyboardTop = e.endCoordinates.screenY;
+                    const overlap = y + h + 90 - keyboardTop;   // 90px room for the next field or button
+                    if (overlap > 0) scrollRef.current?.scrollTo({ y: offsetY.current + overlap, animated: true });
+                });
+            }, Platform.OS === 'ios' ? 250 : 80);
+        });
+        return () => sub.remove();
+    }, []);
+
     return (
-        <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        // Android draws edge to edge (the window no longer shrinks for the keyboard), so pad on both platforms.
+        <KeyboardAvoidingView style={styles.flex} behavior="padding">
             <StatusBar style="light" />
             {/* Solid strip behind the status bar, so the white sheet never scrolls under the clock. */}
             <View style={[styles.statusStrip, { height: insets.top }]} />
             <ScrollView
+                ref={scrollRef}
+                onScroll={(ev) => { offsetY.current = ev.nativeEvent.contentOffset.y; }}
+                scrollEventThrottle={32}
                 style={styles.flex}
                 contentContainerStyle={styles.scroll}
                 keyboardShouldPersistTaps="handled"
