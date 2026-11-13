@@ -1,5 +1,5 @@
 import { getHomeProducts, HomeProduct } from "@/lib/api";
-import { getCached, warm } from "@/lib/dataCache";
+import { emitShopChange, getCached, warm } from "@/lib/dataCache";
 import { prefetchThumbs } from "@/lib/images";
 import { supabase } from "@/lib/supabase";
 import { Category, MenuItem, OptionGroup, SubcategoryWithCount } from "@/type";
@@ -51,6 +51,30 @@ export const warmCatalog = () =>
     });
 
 const catalog = () => getCached<Catalog>(CATALOG_KEY);
+
+/**
+ * Live shop: when the admin adds or edits a product, category, choice or promotion, refresh the
+ * snapshot and every open shop screen within a couple of seconds (no pull-to-refresh needed).
+ */
+let listening = false;
+export const listenForShopChanges = () => {
+    if (listening) return;
+    listening = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const changed = () => {
+        if (timer) clearTimeout(timer);
+        // Several rows usually change together (a product + its photo + its choices): wait a moment.
+        timer = setTimeout(() => {
+            timer = null;
+            warmCatalog().finally(emitShopChange);
+        }, 1500);
+    };
+    let channel = supabase.channel("shop-changes");
+    for (const table of ["menu", "categories", "option_groups", "option_values", "promotions"]) {
+        channel = channel.on("postgres_changes", { event: "*", schema: "public", table }, changed);
+    }
+    channel.subscribe();
+};
 
 export const snapCategory = (id?: string | null): Category | undefined =>
     id ? catalog()?.categories.find((c) => c.id === id) : undefined;

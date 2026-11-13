@@ -72,6 +72,14 @@ export const dedupe = <T>(key: string, run: () => Promise<T>): Promise<T> => {
 export const warm = <T>(key: string, run: () => Promise<T>) =>
     dedupe(key, run).then((v) => setCached(key, v, true)).catch(() => {});
 
+// "The shop changed" (the admin added or edited something): open shop screens refetch quietly.
+const shopListeners = new Set<() => void>();
+export const onShopChange = (listener: () => void) => {
+    shopListeners.add(listener);
+    return () => { shopListeners.delete(listener); };
+};
+export const emitShopChange = () => shopListeners.forEach((l) => l());
+
 /** Forget the signed-in customer's data (orders, stats…) on sign-out. */
 export const clearPersonalCache = () => {
     for (const k of [...memory.keys()]) if (k.startsWith("me:") || k.startsWith("fn:")) memory.delete(k);

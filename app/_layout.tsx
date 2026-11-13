@@ -9,7 +9,7 @@ import * as Sentry from '@sentry/react-native';
 import useAuthStore from "@/store/auth.store";
 import AnimatedSplash from "@/components/AnimatedSplash";
 import { NoticeHost } from "@/lib/notice";
-import { warmCatalog } from "@/lib/catalog";
+import { listenForShopChanges, warmCatalog } from "@/lib/catalog";
 import { hydrateDataCache } from "@/lib/dataCache";
 
 // Keep the native splash up until <AnimatedSplash> has drawn its first frame.
@@ -67,6 +67,7 @@ export default Sentry.wrap(function RootLayout() {
     hydrateDataCache().finally(() => {
       setCacheReady(true);
       warmCatalog();
+      listenForShopChanges();
     });
   }, []);
 

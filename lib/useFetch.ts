@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { dedupe, getCached, setCached } from "@/lib/dataCache";
+import { dedupe, getCached, onShopChange, setCached } from "@/lib/dataCache";
 import { notify } from "@/lib/notice";
 
 type Params = Record<string, string | number | undefined>;
@@ -99,6 +99,13 @@ const useFetch = <T, P extends Params>({
         if (!skip) fetchData(params, cacheKey);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [skip, cacheKey, fetchData]);
+
+    // Shop data refreshes live when the admin changes the catalogue.
+    useEffect(() => {
+        if (skip || !key?.startsWith("shop:")) return;
+        return onShopChange(() => { fetchData(params, cacheKey); });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [skip, key, cacheKey, fetchData]);
 
     const refetch = async (newParams?: P) => {
         const p = newParams ?? params;

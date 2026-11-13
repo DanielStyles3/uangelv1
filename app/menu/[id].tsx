@@ -97,10 +97,10 @@ export default function ProductDetails() {
     const { addItem, getTotalItems, getTotalPrice } = useCartStore();
 
     // Open instantly with the copy from the list the customer tapped; the fresh copy replaces it when it arrives.
-    const { data: fetchedItem, loading } = useFetch({ fn: getMenuItem, params: { id } });
+    const { data: fetchedItem, loading } = useFetch({ fn: getMenuItem, params: { id }, key: "shop:product" });
     const item = fetchedItem ?? cachedProduct(id) ?? snapProduct(id);
-    const { data: customizations } = useFetch({ fn: getMenuItemCustomizations, params: { id } });
-    const { data: fetchedOptions } = useFetch({ fn: getProductOptions, params: { id } });
+    const { data: customizations } = useFetch({ fn: getMenuItemCustomizations, params: { id }, key: "shop:addons" });
+    const { data: fetchedOptions } = useFetch({ fn: getProductOptions, params: { id }, key: "shop:options" });
     const optionGroups = fetchedOptions ?? cachedOptions(id) ?? snapOptions(id);
     const [answers, setAnswers] = useState<OptionAnswers>({ picks: {}, texts: {} });
 

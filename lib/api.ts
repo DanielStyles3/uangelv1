@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import { clearPersonalCache } from "@/lib/dataCache";
+import { clearPersonalCache, onShopChange } from "@/lib/dataCache";
 import { rememberCategory, rememberOptions, rememberProducts } from "@/lib/productCache";
 import {
     Category,
@@ -378,6 +378,8 @@ export const getProductOptions = async ({ id }: { id: string }): Promise<OptionG
  * Quick "+" buttons open the product page for these instead of adding straight away.
  */
 let requiredOptionIds: Promise<Set<string>> | null = null;
+// The admin changed the shop (e.g. added a cake with sizes): ask again next time.
+onShopChange(() => { requiredOptionIds = null; });
 export const getProductsNeedingChoices = (): Promise<Set<string>> => {
     if (!requiredOptionIds) {
         requiredOptionIds = (async () => {
