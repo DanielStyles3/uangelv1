@@ -2,6 +2,7 @@
 // Privileged DB access uses SUPABASE_DB_URL (injected into every Edge Function), so the
 // functions work whether or not the project's legacy service_role key is enabled.
 import postgres from "npm:postgres@3.4.5";
+import { sendOrderReceivedEmail } from "./order-email.ts";
 
 /** Key for Paystack API calls (secret sk_… or a restricted rk_… key with transaction permissions). */
 export const PAYSTACK_SECRET_KEY = Deno.env.get("PAYSTACK_SECRET_KEY") ?? "";
@@ -61,5 +62,14 @@ export const verifyAndMarkPaid = async (reference: string): Promise<"paid" | "al
     if (tx?.status !== "success") return tx?.status === "abandoned" || tx?.status === "ongoing" ? "pending" : "failed";
     if (tx.currency !== "NGN") throw new Error("Unexpected currency");
     const [row] = await sql`select public.mark_order_paid(${reference}, ${tx.amount}::bigint) as result`;
+    // 'paid' is returned only the first time (the row is locked), so the email goes out once
+    // even when the app and the webhook confirm the same payment.
+    if (row.result === "paid") {
+        try {
+            await sendOrderReceivedEmail(sql, reference);
+        } catch (e) {
+            console.error("order email error", e);
+        }
+    }
     return row.result;
 };
