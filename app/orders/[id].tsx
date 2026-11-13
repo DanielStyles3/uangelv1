@@ -10,6 +10,7 @@ import Animated, {
 import CustomHeader from "@/components/CustomHeader";
 import ProductImage from "@/components/ProductImage";
 import useFetch from "@/lib/useFetch";
+import { getCached } from "@/lib/dataCache";
 import { cancelOrder, getCampaignProducts, getOrder } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { openPayment } from "@/lib/payments";
@@ -110,7 +111,11 @@ const Row = ({ label, value, bold, valueColor }: { label: string; value: string;
 export default function OrderDetails() {
     const { id, placed, payment } = useLocalSearchParams<{ id: string; placed?: string; payment?: string }>();
     const insets = useSafeAreaInsets();
-    const { data: order, loading, refetch } = useFetch({ fn: getOrder, params: { id } });
+    // Opens instantly with the copy from My orders, then refreshes.
+    const { data: order, loading, refetch } = useFetch({
+        fn: getOrder, params: { id }, key: 'me:order',
+        initial: () => getCached<Order[]>('me:orders:{}')?.find((o) => o.id === id),
+    });
     // Christmas pre-order products, to word the "payment successful" message for giving orders.
     const { data: packs } = useFetch({ fn: getCampaignProducts });
     // "Invite a friend" card under the payment-successful banner; "Not now" hides it.
@@ -134,9 +139,7 @@ export default function OrderDetails() {
 
     if (loading && !order) {
         return (
-            <SafeAreaView style={[styles.screen, styles.center]}>
-                <ActivityIndicator color="#FD652A" size="large" />
-            </SafeAreaView>
+            <SafeAreaView style={styles.screen} />
         );
     }
 

@@ -58,10 +58,10 @@ const Profile = () => {
     const { user, logout, setUser, setIsAuthenticated } = useAuthStore();
     // Signing out / deleting: empty the cart AND the saved carts, so the next person on this phone sees none of it.
     const clearCart = () => useCartStore.setState({ items: [], savedCarts: [] });
-    const { data: stats, refetch } = useFetch({ fn: getProfileStats });
+    const { data: stats, refetch } = useFetch({ fn: getProfileStats, key: 'me:stats' });
     const [busy, setBusy] = useState<'logout' | 'delete' | null>(null);
 
-    const { data: affiliate, refetch: refetchAffiliate } = useFetch({ fn: loadAffiliate });
+    const { data: affiliate, refetch: refetchAffiliate } = useFetch({ fn: loadAffiliate, key: 'me:affiliate' });
 
     // Keep the counts (and invite earnings) fresh when coming back from an order / request.
     useFocusEffect(useCallback(() => { refetch(); refetchAffiliate(); }, [])); // eslint-disable-line react-hooks/exhaustive-deps
@@ -122,11 +122,7 @@ const Profile = () => {
     };
 
     if (!user) {
-        return (
-            <View style={styles.loading}>
-                <ActivityIndicator color="#FD652A" />
-            </View>
-        );
+        return <View style={styles.loading} />;
     }
 
     const memberSince = new Date(user.created_at).toLocaleDateString('en-NG', { month: 'long', year: 'numeric' });

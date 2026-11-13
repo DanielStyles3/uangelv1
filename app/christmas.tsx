@@ -146,7 +146,7 @@ export default function Christmas() {
                         ) : packs.map((pack) => (
                         <TouchableOpacity key={pack.id} style={styles.pack} activeOpacity={0.88} onPress={() => openProduct(pack.id)} accessibilityRole="button" accessibilityLabel={`${pack.name}, ${formatNaira(pack.price)}`}>
                             <View style={styles.packImg}>
-                                <ProductImage imageUrl={pack.image_url} className="size-full" resizeMode="cover" />
+                                <ProductImage imageUrl={pack.image_url} className="size-full" resizeMode="cover" size="full" />
                             </View>
                             <View style={{ padding: 16, gap: 8 }}>
                                 <Text style={styles.packName}>{pack.name}</Text>

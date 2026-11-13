@@ -1,7 +1,7 @@
 import {SafeAreaView} from "react-native-safe-area-context";
-import {ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
-import {ReactNode, useMemo, useState} from "react";
+import {ReactNode, useEffect, useMemo, useState} from "react";
 import {router} from "expo-router";
 
 import CartButton from "@/components/CartButton";
@@ -11,6 +11,8 @@ import ProductImage from "@/components/ProductImage";
 import {getCampaignProgress, getCategories, getChristmasBanner,getHomeProducts, getOrders, getProductsNeedingChoices, getPromotions, HomeProduct} from "@/lib/api";
 import {CAMPAIGN_FLYER, CAMPAIGN_GOAL, campaignDaysLeft, campaignLive} from "@/constants/campaign";
 import {formatNaira} from "@/lib/format";
+import {snapMainCategories, snapProducts} from "@/lib/catalog";
+import {prefetchThumbs} from "@/lib/images";
 import useFetch from "@/lib/useFetch";
 import useAuthStore from "@/store/auth.store";
 import {useCartStore} from "@/store/cart.store";
@@ -39,12 +41,16 @@ const openProduct = (id: string) => router.push({ pathname: '/menu/[id]', params
 export default function Index() {
   const { user } = useAuthStore();
   const addItem = useCartStore((s) => s.addItem);
-  const { data: categories, loading, error, refetch } = useFetch({ fn: getCategories });
-  const { data: products, refetch: refetchProducts } = useFetch({ fn: getHomeProducts });
-  const { data: orders, refetch: refetchOrders } = useFetch({ fn: getOrders, skip: !user });
-  const { data: promos, refetch: refetchPromos } = useFetch({ fn: getPromotions });
-  const { data: preorders, refetch: refetchPreorders } = useFetch({ fn: getCampaignProgress, skip: !campaignLive() });
-  const { data: xmas, refetch: refetchXmas } = useFetch({ fn: getChristmasBanner, skip: !campaignLive() });
+  // Everything shows instantly from what's saved on the phone / the shop snapshot, then refreshes quietly.
+  const { data: categories, loading, error, refetch } = useFetch({ fn: getCategories, key: 'shop:categories', initial: snapMainCategories });
+  const { data: products, refetch: refetchProducts } = useFetch({ fn: getHomeProducts, key: 'shop:home-products', initial: snapProducts });
+  const { data: orders, refetch: refetchOrders } = useFetch({ fn: getOrders, skip: !user, key: 'me:orders' });
+  const { data: promos, refetch: refetchPromos } = useFetch({ fn: getPromotions, key: 'shop:promotions' });
+  const { data: preorders, refetch: refetchPreorders } = useFetch({ fn: getCampaignProgress, skip: !campaignLive(), key: 'shop:preorders' });
+  const { data: xmas, refetch: refetchXmas } = useFetch({ fn: getChristmasBanner, skip: !campaignLive(), key: 'shop:xmas' });
+
+  // Pull this screen's photos onto the phone so they're ready before you scroll to them.
+  useEffect(() => { if (products) prefetchThumbs(products.map((p) => p.image_url)); }, [products]);
   const [refreshing, setRefreshing] = useState(false);
 
   const firstName = user?.name?.trim().split(/\s+/)[0];
@@ -135,7 +141,8 @@ export default function Index() {
   };
 
   const firstLoad = loading && !refreshing && !categories;
-  const failed = !loading && (error || (categories?.length ?? 0) === 0);
+  // Offline with a saved copy: keep showing the shop rather than an error page.
+  const failed = !loading && (categories?.length ?? 0) === 0;
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
@@ -166,7 +173,16 @@ export default function Index() {
         </Pressable>
 
         {firstLoad ? (
-          <View className="py-20 flex-center"><ActivityIndicator size="large" color={ORANGE} /></View>
+          // Only on the very first launch ever (afterwards the saved copy shows at once): quiet shapes, no spinner.
+          <View>
+            <View style={[styles.ghost, { height: 170, borderRadius: 26, marginTop: 20 }]} />
+            <View style={{ flexDirection: 'row', gap: 14, marginTop: 22 }}>
+              {[0, 1, 2, 3].map((i) => <View key={i} style={[styles.ghost, { width: 68, height: 68, borderRadius: 34 }]} />)}
+            </View>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 28 }}>
+              {[0, 1].map((i) => <View key={i} style={[styles.ghost, { width: 150, height: 200, borderRadius: 20 }]} />)}
+            </View>
+          </View>
         ) : failed ? (
           <View className="py-16 items-center gap-y-3">
             <Ionicons name={error ? "cloud-offline-outline" : "basket-outline"} size={52} color="#C4C4CC" />
@@ -340,6 +356,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, borderRadius: 18, backgroundColor: '#F5F5F7', gap: 10,
   },
   searchText: { flex: 1, fontFamily: 'Quicksand-Medium', fontSize: 15, color: '#9A9AA3' },
+  ghost: { backgroundColor: '#F5F5F7' },
 
   bleed: { marginHorizontal: -GUTTER },
   row: { paddingHorizontal: GUTTER, gap: 12, paddingBottom: 4 },

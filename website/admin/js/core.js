@@ -528,6 +528,79 @@
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Small copies ("thumbs") for the app's lists: ~420px on the short side, WebP, ~25 KB.
+  // Saved at thumbs/<original path>.webp — the app works out that address by itself.
+  // ---------------------------------------------------------------------------
+  var THUMB_SHORT_SIDE = 420;
+  var thumbPathFor = function (path) { return 'thumbs/' + path + '.webp'; };
+
+  function makeThumb(blob) {
+    return new Promise(function (resolve) {
+      if (!window.createImageBitmap) return resolve(null);
+      createImageBitmap(blob).then(function (bmp) {
+        var scale = Math.min(1, THUMB_SHORT_SIDE / Math.min(bmp.width, bmp.height));
+        var c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(bmp.width * scale)); c.height = Math.max(1, Math.round(bmp.height * scale));
+        var ctx = c.getContext('2d'); ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
+        c.toBlob(function (webp) {
+          if (webp && webp.type === 'image/webp') return resolve(webp);
+          c.toBlob(function (jpg) { resolve(jpg); }, 'image/jpeg', 0.78);
+        }, 'image/webp', 0.75);
+      }).catch(function () { resolve(null); });
+    });
+  }
+
+  function uploadThumb(path, blob) {
+    return makeThumb(blob).then(function (thumb) {
+      if (!thumb) return false;
+      return Admin.sb.storage.from(BUCKET).upload(thumbPathFor(path), thumb, {
+        contentType: thumb.type, cacheControl: '31536000', upsert: true
+      }).then(function (res) { return !res.error; });
+    }).catch(function () { return false; });
+  }
+
+  // Every file in the bucket (folders walked), as paths.
+  function listAll(prefix) {
+    return Admin.sb.storage.from(BUCKET).list(prefix, { limit: 1000 }).then(function (res) {
+      if (res.error) throw res.error;
+      return Promise.all((res.data || []).map(function (e) {
+        var p = prefix ? prefix + '/' + e.name : e.name;
+        return e.id ? [p] : listAll(p);   // no id = a folder
+      })).then(function (parts) { return [].concat.apply([], parts); });
+    });
+  }
+
+  /**
+   * Makes the missing small copies for photos uploaded before thumbs existed. Runs quietly in the
+   * background after an admin signs in; only does work the first time (or for new gaps).
+   */
+  var thumbsRunning = false;
+  Admin.ensureThumbs = function () {
+    if (thumbsRunning || !Admin.sb) return Promise.resolve();
+    thumbsRunning = true;
+    return listAll('').then(function (paths) {
+      var have = new Set(paths.filter(function (p) { return p.indexOf('thumbs/') === 0; }));
+      var todo = paths.filter(function (p) {
+        return p.indexOf('thumbs/') !== 0 && /\.(jpe?g|png|webp)$/i.test(p) && !have.has(thumbPathFor(p));
+      });
+      var made = 0;
+      return todo.reduce(function (chain, p) {
+        return chain.then(function () {
+          var url = Admin.sb.storage.from(BUCKET).getPublicUrl(p).data.publicUrl;
+          return fetch(url).then(function (r) { return r.ok ? r.blob() : null; })
+            .then(function (blob) { return blob ? uploadThumb(p, blob) : false; })
+            .then(function (ok) { if (ok) made++; })
+            .catch(function () {});
+        });
+      }, Promise.resolve()).then(function () {
+        if (made) console.info('Made ' + made + ' small photo copies for the app.');
+      });
+    }).catch(function (e) { console.warn('ensureThumbs', e); })
+      .then(function () { thumbsRunning = false; });
+  };
+
   Admin.uploadImage = function (original, folder) {
     var file;
     return Promise.resolve().then(function () {
@@ -549,6 +622,9 @@
         contentType: file.type, cacheControl: '31536000', upsert: false
       }).then(function (res) {
         if (res.error) throw new Error(errMessage(res.error));
+        // The small copy the app's lists use (a failure here never blocks the upload).
+        return uploadThumb(path, file);
+      }).then(function () {
         var pub = Admin.sb.storage.from(BUCKET).getPublicUrl(path);
         return (pub && pub.data && pub.data.publicUrl) || (SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + path);
       });
@@ -891,6 +967,8 @@
     renderRoute();
     Admin.refreshBadges();
     startRealtime();
+    // Quietly make any missing small photo copies for the app (after the dashboard has loaded).
+    setTimeout(Admin.ensureThumbs, 5000);
   }
 
   var NOT_ADMIN = 'This account doesn’t have admin access.';

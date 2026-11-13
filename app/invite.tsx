@@ -85,7 +85,7 @@ const PrimaryButton = ({ title, icon, loading, onPress }: { title: string; icon?
 export default function Invite() {
     const insets = useSafeAreaInsets();
     const { isAuthenticated } = useAuthStore();
-    const { data: summary, loading, refetch } = useFetch({ fn: getAffiliateSummary, skip: !isAuthenticated });
+    const { data: summary, loading, refetch } = useFetch({ fn: getAffiliateSummary, skip: !isAuthenticated, key: "me:affiliate-summary" });
     const [joining, setJoining] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [copied, setCopied] = useState<"code" | "link" | null>(null);
@@ -163,9 +163,7 @@ export default function Invite() {
             >
                 <ScreenHeader title="Invite & earn" />
 
-                {firstLoad ? (
-                    <ActivityIndicator color={ORANGE} style={{ marginTop: 60 }} />
-                ) : code ? (
+                {firstLoad ? null : code ? (
                     <View key="code" style={styles.stack}>
                         {/* Your code */}
                         <Animated.View entering={riseIn(0)} style={styles.hero}>

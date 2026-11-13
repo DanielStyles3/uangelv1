@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import {User} from "@/type";
 import {getCurrentUser, signOut} from "@/lib/api";
+import {clearPersonalCache} from "@/lib/dataCache";
 
 type AuthState = {
     isAuthenticated: boolean;
@@ -45,6 +46,7 @@ const useAuthStore = create<AuthState>((set) => ({
             await signOut();
         } finally {
             // Clear local state even if the server call fails (e.g. session already expired).
+            clearPersonalCache();
             set({ isAuthenticated: false, user: null });
         }
     },

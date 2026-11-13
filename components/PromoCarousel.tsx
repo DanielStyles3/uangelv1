@@ -3,6 +3,8 @@ import { Dimensions, FlatList, ImageSourcePropType, Pressable, StyleSheet, Text,
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 
+import ProductImage from "@/components/ProductImage";
+
 const { width: SCREEN_W } = Dimensions.get("window");
 const SLIDE_W = SCREEN_W - 40;   // matches the screen's px-5 gutter
 const AUTO_MS = 4500;
@@ -86,7 +88,11 @@ const PromoCarousel = ({ slides }: { slides: PromoSlide[] }) => {
                             </View>
                         </View>
                         <View style={styles.photoWrap}>
-                            <Image source={item.image as number | { uri: string }} style={styles.photo} contentFit="cover" cachePolicy="memory-disk" transition={150} />
+                            {typeof item.image === "object" && item.image && "uri" in item.image && item.image.uri ? (
+                                <ProductImage imageUrl={item.image.uri} resizeMode="cover" priority="high" />
+                            ) : (
+                                <Image source={item.image as number} style={styles.photo} contentFit="cover" cachePolicy="memory-disk" />
+                            )}
                         </View>
                         {/* soft decorative circle */}
                         <View style={styles.circle} />

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { clearPersonalCache } from "@/lib/dataCache";
 import { rememberCategory, rememberOptions, rememberProducts } from "@/lib/productCache";
 import {
     Category,
@@ -561,6 +562,7 @@ const invokeFn = async <T>(name: string, body: object): Promise<T> => {
 /** Permanently deletes the signed-in account (delete-account Edge Function), then clears the local session. */
 export const deleteAccount = async () => {
     await invokeFn<{ deleted: boolean }>('delete-account', {});
+    clearPersonalCache();
     await supabase.auth.signOut({ scope: 'local' });
 }
 

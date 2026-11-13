@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Dimensions, FlatList, Linking, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, FlatList, Linking, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Href, router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,6 +11,7 @@ import Animated, {
 
 import useFetch from "@/lib/useFetch";
 import { cachedCategory, cachedOptions, cachedProduct } from "@/lib/productCache";
+import { snapCategory, snapMenu, snapOptions, snapProduct } from "@/lib/catalog";
 import { getCategory, getMenu, getMenuItem, getMenuItemCustomizations, getProductOptions } from "@/lib/api";
 import ProductOptions, { answersToCart, missingRequired, OptionAnswers, StepHeader } from "@/components/ProductOptions";
 import { useCartStore } from "@/store/cart.store";
@@ -97,20 +98,20 @@ export default function ProductDetails() {
 
     // Open instantly with the copy from the list the customer tapped; the fresh copy replaces it when it arrives.
     const { data: fetchedItem, loading } = useFetch({ fn: getMenuItem, params: { id } });
-    const item = fetchedItem ?? cachedProduct(id);
+    const item = fetchedItem ?? cachedProduct(id) ?? snapProduct(id);
     const { data: customizations } = useFetch({ fn: getMenuItemCustomizations, params: { id } });
     const { data: fetchedOptions } = useFetch({ fn: getProductOptions, params: { id } });
-    const optionGroups = fetchedOptions ?? cachedOptions(id);
+    const optionGroups = fetchedOptions ?? cachedOptions(id) ?? snapOptions(id);
     const [answers, setAnswers] = useState<OptionAnswers>({ picks: {}, texts: {} });
 
     // Product → its subcategory → main category (which carries the delivery note).
     const subcategoryId = item?.category_id ?? "";
     const { data: fetchedSub } = useFetch({ fn: getCategory, params: { id: subcategoryId }, skip: !subcategoryId });
-    const subcategory = fetchedSub ?? cachedCategory(subcategoryId);
+    const subcategory = fetchedSub ?? cachedCategory(subcategoryId) ?? snapCategory(subcategoryId);
     const parentId = subcategory?.parent_id ?? "";
     const { data: fetchedParent } = useFetch({ fn: getCategory, params: { id: parentId }, skip: !parentId });
-    const parentCategory = fetchedParent ?? cachedCategory(parentId);
-    const { data: similarRaw } = useFetch({ fn: getMenu, params: { category: subcategoryId, limit: 10 }, skip: !subcategoryId });
+    const parentCategory = fetchedParent ?? cachedCategory(parentId) ?? snapCategory(parentId);
+    const { data: similarRaw } = useFetch({ fn: getMenu, params: { category: subcategoryId, limit: 10 }, skip: !subcategoryId, initial: () => snapMenu(subcategoryId)?.slice(0, 10) });
 
     const [selected, setSelected] = useState<Customization[]>([]);
     const [quantity, setQuantity] = useState(1);
@@ -152,7 +153,7 @@ export default function ProductDetails() {
     if (!item) {
         return (
             <View style={[styles.screen, styles.center]}>
-                {loading ? <ActivityIndicator color={ORANGE} size="large" /> : (
+                {loading ? null : (
                     <>
                         <Ionicons name="fast-food-outline" size={44} color="#C4C4CC" />
                         <Text style={styles.sectionTitle}>Item not found</Text>
@@ -230,7 +231,7 @@ export default function ProductDetails() {
         <View style={styles.screen}>
             {/* Hero photo (behind the scrolling sheet) */}
             <Animated.View style={[styles.hero, heroStyle]}>
-                <ProductImage imageUrl={item.image_url} className="size-full" resizeMode="cover" priority="high" />
+                <ProductImage imageUrl={item.image_url} className="size-full" resizeMode="cover" priority="high" size="full" />
                 <View style={styles.heroShade} />
             </Animated.View>
 
@@ -482,18 +483,15 @@ export default function ProductDetails() {
 
                 <Animated.View style={[{ flex: 1 }, btnStyle]}>
                     <TouchableOpacity
-                        style={[styles.addBtn, soldOut ? styles.addBtnOff : missing.length ? styles.addBtnNeedsChoice : null]}
+                        style={[styles.addBtn, soldOut ? styles.addBtnOff : missing.length ? styles.addBtnNeedsChoice : null, !ready && !soldOut && { opacity: 0.7 }]}
                         onPress={handleAddToCart}
                         activeOpacity={0.88}
                         disabled={soldOut || !ready}
                         accessibilityState={{ disabled: soldOut || !ready }}
                     >
-                        {!ready && !soldOut ? <ActivityIndicator color="#fff" size="small" /> : (
-                            <Ionicons name={soldOut ? "close-circle-outline" : missing.length ? "arrow-down-circle-outline" : "bag-add"} size={18} color="#fff" />
-                        )}
+                        <Ionicons name={soldOut ? "close-circle-outline" : missing.length ? "arrow-down-circle-outline" : "bag-add"} size={18} color="#fff" />
                         <Text style={styles.addBtnText} numberOfLines={1}>
                             {soldOut ? "Sold out right now"
-                                : !ready ? "Loading choices…"
                                 : missing.length ? `Choose ${missing[0].toLowerCase()} to continue`
                                 : `Add to cart · ${formatNaira(total)}`}
                         </Text>

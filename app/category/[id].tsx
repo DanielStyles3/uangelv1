@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import {ActivityIndicator, FlatList, Text, View} from "react-native";
+import {FlatList, Text, View} from "react-native";
 import {SafeAreaView} from "react-native-safe-area-context";
 import {router, useLocalSearchParams} from "expo-router";
 
@@ -8,18 +8,22 @@ import CustomButton from "@/components/CustomButton";
 import CustomHeader from "@/components/CustomHeader";
 import SubcategoryTile from "@/components/SubcategoryTile";
 import {getCategory, getSubcategories} from "@/lib/api";
+import {snapCategory, snapSubcategories} from "@/lib/catalog";
 import useFetch from "@/lib/useFetch";
 
 export default function CategoryScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
 
-    const { data: category, loading: categoryLoading } = useFetch({ fn: getCategory, params: { id: id ?? '' }, skip: !id });
-    const { data: subcategories, loading: subsLoading } = useFetch({ fn: getSubcategories, params: { parentId: id ?? '' }, skip: !id });
+    // Drawn instantly from the shop snapshot (or what was saved last time), then refreshed quietly.
+    const { data: category, loading: categoryLoading } = useFetch({ fn: getCategory, params: { id: id ?? '' }, skip: !id, key: 'shop:category', initial: () => snapCategory(id) });
+    const { data: subcategories, loading: subsLoading } = useFetch({ fn: getSubcategories, params: { parentId: id ?? '' }, skip: !id, key: 'shop:subcategories', initial: () => snapSubcategories(id) });
 
+    // Very first open with no network data yet: a calm blank page with the header, no spinner.
     if (categoryLoading && !category) {
         return (
-            <SafeAreaView className="flex-1 bg-white flex-center">
-                <ActivityIndicator size="large" color="#FD652A" />
+            <SafeAreaView className="flex-1 bg-white px-5 pt-5">
+                <CustomHeader title="" />
+                <View style={{ height: 160, borderRadius: 24, backgroundColor: '#F5F5F7', marginTop: 8 }} />
             </SafeAreaView>
         );
     }
@@ -87,11 +91,7 @@ export default function CategoryScreen() {
                     </View>
                 )}
                 ListEmptyComponent={() =>
-                    subsLoading ? (
-                        <View className="py-10 flex-center">
-                            <ActivityIndicator size="large" color="#FD652A" />
-                        </View>
-                    ) : (
+                    subsLoading ? null : (
                         <View className="py-10 items-center gap-y-2">
                             <Ionicons name="basket-outline" size={44} color="#C4C4CC" />
                             <Text className="paragraph-bold text-dark-100">No sections here yet</Text>

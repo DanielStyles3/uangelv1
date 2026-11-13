@@ -273,7 +273,7 @@ export default function ServiceRequestScreen() {
             <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
                 {/* Hero: photo of the chosen type + title */}
                 <View style={styles.hero}>
-                    {heroImage ? <ProductImage imageUrl={heroImage} className="size-full" resizeMode="cover" /> : null}
+                    {heroImage ? <ProductImage imageUrl={heroImage} className="size-full" resizeMode="cover" size="full" /> : null}
                     <View style={styles.heroShade} />
                     <TouchableOpacity style={styles.back} onPress={() => (step ? setStep(step - 1) : router.back())} accessibilityLabel="Back">
                         <Ionicons name="chevron-back" size={20} color={INK} />

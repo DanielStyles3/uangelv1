@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import ScalePress from "@/components/ScalePress";
 import ScreenHeader from "@/components/ScreenHeader";
 import useFetch from "@/lib/useFetch";
+import { snapMainCategories } from "@/lib/catalog";
 import { cancelServiceRequest, getCategories, getServiceRequests } from "@/lib/api";
 import { formatNaira, formatNigerianPhone } from "@/lib/format";
 import { popIn, riseIn, settle } from "@/lib/motion";
@@ -290,8 +291,8 @@ const TabSwitch = ({ tab, counts, onChange }: { tab: Tab; counts: Record<Tab, nu
 /** The customer's catering / event requests: Active and Past tabs, rich status cards. */
 export default function Requests() {
     const insets = useSafeAreaInsets();
-    const { data: requests, loading, refetch } = useFetch({ fn: getServiceRequests });
-    const { data: categories } = useFetch({ fn: getCategories });
+    const { data: requests, loading, refetch } = useFetch({ fn: getServiceRequests, key: "me:requests" });
+    const { data: categories } = useFetch({ fn: getCategories, key: "shop:categories", initial: snapMainCategories });
     const [tab, setTab] = useState<Tab>("active");
     const [refreshing, setRefreshing] = useState(false);
 
@@ -344,9 +345,7 @@ export default function Requests() {
                 }
                 renderItem={({ item, index }) => <RequestCard request={item} index={index} onCancelled={refetch} />}
                 ListEmptyComponent={
-                    loading && !requests ? (
-                        <ActivityIndicator color={ORANGE} style={{ marginTop: 40 }} />
-                    ) : (
+                    loading && !requests ? undefined : (
                         <Animated.View key={emptyPast ? "past" : "none"} entering={riseIn(0)} style={styles.empty}>
                             <View style={styles.emptyIcon}><Ionicons name={emptyPast ? "time-outline" : "sparkles"} size={34} color={ORANGE} /></View>
                             <Text style={styles.emptyTitle}>

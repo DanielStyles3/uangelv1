@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,6 +9,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import ProductImage from "@/components/ProductImage";
 import { getCategory, getMenu, getProductsNeedingChoices, getSubcategories } from "@/lib/api";
 import { formatNaira } from "@/lib/format";
+import { snapCategory, snapMenu, snapSubcategories } from "@/lib/catalog";
 import useFetch from "@/lib/useFetch";
 import { useCartStore } from "@/store/cart.store";
 import { MenuItem } from "@/type";
@@ -77,11 +78,12 @@ export default function SubcategoryScreen() {
     const cartCount = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
     const [sort, setSort] = useState<Sort>("popular");
 
-    const { data: sub, loading: subLoading } = useFetch({ fn: getCategory, params: { id: id ?? "" }, skip: !id });
+    // Everything is drawn instantly from the shop snapshot, then refreshed quietly.
+    const { data: sub, loading: subLoading } = useFetch({ fn: getCategory, params: { id: id ?? "" }, skip: !id, key: "shop:category", initial: () => snapCategory(id) });
     const parentId = sub?.parent_id ?? "";
-    const { data: parent } = useFetch({ fn: getCategory, params: { id: parentId }, skip: !parentId });
-    const { data: siblings } = useFetch({ fn: getSubcategories, params: { parentId }, skip: !parentId });
-    const { data: products, loading: productsLoading } = useFetch({ fn: getMenu, params: { category: id ?? "" }, skip: !id });
+    const { data: parent } = useFetch({ fn: getCategory, params: { id: parentId }, skip: !parentId, key: "shop:category", initial: () => snapCategory(parentId) });
+    const { data: siblings } = useFetch({ fn: getSubcategories, params: { parentId }, skip: !parentId, key: "shop:subcategories", initial: () => snapSubcategories(parentId) });
+    const { data: products, loading: productsLoading } = useFetch({ fn: getMenu, params: { category: id ?? "" }, skip: !id, key: "shop:menu", initial: () => snapMenu(id) });
 
     const sorted = useMemo(() => {
         const list = [...(products ?? [])];
@@ -96,8 +98,9 @@ export default function SubcategoryScreen() {
         return list;
     }, [products, sort]);
 
+    // Very first open with nothing known yet: the empty banner shape, no spinner.
     if (subLoading && !sub) {
-        return <View style={[styles.screen, styles.center]}><ActivityIndicator size="large" color={ORANGE} /></View>;
+        return <View style={styles.screen}><View style={styles.banner} /></View>;
     }
 
     if (!sub) {
@@ -119,7 +122,7 @@ export default function SubcategoryScreen() {
         <View>
             {/* Photo banner */}
             <View style={styles.banner}>
-                <ProductImage imageUrl={sub.image_url} className="size-full" resizeMode="cover" />
+                <ProductImage imageUrl={sub.image_url} className="size-full" resizeMode="cover" size="full" />
                 <View style={styles.bannerFade} />
                 <View style={[styles.bannerContent, { paddingTop: insets.top }]}>
                     {parent && (
@@ -136,7 +139,7 @@ export default function SubcategoryScreen() {
                     <View style={styles.metaRow}>
                         <View style={styles.metaPill}>
                             <Ionicons name="grid-outline" size={13} color="#fff" />
-                            <Text style={styles.metaText}>{productsLoading ? "Loading…" : count === 1 ? "1 item" : `${count} items`}</Text>
+                            <Text style={styles.metaText}>{productsLoading ? "…" : count === 1 ? "1 item" : `${count} items`}</Text>
                         </View>
                         {deliveryNote && (
                             <View style={styles.metaPill}>
@@ -199,9 +202,7 @@ export default function SubcategoryScreen() {
                 showsVerticalScrollIndicator={false}
                 ListHeaderComponent={header}
                 ListEmptyComponent={
-                    productsLoading ? (
-                        <View style={{ paddingVertical: 50 }}><ActivityIndicator size="large" color={ORANGE} /></View>
-                    ) : (
+                    productsLoading ? undefined : (
                         <View style={[styles.center, { paddingVertical: 50, paddingHorizontal: 30, gap: 10 }]}>
                             <View style={styles.emptyIcon}><Ionicons name="basket-outline" size={34} color={ORANGE} /></View>
                             <Text style={styles.emptyTitle}>No products here yet</Text>

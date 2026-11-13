@@ -426,7 +426,7 @@ const EmptyState = ({ tab }: { tab: Tab }) => (
 // ---------------------------------------------------------------------------
 
 export default function Orders() {
-    const { data: orders, loading, refetch } = useFetch({ fn: getOrders });
+    const { data: orders, loading, refetch } = useFetch({ fn: getOrders, key: "me:orders" });
     const [tab, setTab] = useState<Tab | null>(null);
 
     // Refresh when coming back from an order (e.g. after cancelling or paying).

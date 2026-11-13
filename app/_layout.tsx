@@ -9,6 +9,8 @@ import * as Sentry from '@sentry/react-native';
 import useAuthStore from "@/store/auth.store";
 import AnimatedSplash from "@/components/AnimatedSplash";
 import { NoticeHost } from "@/lib/notice";
+import { warmCatalog } from "@/lib/catalog";
+import { hydrateDataCache } from "@/lib/dataCache";
 
 // Keep the native splash up until <AnimatedSplash> has drawn its first frame.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -58,9 +60,19 @@ export default Sentry.wrap(function RootLayout() {
     fetchAuthenticatedUser()
   }, [fetchAuthenticatedUser]);
 
+  // While the splash plays: load the shop saved on the phone (so screens open with content, no
+  // spinners), then fetch the latest shop and its photos in the background.
+  const [cacheReady, setCacheReady] = useState(false);
+  useEffect(() => {
+    hydrateDataCache().finally(() => {
+      setCacheReady(true);
+      warmCatalog();
+    });
+  }, []);
+
   // The feedback widget needs the Sentry.wrap() provider to be mounted first,
   // so show it from an effect (after mount) rather than at module load.
-  const ready = fontsLoaded && !isLoading;
+  const ready = fontsLoaded && !isLoading && cacheReady;
   useEffect(() => {
     // Developer builds only: customers shouldn't see a floating "Report a bug" button.
     if (ready && SENTRY_DSN && __DEV__) Sentry.showFeedbackWidget();
