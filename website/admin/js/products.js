@@ -11,7 +11,7 @@
   var GIFT = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>';
 
   var IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-  var MAX_BYTES = 5 * 1024 * 1024;
+  var MAX_BYTES = 15 * 1024 * 1024;   // big camera photos are fine: they're shrunk before upload
   var PAGE = 48;
   var MENU_COLS = 'id,name,description,image_url,emoji,price,rating,calories,protein,is_available,is_campaign,category_id,delivery_fee,delivery_note,affiliate_rate,created_at';
   // When it arrives (menu.delivery_note). '' = use the category's note.
@@ -422,9 +422,12 @@
       errEl.textContent = '';
       if (!file) return;
       if (IMG_TYPES.indexOf(file.type) === -1) { errEl.textContent = 'Please choose a JPEG, PNG or WebP image.'; return; }
-      if (file.size > MAX_BYTES) { errEl.textContent = 'That image is larger than 5 MB.'; return; }
+      if (file.size > MAX_BYTES) { errEl.textContent = 'That image is larger than 15 MB.'; return; }
       if (draft.objUrl) URL.revokeObjectURL(draft.objUrl);
       draft.file = file; draft.removed = false; draft.objUrl = URL.createObjectURL(file);
+      // Start shrinking + uploading now, while the admin fills in the rest, so Save is instant.
+      draft.upload = A.uploadImage(file, 'products');
+      draft.upload.catch(function () {});
       paintPhoto();
     }
     function dispose() { if (draft.objUrl) URL.revokeObjectURL(draft.objUrl); }
@@ -530,7 +533,7 @@
       A.setLoading(saveBtn, true, 'Saving…');
       try {
         var imageUrl;
-        try { imageUrl = draft.file ? await A.uploadImage(draft.file, 'products') : (draft.removed ? null : (currentUrl || null)); }
+        try { imageUrl = draft.file ? await (draft.upload || A.uploadImage(draft.file, 'products')) : (draft.removed ? null : (currentUrl || null)); }
         catch (e) { A.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
         var payload = {
           name: name, price: Math.round(price * 100) / 100, category_id: giving ? null : draft.sub,

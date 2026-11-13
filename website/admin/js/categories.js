@@ -8,7 +8,7 @@
   var Admin = window.Admin;
 
   var IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-  var MAX_BYTES = 5 * 1024 * 1024;
+  var MAX_BYTES = 15 * 1024 * 1024;   // big camera photos are fine: they're shrunk before upload
   var DEFAULT_COLOR = '#FE8C00';
   var SWATCHES = ['#9D174D', '#991B1B', '#6B21A8', '#9A3412', '#166534', '#7A4419', '#0F5B78', '#FE8C00', '#181C2E'];
   var COLS = 'id,name,description,parent_id,emoji,color,image_url,sort_order,delivery_note,kind,enquiry_only,created_at';
@@ -509,9 +509,12 @@
       errEl.textContent = '';
       if (!file) return;
       if (IMG_TYPES.indexOf(file.type) === -1) { errEl.textContent = 'Please choose a JPEG, PNG or WebP image.'; return; }
-      if (file.size > MAX_BYTES) { errEl.textContent = 'That image is larger than 5 MB.'; return; }
+      if (file.size > MAX_BYTES) { errEl.textContent = 'That image is larger than 15 MB.'; return; }
       if (draft.objUrl) URL.revokeObjectURL(draft.objUrl);
       draft.file = file; draft.removed = false; draft.objUrl = URL.createObjectURL(file);
+      // Start shrinking + uploading now, so Save is instant.
+      draft.upload = Admin.uploadImage(file, 'categories');
+      draft.upload.catch(function () {});
       paint();
     }
     function dispose() { if (draft.objUrl) URL.revokeObjectURL(draft.objUrl); }
@@ -572,7 +575,7 @@
       try {
         var imageUrl;
         try {
-          imageUrl = draft.file ? await Admin.uploadImage(draft.file, 'categories') : (draft.removed ? null : (currentUrl || null));
+          imageUrl = draft.file ? await (draft.upload || Admin.uploadImage(draft.file, 'categories')) : (draft.removed ? null : (currentUrl || null));
         } catch (e) { Admin.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
 
         var payload = { name: name, description: draft.description.trim() || null, image_url: imageUrl };

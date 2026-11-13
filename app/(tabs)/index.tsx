@@ -1,8 +1,8 @@
 import {SafeAreaView} from "react-native-safe-area-context";
-import {Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {AppState, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import {Ionicons} from "@expo/vector-icons";
-import {ReactNode, useEffect, useMemo, useState} from "react";
-import {router} from "expo-router";
+import {ReactNode, useCallback, useEffect, useMemo, useRef, useState} from "react";
+import {router, useFocusEffect} from "expo-router";
 
 import CartButton from "@/components/CartButton";
 import CustomButton from "@/components/CustomButton";
@@ -11,7 +11,7 @@ import ProductImage from "@/components/ProductImage";
 import {getCampaignProgress, getCategories, getChristmasBanner,getHomeProducts, getOrders, getProductsNeedingChoices, getPromotions, HomeProduct} from "@/lib/api";
 import {CAMPAIGN_FLYER, CAMPAIGN_GOAL, campaignDaysLeft, campaignLive} from "@/constants/campaign";
 import {formatNaira} from "@/lib/format";
-import {snapMainCategories, snapProducts} from "@/lib/catalog";
+import {snapMainCategories, snapProducts, warmCatalog} from "@/lib/catalog";
 import {prefetchThumbs} from "@/lib/images";
 import useFetch from "@/lib/useFetch";
 import useAuthStore from "@/store/auth.store";
@@ -48,6 +48,22 @@ export default function Index() {
   const { data: promos, refetch: refetchPromos } = useFetch({ fn: getPromotions, key: 'shop:promotions' });
   const { data: preorders, refetch: refetchPreorders } = useFetch({ fn: getCampaignProgress, skip: !campaignLive(), key: 'shop:preorders' });
   const { data: xmas, refetch: refetchXmas } = useFetch({ fn: getChristmasBanner, skip: !campaignLive(), key: 'shop:xmas' });
+
+  // New products from the admin show up without a manual refresh: quietly re-check whenever
+  // Home comes back into view or the app returns to the foreground (at most every 20s).
+  const lastCheck = useRef(0);   // the first check joins the screen's own load (same request, shared)
+  const quietRefresh = useCallback(() => {
+    if (Date.now() - lastCheck.current < 20_000) return;
+    lastCheck.current = Date.now();
+    refetch(); refetchProducts(); refetchPromos();
+    warmCatalog();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useFocusEffect(quietRefresh);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => { if (s === 'active') quietRefresh(); });
+    return () => sub.remove();
+  }, [quietRefresh]);
 
   // Pull this screen's photos onto the phone so they're ready before you scroll to them.
   useEffect(() => { if (products) prefetchThumbs(products.map((p) => p.image_url)); }, [products]);

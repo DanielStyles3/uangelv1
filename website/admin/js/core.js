@@ -618,13 +618,14 @@
         .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'image';
       var dir = String(folder || 'uploads').replace(/^\/+|\/+$/g, '').replace(/[^a-zA-Z0-9/_-]/g, '-') || 'uploads';
       var path = dir + '/' + Date.now() + '-' + slug + '.' + ext;
-      return Admin.sb.storage.from(BUCKET).upload(path, file, {
-        contentType: file.type, cacheControl: '31536000', upsert: false
-      }).then(function (res) {
+      // The photo and the small copy the app's lists use go up together
+      // (a failed small copy never blocks the save; the app falls back to the photo).
+      return Promise.all([
+        Admin.sb.storage.from(BUCKET).upload(path, file, { contentType: file.type, cacheControl: '31536000', upsert: false }),
+        uploadThumb(path, file)
+      ]).then(function (results) {
+        var res = results[0];
         if (res.error) throw new Error(errMessage(res.error));
-        // The small copy the app's lists use (a failure here never blocks the upload).
-        return uploadThumb(path, file);
-      }).then(function () {
         var pub = Admin.sb.storage.from(BUCKET).getPublicUrl(path);
         return (pub && pub.data && pub.data.publicUrl) || (SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + path);
       });
