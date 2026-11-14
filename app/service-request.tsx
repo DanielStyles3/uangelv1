@@ -648,9 +648,10 @@ const styles = StyleSheet.create({
     typeName: { fontFamily: "Quicksand-Bold", fontSize: 12, lineHeight: 15, color: INK, textAlign: "center", paddingHorizontal: 2, paddingBottom: 4, minHeight: 34 },
 
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: { flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#fff", borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
+    // Long choices wrap inside the chip (never wider than the screen).
+    chip: { maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: 5, borderWidth: 1.5, borderColor: LINE, backgroundColor: "#fff", borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9 },
     chipOn: { borderColor: ORANGE, backgroundColor: "#FFF4EE" },
-    chipText: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: INK },
+    chipText: { flexShrink: 1, fontFamily: "Quicksand-Bold", fontSize: 13.5, lineHeight: 18, color: INK },
 
     customBox: { backgroundColor: "#F5EDFC", borderRadius: 18, padding: 14, gap: 10 },
     customTitle: { fontFamily: "Quicksand-Bold", fontSize: 14, color: PURPLE },

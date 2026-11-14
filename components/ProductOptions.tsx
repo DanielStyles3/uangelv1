@@ -74,17 +74,40 @@ export const answersToCart = (groups: OptionGroup[], a: OptionAnswers): CartCust
         return text ? [{ id: g.id, name: `${g.name}: "${text}"`, price: 0, type: 'text', text }] : [];
     });
 
-/** Numbered step header: "1  Size ............ Required". */
+/**
+ * Numbered step header. The title wraps to as many lines as it needs; the Required / Optional
+ * badge (and the chosen value, if given) sit on their own line under it so they never squeeze it.
+ */
 export const StepHeader = ({ step, title, required, right }: { step: number; title: string; required?: boolean; right?: string }) => (
     <View style={styles.head}>
         <View style={styles.stepDot}><Text style={styles.stepNum}>{step}</Text></View>
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
-        {right ? <Text style={styles.right} numberOfLines={1}>{right}</Text> : null}
-        {required !== undefined && (
-            <Text style={[styles.badge, required && styles.badgeReq]}>{required ? 'Required' : 'Optional'}</Text>
-        )}
+        <View style={styles.headBody}>
+            <Text style={styles.title}>{title}</Text>
+            {(required !== undefined || right) ? (
+                <View style={styles.metaRow}>
+                    {required === true && (
+                        <View style={[styles.badge, styles.badgeReq]}>
+                            <View style={styles.badgeDot} />
+                            <Text style={[styles.badgeText, styles.badgeTextReq]}>Required</Text>
+                        </View>
+                    )}
+                    {required === false && <Text style={styles.optional}>Optional</Text>}
+                    {right ? (
+                        <View style={styles.rightPill}>
+                            <Ionicons name="checkmark" size={12} color="#C2410C" />
+                            <Text style={styles.right}>{right}</Text>
+                        </View>
+                    ) : null}
+                </View>
+            ) : null}
+        </View>
     </View>
 );
+
+/** Long labels (or many choices) read better as a full-width list than a cramped grid. */
+const LONG_LABEL = 14;
+const wantsList = (values: { name: string; hint?: string | null }[]) =>
+    values.length > 6 || values.some((v) => v.name.length > LONG_LABEL || (v.hint?.length ?? 0) > 30);
 
 /**
  * "Make it yours" steps on the product page (size, flavour, message…), numbered from
@@ -149,7 +172,7 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                                     {tiers.map((t) => {
                                         const on = !!tier && tier.id === t.id;
                                         return (
-                                            <View key={t.id} style={[styles.card, styles.tierCard, { width: tiers.length <= 3 ? `${100 / tiers.length - 2}%` as `${number}%` : '48.4%' }, on && styles.cardOn]}>
+                                            <View key={t.id} style={[styles.card, styles.tierCard, { width: tiers.length <= 3 ? `${100 / tiers.length - 2.2}%` as `${number}%` : '48.4%' }, on && styles.cardOn]}>
                                                 {on && <View style={styles.cardTick}><Ionicons name="checkmark" size={12} color="#fff" /></View>}
                                                 <Text style={styles.cardName}>{t.digits === 1 ? 'Single digit' : t.digits === 2 ? 'Two digits' : `${t.digits} digits`}</Text>
                                                 <Text style={styles.cardHint}>{t.digits === 1 ? 'e.g. 5' : t.digits === 2 ? 'e.g. 25' : `e.g. ${'1'.padEnd(t.digits, '0')}`} · {cakesLabel(t.digits)}</Text>
@@ -166,24 +189,33 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                 if (g.kind === 'text') {
                     const max = g.max_length ?? 300;
                     const value = answers.texts[g.id] ?? '';
+                    // Long answers get a roomy box with new lines; a long placeholder also needs a
+                    // multiline box so it wraps instead of being cut (but Enter still just closes the keyboard).
                     const long = max > 80;
+                    const multi = long || max > 40 || (g.placeholder ?? '').length > 28;
                     return (
                         <View key={g.id} style={styles.group}>
                             <StepHeader step={step} title={g.name} required={g.required} />
-                            <View style={[styles.inputRow, long && { alignItems: 'flex-start', paddingTop: 12 }]}>
-                                <Ionicons name="create-outline" size={20} color="#878787" />
+                            <View style={[styles.inputRow, multi && styles.inputRowMulti]}>
+                                <Ionicons name="create-outline" size={20} color="#878787" style={multi ? { marginTop: 1 } : undefined} />
                                 <TextInput
                                     value={value}
-                                    onChangeText={(t) => type(g.id, t)}
+                                    onChangeText={(t) => type(g.id, long ? t : t.replace(/\n/g, ' '))}
                                     placeholder={g.placeholder ?? ''}
                                     placeholderTextColor="#A0A0AB"
                                     maxLength={max}
-                                    multiline={long}
-                                    style={[styles.input, long && { minHeight: 70, textAlignVertical: 'top' }]}
+                                    multiline={multi}
+                                    submitBehavior={multi && !long ? 'blurAndSubmit' : undefined}
+                                    returnKeyType={multi && !long ? 'done' : undefined}
+                                    style={[styles.input, multi && styles.inputMulti, long && { minHeight: 76 }]}
                                     accessibilityLabel={g.name}
                                 />
-                                {g.max_length ? <Text style={styles.count}>{value.length}/{g.max_length}</Text> : null}
                             </View>
+                            {g.max_length ? (
+                                <Text style={[styles.count, value.length >= g.max_length && { color: '#C2410C' }]}>
+                                    {value.length}/{g.max_length}
+                                </Text>
+                            ) : null}
                         </View>
                     );
                 }
@@ -202,7 +234,7 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                                             <View style={[styles.swatchRing, on && styles.swatchRingOn]}>
                                                 <Swatch colour={v.colour!} size={40} />
                                             </View>
-                                            <Text style={[styles.swatchName, on && { color: INK }]} numberOfLines={2}>{v.name}</Text>
+                                            <Text style={[styles.swatchName, on && { color: INK }]}>{v.name}</Text>
                                             {Number(v.price) ? <Text style={styles.swatchPrice}>+{formatNaira(v.price)}</Text> : null}
                                         </TouchableOpacity>
                                     );
@@ -212,8 +244,43 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                     );
                 }
 
-                // Cards: 3 across for short lists (sizes), 2 across otherwise.
-                const cols = values.length <= 3 ? 3 : 2;
+                const label = (v: (typeof values)[number]) => `${v.name}${Number(v.price) ? `, plus ${formatNaira(v.price)}` : ''}`;
+
+                // Long names or many choices: a full-width list, radio on the left, price on the right.
+                if (wantsList(values)) {
+                    return (
+                        <View key={g.id} style={styles.group}>
+                            <StepHeader step={step} title={g.name} required={g.required} />
+                            <View style={styles.list}>
+                                {values.map((v) => {
+                                    const on = answers.picks[g.id] === v.id;
+                                    return (
+                                        <TouchableOpacity key={v.id} onPress={() => pick(g.id, v.id, g.required)} activeOpacity={0.85}
+                                            style={[styles.row, on && styles.rowOn]}
+                                            accessibilityRole="radio" accessibilityState={{ checked: on }} accessibilityLabel={label(v)}>
+                                            <View style={[styles.radio, on && styles.radioOn]}>
+                                                {on && <View style={styles.radioDot} />}
+                                            </View>
+                                            <View style={styles.rowBody}>
+                                                <View style={styles.rowNameLine}>
+                                                    {v.colour ? <Swatch colour={v.colour} size={16} /> : null}
+                                                    <Text style={styles.rowName}>{v.name}</Text>
+                                                </View>
+                                                {v.hint ? <Text style={styles.rowHint}>{v.hint}</Text> : null}
+                                            </View>
+                                            <Text style={[styles.rowPrice, !Number(v.price) && styles.rowPriceFree]}>
+                                                {Number(v.price) ? `+${formatNaira(v.price)}` : 'Included'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        </View>
+                    );
+                }
+
+                // Short names: a grid. 3 across only when every name is really short (sizes), else 2.
+                const cols = values.length <= 3 && values.every((v) => v.name.length <= 9) ? 3 : 2;
                 return (
                     <View key={g.id} style={styles.group}>
                         <StepHeader step={step} title={g.name} required={g.required} />
@@ -224,16 +291,16 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                                     <TouchableOpacity key={v.id} onPress={() => pick(g.id, v.id, g.required)} activeOpacity={0.85}
                                         style={[styles.card, { width: cols === 3 ? '31.6%' : '48.4%' }, on && styles.cardOn]}
                                         accessibilityRole="radio" accessibilityState={{ checked: on }}
-                                        accessibilityLabel={`${v.name}${Number(v.price) ? `, plus ${formatNaira(v.price)}` : ''}`}>
+                                        accessibilityLabel={label(v)}>
                                         {on && (
                                             <View style={styles.cardTick}><Ionicons name="checkmark" size={12} color="#fff" /></View>
                                         )}
                                         <View style={styles.cardNameRow}>
                                             {v.colour ? <Swatch colour={v.colour} size={16} /> : null}
-                                            <Text style={styles.cardName} numberOfLines={2}>{v.name}</Text>
+                                            <Text style={styles.cardName}>{v.name}</Text>
                                         </View>
-                                        {v.hint ? <Text style={styles.cardHint} numberOfLines={2}>{v.hint}</Text> : null}
-                                        <Text style={styles.cardPrice}>{Number(v.price) ? `+${formatNaira(v.price)}` : 'Included'}</Text>
+                                        {v.hint ? <Text style={styles.cardHint}>{v.hint}</Text> : null}
+                                        <Text style={[styles.cardPrice, !Number(v.price) && styles.rowPriceFree]}>{Number(v.price) ? `+${formatNaira(v.price)}` : 'Included'}</Text>
                                     </TouchableOpacity>
                                 );
                             })}
@@ -247,23 +314,43 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
 
 const styles = StyleSheet.create({
     group: { gap: 12 },
-    head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    stepDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: INK, alignItems: 'center', justifyContent: 'center' },
+    head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    headBody: { flex: 1, minWidth: 0, gap: 5 },
+    stepDot: { width: 26, height: 26, borderRadius: 13, backgroundColor: INK, alignItems: 'center', justifyContent: 'center', marginTop: -1 },
     stepNum: { fontFamily: 'Quicksand-Bold', fontSize: 13, color: '#fff' },
-    title: { flex: 1, fontFamily: 'Quicksand-Bold', fontSize: 17, color: INK },
-    right: { fontFamily: 'Quicksand-Bold', fontSize: 13, color: '#5B5B66', maxWidth: 120 },
-    badge: { fontFamily: 'Quicksand-Bold', fontSize: 11, color: '#5B5B66', backgroundColor: '#F3F3F6', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' },
-    badgeReq: { color: '#C2410C', backgroundColor: '#FFF1EA' },
+    title: { fontFamily: 'Quicksand-Bold', fontSize: 17, lineHeight: 23, color: INK },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+    badge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
+    badgeReq: { backgroundColor: '#FFF1EA' },
+    badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: ORANGE },
+    badgeText: { fontFamily: 'Quicksand-Bold', fontSize: 11.5 },
+    badgeTextReq: { color: '#C2410C' },
+    optional: { fontFamily: 'Quicksand-SemiBold', fontSize: 12.5, color: '#8A8A94' },
+    rightPill: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
+    right: { flexShrink: 1, fontFamily: 'Quicksand-Bold', fontSize: 12.5, color: '#C2410C' },
 
     cardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-    card: { minHeight: 88, borderRadius: 18, borderWidth: 1.5, borderColor: '#E4E4EA', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, paddingVertical: 10, gap: 3 },
+    card: { minHeight: 88, borderRadius: 18, borderWidth: 1.5, borderColor: '#E4E4EA', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, paddingTop: 18, paddingBottom: 12, gap: 3 },
     cardOn: { borderWidth: 2, borderColor: ORANGE, backgroundColor: '#FFF4EE' },
-    cardTick: { position: 'absolute', top: 7, right: 7, width: 18, height: 18, borderRadius: 9, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
-    cardName: { fontFamily: 'Quicksand-Bold', fontSize: 15, color: INK, textAlign: 'center' },
-    cardHint: { fontFamily: 'Quicksand-SemiBold', fontSize: 11.5, color: '#5B5B66', textAlign: 'center' },
-    cardPrice: { fontFamily: 'Quicksand-Bold', fontSize: 12.5, color: '#C2410C' },
+    cardTick: { position: 'absolute', top: 6, right: 6, width: 18, height: 18, borderRadius: 9, backgroundColor: ORANGE, alignItems: 'center', justifyContent: 'center' },
+    cardName: { flexShrink: 1, fontFamily: 'Quicksand-Bold', fontSize: 15, lineHeight: 19, color: INK, textAlign: 'center' },
+    cardHint: { fontFamily: 'Quicksand-SemiBold', fontSize: 11.5, lineHeight: 15, color: '#5B5B66', textAlign: 'center' },
+    cardPrice: { fontFamily: 'Quicksand-Bold', fontSize: 12.5, color: '#C2410C', marginTop: 1 },
 
-    swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    list: { gap: 8 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 58, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16, borderWidth: 1.5, borderColor: '#E4E4EA', backgroundColor: '#fff' },
+    rowOn: { borderColor: ORANGE, backgroundColor: '#FFF4EE' },
+    radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: '#C9C9D1', alignItems: 'center', justifyContent: 'center' },
+    radioOn: { borderColor: ORANGE },
+    radioDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: ORANGE },
+    rowBody: { flex: 1, minWidth: 0, gap: 2 },
+    rowNameLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    rowName: { flex: 1, fontFamily: 'Quicksand-Bold', fontSize: 15, lineHeight: 20, color: INK },
+    rowHint: { fontFamily: 'Quicksand-SemiBold', fontSize: 12, lineHeight: 16, color: '#5B5B66' },
+    rowPrice: { fontFamily: 'Quicksand-Bold', fontSize: 13.5, color: '#C2410C', textAlign: 'right' },
+    rowPriceFree: { color: '#8A8A94' },
+
+    swatchRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 10 },
     swatchItem: { width: 70, alignItems: 'center', gap: 6 },
     swatchRing: { width: 54, height: 54, borderRadius: 27, borderWidth: 3, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
     swatchRingOn: { borderColor: ORANGE },
@@ -272,9 +359,11 @@ const styles = StyleSheet.create({
     swatchName: { fontFamily: 'Quicksand-Bold', fontSize: 11.5, color: '#5B5B66', textAlign: 'center' },
     swatchPrice: { fontFamily: 'Quicksand-Bold', fontSize: 11, color: '#C2410C' },
 
-    inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, borderRadius: 16, backgroundColor: '#F5F5F7', paddingHorizontal: 14 },
-    input: { flex: 1, fontFamily: 'Quicksand-SemiBold', fontSize: 16, color: INK, paddingVertical: 10 },
-    count: { fontFamily: 'Quicksand-SemiBold', fontSize: 12, color: '#5B5B66' },
+    inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, borderRadius: 16, backgroundColor: '#F5F5F7', borderWidth: 1.5, borderColor: '#ECECF0', paddingHorizontal: 14 },
+    inputRowMulti: { alignItems: 'flex-start', paddingTop: 13, paddingBottom: 3 },
+    input: { flex: 1, minWidth: 0, fontFamily: 'Quicksand-SemiBold', fontSize: 16, color: INK, paddingVertical: 12 },
+    inputMulti: { minHeight: 48, paddingTop: 0, paddingBottom: 10, lineHeight: 22, textAlignVertical: 'top' },
+    count: { alignSelf: 'flex-end', marginTop: -6, fontFamily: 'Quicksand-SemiBold', fontSize: 12, color: '#8A8A94' },
 
     numberBox: { height: 84, borderRadius: 20, backgroundColor: '#F5F5F7', borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
     numberBoxOn: { borderColor: ORANGE, backgroundColor: '#FFF4EE' },

@@ -85,7 +85,8 @@ const styles = StyleSheet.create({
     opt: { fontFamily: "Quicksand-SemiBold", fontSize: 12.5, color: "#878787" },
     input: { minHeight: 70, borderRadius: 14, backgroundColor: "#F5F5F7", paddingHorizontal: 14, paddingVertical: 12, fontFamily: "Quicksand-SemiBold", fontSize: 15, color: INK, textAlignVertical: "top" },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, borderWidth: 1.5, borderColor: "#E4E4EA", backgroundColor: "#fff" },
+    // Long choices wrap inside the chip (never wider than the screen).
+    chip: { maxWidth: "100%", flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 18, borderWidth: 1.5, borderColor: "#E4E4EA", backgroundColor: "#fff" },
     chipOn: { borderColor: ORANGE, backgroundColor: "#FFF4EE" },
-    chipText: { fontFamily: "Quicksand-Bold", fontSize: 13.5, color: INK },
+    chipText: { flexShrink: 1, fontFamily: "Quicksand-Bold", fontSize: 13.5, lineHeight: 18, color: INK },
 });

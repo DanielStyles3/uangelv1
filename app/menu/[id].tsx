@@ -28,6 +28,26 @@ const HERO_H = Math.round(SCREEN_W * 0.95);
 const ORANGE = "#FD652A";
 const INK = "#181C2E";
 const GREY = "#5B5B66";
+// Small phones (360dp): a slimmer quantity stepper leaves the add button room for its label.
+const COMPACT = SCREEN_W < 380;
+
+/**
+ * Short button label for an unanswered question: "Number Topper (State The Age)" → "Choose number topper",
+ * "What number would you like on your cake?" → "What number would you like…". Never longer than ~30 characters.
+ */
+const missingLabel = (question: string) => {
+    let s = question.replace(/\([^)]*\)/g, " ").replace(/[?:.!]+\s*$/, "").replace(/\s+/g, " ").trim() || question.trim();
+    const asks = /^(what|which|how|when|where|who|specify|state|enter|select|choose|pick|tell|type|write|add|upload)\b/i.test(s);
+    if (s.length > 24) {
+        const cut = s.slice(0, 24);
+        const space = cut.lastIndexOf(" ");
+        const head = (space > 10 ? cut.slice(0, space) : cut)
+            .replace(/(\s+(on|the|a|an|of|for|to|in|at|your|and|or|with|would|you|like))+$/i, "")
+            .replace(/[\s,&-]+$/, "");
+        s = `${head}…`;
+    }
+    return asks ? s.charAt(0).toUpperCase() + s.slice(1) : `Choose ${s.toLowerCase()}`;
+};
 
 // Icons for the seeded add-ons/extras (no emoji); anything else gets a sparkle.
 const CUSTOMIZATION_ICON: Record<string, IconName> = {
@@ -55,7 +75,7 @@ const InfoTile = ({ icon, value, label }: { icon: IconName; value: string; label
     </View>
 );
 
-/** Add-on / extra as a tappable card with an icon and a checkbox (2 per row). */
+/** Add-on / extra as a full-width tappable row: icon, name (wraps freely) with its price under it, checkbox. */
 const AddonCard = ({ item, selected, onPress }: { item: Customization; selected: boolean; onPress: () => void }) => (
     <TouchableOpacity
         onPress={onPress}
@@ -69,8 +89,8 @@ const AddonCard = ({ item, selected, onPress }: { item: Customization; selected:
             <Ionicons name={iconFor(item.name)} size={19} color={selected ? "#fff" : ORANGE} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.addonName} numberOfLines={2}>{item.name}</Text>
-            <Text style={styles.addonPrice}>{Number(item.price) > 0 ? `+${formatNaira(item.price)}` : "Free"}</Text>
+            <Text style={styles.addonName}>{item.name}</Text>
+            <Text style={[styles.addonPrice, !(Number(item.price) > 0) && { color: "#2F9B65" }]}>{Number(item.price) > 0 ? `+${formatNaira(item.price)}` : "Free"}</Text>
         </View>
         <View style={[styles.check, selected && styles.checkOn]}>
             {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
@@ -203,6 +223,13 @@ export default function ProductDetails() {
         ...optionLines.map((c) => c.name),
         ...(selected.length ? [`+ ${selected.map((c) => c.name).join(", ")}`] : []),
     ];
+
+    const buttonLabel = soldOut ? "Sold out right now"
+        : missing.length ? missingLabel(missing[0])
+        : `Add to cart · ${formatNaira(total)}`;
+    const buttonA11y = soldOut ? buttonLabel
+        : missing.length ? `Choose ${missing[0]} to continue${missing.length > 1 ? `, ${missing.length - 1} more required` : ""}`
+        : `Add ${quantity} to cart, ${formatNaira(total)}`;
 
     const scrollToOptions = () => {
         scrollRef.current?.scrollTo({ y: Math.max(0, HERO_H - 32 + optionsY - 90), animated: true });
@@ -354,7 +381,7 @@ export default function ProductDetails() {
                                 <View style={styles.makeIcon}><Ionicons name="sparkles" size={19} color="#fff" /></View>
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.makeTitle}>Make it yours</Text>
-                                    <Text style={styles.makeText} numberOfLines={1}>
+                                    <Text style={styles.makeText} numberOfLines={2}>
                                         {groups.length ? groups.map((g) => g.name.toLowerCase()).join(", ") + (addons.length ? " & add-ons" : "") : "Add-ons & extras"}
                                     </Text>
                                 </View>
@@ -490,14 +517,19 @@ export default function ProductDetails() {
                         onPress={handleAddToCart}
                         activeOpacity={0.88}
                         disabled={soldOut || !ready}
+                        accessibilityRole="button"
+                        accessibilityLabel={buttonA11y}
                         accessibilityState={{ disabled: soldOut || !ready }}
                     >
                         <Ionicons name={soldOut ? "close-circle-outline" : missing.length ? "arrow-down-circle-outline" : "bag-add"} size={18} color="#fff" />
-                        <Text style={styles.addBtnText} numberOfLines={1}>
-                            {soldOut ? "Sold out right now"
-                                : missing.length ? `Choose ${missing[0].toLowerCase()} to continue`
-                                : `Add to cart · ${formatNaira(total)}`}
-                        </Text>
+                        <View style={styles.addBtnBody}>
+                            <Text style={[styles.addBtnText, styles.addBtnLabel]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
+                                {buttonLabel}
+                            </Text>
+                            {!soldOut && missing.length > 1 ? (
+                                <Text style={styles.addBtnSub} numberOfLines={1}>+{missing.length - 1} more required</Text>
+                            ) : null}
+                        </View>
                     </TouchableOpacity>
                 </Animated.View>
             </View>
@@ -542,12 +574,12 @@ const styles = StyleSheet.create({
     makeText: { fontFamily: "Quicksand-SemiBold", fontSize: 12.5, color: GREY, marginTop: 1 },
 
     steps: { gap: 26, marginTop: 10 },
-    addonGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-    addon: { width: "48.6%", minHeight: 66, flexDirection: "row", alignItems: "center", gap: 9, padding: 10, borderRadius: 16, borderWidth: 1.5, borderColor: "#E4E4EA", backgroundColor: "#fff" },
-    addonOn: { borderWidth: 2, borderColor: ORANGE, backgroundColor: "#FFF4EE" },
-    addonIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#FFF1EA", alignItems: "center", justifyContent: "center" },
-    addonName: { fontFamily: "Quicksand-Bold", fontSize: 13, lineHeight: 16, color: INK },
-    addonPrice: { fontFamily: "Quicksand-Bold", fontSize: 12, color: "#C2410C", marginTop: 2 },
+    addonGrid: { gap: 8 },
+    addon: { minHeight: 62, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, paddingVertical: 11, borderRadius: 16, borderWidth: 1.5, borderColor: "#E4E4EA", backgroundColor: "#fff" },
+    addonOn: { borderColor: ORANGE, backgroundColor: "#FFF4EE" },
+    addonIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: "#FFF1EA", alignItems: "center", justifyContent: "center" },
+    addonName: { fontFamily: "Quicksand-Bold", fontSize: 14.5, lineHeight: 19, color: INK },
+    addonPrice: { fontFamily: "Quicksand-Bold", fontSize: 12.5, color: "#C2410C", marginTop: 2 },
     check: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: "#D6D6DD", alignItems: "center", justifyContent: "center" },
     checkOn: { backgroundColor: ORANGE, borderColor: ORANGE },
 
@@ -590,23 +622,26 @@ const styles = StyleSheet.create({
     snackAction: { fontFamily: "Quicksand-Bold", fontSize: 14, color: "#FFB08A" },
 
     bottomBar: {
-        position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: 12,
-        paddingHorizontal: 20, paddingTop: 12, backgroundColor: "#fff",
+        position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "center", gap: COMPACT ? 10 : 12,
+        paddingHorizontal: COMPACT ? 16 : 20, paddingTop: 12, backgroundColor: "#fff",
         borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E6E6EA",
         shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 12,
     },
-    stepper: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#F3F3F6", borderRadius: 999, padding: 4 },
-    stepBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+    stepper: { flexDirection: "row", alignItems: "center", gap: COMPACT ? 6 : 10, backgroundColor: "#F3F3F6", borderRadius: 999, padding: 4 },
+    stepBtn: { width: COMPACT ? 36 : 40, height: COMPACT ? 36 : 40, borderRadius: 20, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
     stepBtnPlus: { backgroundColor: ORANGE },
     qty: { minWidth: 16, textAlign: "center", fontFamily: "Quicksand-Bold", fontSize: 17, color: INK },
     addBtn: {
-        flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 54, borderRadius: 999,
-        backgroundColor: ORANGE, paddingHorizontal: 14,
+        flexDirection: "row", alignItems: "center", justifyContent: "center", gap: COMPACT ? 6 : 8, minHeight: 54, borderRadius: 999,
+        backgroundColor: ORANGE, paddingHorizontal: COMPACT ? 12 : 16, paddingVertical: 6,
         shadowColor: ORANGE, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4,
     },
     addBtnNeedsChoice: { backgroundColor: INK, shadowColor: INK, shadowOpacity: 0.2 },
     addBtnOff: { backgroundColor: "#B4B5C0", shadowOpacity: 0 },
     addBtnText: { fontFamily: "Quicksand-Bold", fontSize: 15, color: "#fff", flexShrink: 1 },
+    addBtnBody: { flexShrink: 1, alignItems: "center" },
+    addBtnLabel: { fontSize: COMPACT ? 14 : 15, lineHeight: COMPACT ? 18 : 19, textAlign: "center" },
+    addBtnSub: { fontFamily: "Quicksand-SemiBold", fontSize: 11, color: "#C9CBD6", marginTop: 1 },
     waBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#1FA855", alignItems: "center", justifyContent: "center" },
     enqCard: { borderRadius: 22, padding: 16, gap: 12, backgroundColor: "#FFF8F4", borderWidth: 1, borderColor: "#FFE1D3" },
     enqEyebrow: { fontFamily: "Quicksand-Bold", fontSize: 11, letterSpacing: 1.3, color: GREY },
