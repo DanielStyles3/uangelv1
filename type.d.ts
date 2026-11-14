@@ -7,6 +7,8 @@ export interface MenuItem {
     id: string;
     name: string;
     price: number;
+    /** Admin's "Price on request" switch: no price shown, customers send an enquiry. */
+    hide_price?: boolean | null;
     /** null until a real photo is added; show `emoji` as the placeholder instead. */
     image_url: string | null;
     emoji: string | null;

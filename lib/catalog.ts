@@ -174,11 +174,12 @@ export const snapPath = (id?: string | null): Category[] | undefined => {
 
 /**
  * Made to order, price agreed with the customer (wedding cakes): no price is shown anywhere.
- * Same rule as the server's is_enquiry_only(): "wedding" in the name, or filed under an enquiry-only category.
+ * Same rule as the server's is_enquiry_only(): the admin's "Price on request" switch on the
+ * product, or filed under an enquiry-only category.
  */
-export const priceOnRequest = (item?: { name?: string | null; category_id?: string | null } | null): boolean => {
+export const priceOnRequest = (item?: { hide_price?: boolean | null; category_id?: string | null } | null): boolean => {
     if (!item) return false;
-    if (/wedding/i.test(item.name ?? '')) return true;
+    if (item.hide_price) return true;
     const c = catalog();
     return !!c && !!item.category_id && pathTo(c, item.category_id).some((x) => x.enquiry_only);
 };

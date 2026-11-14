@@ -195,8 +195,13 @@ export default function ProductDetails() {
     const deliveryNote = item.delivery_note || mainCategory?.delivery_note || "Same-day delivery";
     const deliveryShort = /var/i.test(deliveryNote) ? "Varies" : /next/i.test(deliveryNote) ? "Next day" : "Same day";
     // Made to order (Wedding Cakes): no cart. Customers send an enquiry; design and price are agreed on WhatsApp.
-    // …and any cake with "wedding" in its name, wherever it's filed (the server applies the same rule).
-    const enquiry = !!subcategory?.enquiry_only || !!parentCategory?.enquiry_only || branch.some((c) => c.enquiry_only) || /wedding/i.test(item.name);
+    // …and any product the admin set to "Price on request", wherever it's filed (the server applies the same rule).
+    const enquiry = !!subcategory?.enquiry_only || !!parentCategory?.enquiry_only || branch.some((c) => c.enquiry_only) || !!item.hide_price;
+    // Cakes get the cake enquiry form; anything else on "Price on request" is asked about on WhatsApp.
+    const cakeEnquiry = /cake/i.test(item.name) || branch.some((c) => /cake/i.test(c.name));
+    const askOnWhatsApp = () => Linking.openURL(`https://wa.me/${supportWhatsApp()}?text=${encodeURIComponent(cakeEnquiry
+        ? `Hello U Angel Foods, I’d like a cake like “${item.name}”. Can we talk about the design?`
+        : `Hello U Angel Foods, I’d like to ask about “${item.name}”. What’s the price?`)}`).catch(() => {});
     const deliveryFee = item.delivery_fee != null ? Number(item.delivery_fee) : deliveryFeeForCategory(mainCategory?.name);
     const groups = answerableGroups(optionGroups ?? []);
     // The page opens before its choices (size, flavour…) and category arrive; adding waits for them
@@ -293,8 +298,8 @@ export default function ProductDetails() {
                         <Text style={styles.name}>{item.name}</Text>
                         {enquiry ? (
                             <View style={styles.priceRow}>
-                                <Text style={[styles.price, { fontSize: 20 }]}>Custom design</Text>
-                                <Text style={styles.priceNote}>price on request</Text>
+                                <Text style={[styles.price, { fontSize: 20 }]}>{cakeEnquiry ? "Custom design" : "Price on request"}</Text>
+                                {cakeEnquiry && <Text style={styles.priceNote}>price on request</Text>}
                             </View>
                         ) : (
                             <View style={styles.priceRow}>
@@ -355,12 +360,16 @@ export default function ProductDetails() {
                     {enquiry && (
                         <Animated.View entering={FadeInDown.delay(240).springify().damping(16)} style={styles.enqCard}>
                             <Text style={styles.enqEyebrow}>HOW IT WORKS</Text>
-                            {([
+                            {((cakeEnquiry ? [
                                 ["paper-plane", "Send us an enquiry", "Your date, guests and design ideas."],
                                 ["logo-whatsapp", "We design it with you", "On WhatsApp, until it’s exactly what you want."],
                                 ["receipt", "Get your invoice", "Pay by bank transfer."],
                                 ["checkmark-done", "We confirm and start baking", "You get your receipt on WhatsApp."],
-                            ] as [IconName, string, string][]).map(([icon, t, s], i, all) => (
+                            ] : [
+                                ["logo-whatsapp", "Ask us on WhatsApp", "Tell us what you need and how many."],
+                                ["receipt", "Get your price and invoice", "Pay by bank transfer."],
+                                ["checkmark-done", "We confirm your order", "You get your receipt on WhatsApp."],
+                            ]) as [IconName, string, string][]).map(([icon, t, s], i, all) => (
                                 <View key={t} style={styles.enqRow}>
                                     <View style={{ alignItems: "center" }}>
                                         <View style={styles.enqIcon}><Ionicons name={icon} size={15} color={accent} /></View>
@@ -478,18 +487,18 @@ export default function ProductDetails() {
                 <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                     <TouchableOpacity
                         style={styles.waBtn}
-                        onPress={() => Linking.openURL(`https://wa.me/${supportWhatsApp()}?text=${encodeURIComponent(`Hello U Angel Foods, I’d like a wedding cake like “${item.name}”. Can we talk about the design?`)}`).catch(() => {})}
+                        onPress={askOnWhatsApp}
                         accessibilityLabel="Chat with us on WhatsApp"
                     >
                         <Ionicons name="logo-whatsapp" size={22} color="#fff" />
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.addBtn, { flex: 1 }]}
-                        onPress={() => router.push(`/cake-enquiry?productId=${item.id}` as Href)}
+                        onPress={() => cakeEnquiry ? router.push(`/cake-enquiry?productId=${item.id}` as Href) : askOnWhatsApp()}
                         activeOpacity={0.88}
                     >
-                        <Ionicons name="paper-plane" size={18} color="#fff" />
-                        <Text style={styles.addBtnText} numberOfLines={1}>Send an enquiry</Text>
+                        <Ionicons name={cakeEnquiry ? "paper-plane" : "logo-whatsapp"} size={18} color="#fff" />
+                        <Text style={styles.addBtnText} numberOfLines={1}>{cakeEnquiry ? "Send an enquiry" : "Ask for the price"}</Text>
                     </TouchableOpacity>
                 </View>
             ) : (

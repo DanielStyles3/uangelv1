@@ -13,7 +13,7 @@
   var IMG_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
   var MAX_BYTES = 15 * 1024 * 1024;   // big camera photos are fine: they're shrunk before upload
   var PAGE = 48;
-  var MENU_COLS = 'id,name,description,image_url,emoji,price,rating,calories,protein,is_available,is_campaign,category_id,delivery_fee,delivery_note,affiliate_rate,created_at';
+  var MENU_COLS = 'id,name,description,image_url,emoji,price,hide_price,rating,calories,protein,is_available,is_campaign,category_id,delivery_fee,delivery_note,affiliate_rate,created_at';
   // When it arrives (menu.delivery_note). '' = use the category's note.
   var DELIVERY_TIMES = ['', 'Same-day delivery', 'Next-day delivery', 'Delivery varies'];
   /** The category's standard fee (same rule as delivery_fee_for in the database). */
@@ -234,7 +234,7 @@
         (p.is_campaign
           ? '<small style="color:#C8102E;font-weight:700">Christmas pre-order · no delivery</small>'
           : '<small>' + esc(main ? main.name : 'No category') + (sub && sub.parent_id ? ' › ' + esc(sub.name) : '') + '</small>') +
-        '<div class="pp-row"><span class="pp-price">' + esc(naira(p.price)) + '</span><span class="pp-sold">' + n + ' sold · 30d</span></div>' +
+        '<div class="pp-row"><span class="pp-price">' + esc(p.hide_price ? 'Price on request' : naira(p.price)) + '</span><span class="pp-sold">' + n + ' sold · 30d</span></div>' +
         (!p.is_campaign && (p.delivery_fee != null || p.delivery_note || p.affiliate_rate != null)
           ? '<div class="pp-custom">' +
               (p.delivery_fee != null ? '<span>Delivery ' + esc(naira(p.delivery_fee)) + '</span>' : '') +
@@ -310,6 +310,9 @@
       sub: startSub && startSub.parent_id ? startSub.id : (!editing && ui.sub ? ui.sub : ''),
       description: editing ? (p.description || '') : '',
       on: editing ? p.is_available !== false : true,
+      // "Price on request": the app hides the price and customers enquire instead of paying.
+      hidePrice: editing ? !!p.hide_price : false,
+      hideTouched: editing,
       giving: editing ? !!p.is_campaign : !!(preset && preset.giving),
       fee: editing && p.delivery_fee != null && !p.is_campaign ? String(Number(p.delivery_fee)) : '',
       when: editing ? (p.delivery_note || '') : '',
@@ -358,9 +361,13 @@
       '<div class="field"><label for="' + uid + '-name">Name <span class="cg-req" aria-hidden="true">*</span></label>' +
         '<input id="' + uid + '-name" name="name" class="input" maxlength="120" autocomplete="off" autofocus placeholder="e.g. Chapman – 50cl Bottle" value="' + esc(draft.name) + '">' +
         '<span class="cg-err" data-err="name" role="alert"></span></div>' +
-      '<div class="field"><label for="' + uid + '-price">Price <span class="cg-req" aria-hidden="true">*</span></label>' +
+      '<div class="field"><label for="' + uid + '-price">Price <span class="cg-req" aria-hidden="true" data-price-req' + (draft.hidePrice ? ' hidden' : '') + '>*</span></label>' +
         '<div class="pp-money"><span aria-hidden="true">₦</span><input id="' + uid + '-price" name="price" class="input" inputmode="decimal" autocomplete="off" value="' + esc(draft.price) + '"></div>' +
+        '<span class="cg-help" data-price-help' + (draft.hidePrice ? '' : ' hidden') + '>Not shown to customers while “Price on request” is on. You can leave it empty.</span>' +
         '<span class="cg-err" data-err="price" role="alert"></span></div>' +
+      '<div class="pp-avail"><div><b>Price on request</b>' +
+        '<small>Hide the price everywhere in the app. Customers can’t pay online; they send an enquiry (cakes) or ask on WhatsApp, and you agree the price with them. Works without a new app build.</small></div>' +
+        '<button type="button" class="pp-switch" role="switch" aria-checked="' + draft.hidePrice + '" data-hide-price aria-label="Price on request"><i></i></button></div>' +
       // Delivery and affiliate commission for this product (hidden for Christmas pre-orders: no delivery, no commission).
       '<fieldset class="pp-dlv" data-dlv' + (draft.giving ? ' style="display:none"' : '') + '><legend>Delivery &amp; affiliate</legend>' +
         '<div class="pp-three">' +
@@ -433,7 +440,7 @@
       $('[data-preview]').innerHTML =
         '<div class="pp-app' + (draft.on ? '' : ' sold') + '"><div class="pp-app-img" style="background:' + color() + '1a">' + (src ? '<img src="' + esc(src) + '" alt="">' : '') +
           (draft.rating ? '<span class="pp-app-r">★ ' + esc(Number(draft.rating).toFixed(1)) + '</span>' : '') + (draft.on ? '' : '<span class="pp-app-sold">Sold out</span>') + '</div>' +
-          '<b>' + esc(draft.name.trim() || 'Product name') + '</b><div class="pp-app-f"><span>' + esc(naira(price)) + '</span>' + (draft.on ? '<i>+</i>' : '') + '</div></div>' +
+          '<b>' + esc(draft.name.trim() || 'Product name') + '</b><div class="pp-app-f"><span>' + esc(draft.hidePrice ? 'Price on request' : naira(price)) + '</span>' + (draft.on ? '<i>+</i>' : '') + '</div></div>' +
         '<p>' + (draft.on
           ? (draft.giving ? 'Appears on the app’s Christmas pre-order page (not in the normal menu).'
             : m ? 'Appears in the ' + esc(m.name) + ' row on Home' + (s ? ' and on the ' + esc(s.name) + ' page' : '') + '.' : 'Choose a category to see where it appears.')
@@ -456,6 +463,15 @@
       draft.upload.catch(function () {});
       paintPhoto();
     }
+    function setHidePrice(v) {
+      if (draft.hidePrice === v) return;
+      draft.hidePrice = v;
+      $('[data-hide-price]').setAttribute('aria-checked', String(v));
+      $('[data-price-req]').hidden = v;
+      $('[data-price-help]').hidden = !v;
+      if (v) fieldError('price', '');
+      paintPreview();
+    }
     function dispose() { if (draft.objUrl) URL.revokeObjectURL(draft.objUrl); }
 
     input.addEventListener('change', function () { take(input.files && input.files[0]); input.value = ''; });
@@ -469,6 +485,8 @@
     form.addEventListener('input', function (e) {
       var n = e.target.name;
       if (n && draft.hasOwnProperty(n) && n !== 'main' && n !== 'sub') { draft[n] = e.target.value; fieldError(n, ''); }
+      // New wedding cakes start as "Price on request" (until the admin flips the switch themselves).
+      if (n === 'name' && !draft.hideTouched) setHidePrice(/wedding/i.test(draft.name));
       if (n === 'name' || n === 'price' || n === 'rating') paintPreview();
       if (n === 'name' && !previewSrc()) paintPhoto();
     });
@@ -500,6 +518,7 @@
         openOptions(p, function () { var s = form.querySelector('[data-optsum]'); if (s) s.innerHTML = optSummary(p.id); });
         return;
       }
+      if (e.target.closest('[data-hide-price]')) { draft.hideTouched = true; setHidePrice(!draft.hidePrice); return; }
       if (e.target.closest('[data-on]')) { draft.on = !draft.on; $('[data-on]').setAttribute('aria-checked', String(draft.on)); paintPreview(); return; }
       if (e.target.closest('[data-giving]')) {
         draft.giving = !draft.giving;
@@ -527,7 +546,8 @@
       var bad = [];
       if (!name) bad.push(['name', 'Enter a name.']);
       else if (S.products.some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== p.id); })) bad.push(['name', 'A product with this name already exists.']);
-      if (!String(draft.price).trim() || !isFinite(price) || price < 0) bad.push(['price', 'Enter a price, e.g. 3500.']);
+      if (draft.hidePrice && !String(draft.price).trim()) price = 0;
+      else if (!String(draft.price).trim() || !isFinite(price) || price < 0) bad.push(['price', 'Enter a price, e.g. 3500.']);
       // The Christmas Food Pack has no category on purpose (it's only reached from the Christmas page).
       var giving = draft.giving;
       if (giving) { /* no category needed */ }
@@ -562,7 +582,7 @@
         try { imageUrl = draft.file ? await (draft.upload || A.uploadImage(draft.file, 'products')) : (draft.removed ? null : (currentUrl || null)); }
         catch (e) { A.toast('Photo upload failed: ' + errMsg(e), 'error'); return; }
         var payload = {
-          name: name, price: Math.round(price * 100) / 100, category_id: giving ? null : draft.sub,
+          name: name, price: Math.round(price * 100) / 100, hide_price: !!draft.hidePrice, category_id: giving ? null : draft.sub,
           description: draft.description.trim() || null, image_url: imageUrl,
           rating: rating, calories: calories, protein: protein, is_available: draft.on,
           // Christmas pre-order products: no category, ₦0 delivery, no commission.

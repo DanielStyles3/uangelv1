@@ -23,7 +23,7 @@ import {
 
 // Also embed the product's subcategory photo: products without their own photo
 // (until the admin uploads one) show their subcategory's picture instead.
-const MENU_COLUMNS = 'id, name, description, image_url, emoji, price, rating, calories, protein, is_available, is_campaign, category_id, delivery_fee, delivery_note, created_at, categories(image_url)';
+const MENU_COLUMNS = 'id, name, description, image_url, emoji, price, hide_price, rating, calories, protein, is_available, is_campaign, category_id, delivery_fee, delivery_note, created_at, categories(image_url)';
 
 type MenuRow = MenuItem & { categories?: { image_url: string | null } | null };
 const withFallbackPhoto = ({ categories, ...item }: MenuRow): MenuItem => ({
@@ -312,7 +312,7 @@ export const getHomeProducts = async (): Promise<HomeProduct[]> => {
     type Row = MenuItem & { categories?: { image_url: string | null } | null };
     const [res, tree] = await Promise.all([
         supabase.from('menu')
-            .select('id, name, description, image_url, emoji, price, rating, calories, protein, is_available, category_id, delivery_fee, delivery_note, created_at, categories(image_url)')
+            .select('id, name, description, image_url, emoji, price, hide_price, rating, calories, protein, is_available, category_id, delivery_fee, delivery_note, created_at, categories(image_url)')
             .eq('is_campaign', false)
             .order('rating', { ascending: false, nullsFirst: false })
             .order('name')
@@ -432,8 +432,8 @@ export const getProductsNeedingChoices = (): Promise<Set<string>> => {
                 supabase.from('option_groups').select('menu_id').eq('required', true),
                 // Made-to-order products (Wedding Cakes): "+" opens the page with "Send an enquiry".
                 supabase.from('menu').select('id, categories!inner(enquiry_only)').eq('categories.enquiry_only', true),
-                // Any wedding cake, wherever it's filed.
-                supabase.from('menu').select('id').ilike('name', '%wedding%'),
+                // Products the admin set to "Price on request", wherever they're filed.
+                supabase.from('menu').select('id').eq('hide_price', true),
             ]);
             if (opts.error) { requiredOptionIds = null; return new Set<string>(); }
             return new Set([
