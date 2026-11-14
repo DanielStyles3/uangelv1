@@ -195,7 +195,8 @@ export default function ProductDetails() {
     const deliveryNote = item.delivery_note || mainCategory?.delivery_note || "Same-day delivery";
     const deliveryShort = /var/i.test(deliveryNote) ? "Varies" : /next/i.test(deliveryNote) ? "Next day" : "Same day";
     // Made to order (Wedding Cakes): no cart. Customers send an enquiry; design and price are agreed on WhatsApp.
-    const enquiry = !!subcategory?.enquiry_only || !!parentCategory?.enquiry_only || branch.some((c) => c.enquiry_only);
+    // …and any cake with "wedding" in its name, wherever it's filed (the server applies the same rule).
+    const enquiry = !!subcategory?.enquiry_only || !!parentCategory?.enquiry_only || branch.some((c) => c.enquiry_only) || /wedding/i.test(item.name);
     const deliveryFee = item.delivery_fee != null ? Number(item.delivery_fee) : deliveryFeeForCategory(mainCategory?.name);
     const groups = answerableGroups(optionGroups ?? []);
     // The page opens before its choices (size, flavour…) and category arrive; adding waits for them

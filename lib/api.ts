@@ -428,15 +428,18 @@ onShopChange(() => { requiredOptionIds = null; });
 export const getProductsNeedingChoices = (): Promise<Set<string>> => {
     if (!requiredOptionIds) {
         requiredOptionIds = (async () => {
-            const [opts, enquiry] = await Promise.all([
+            const [opts, enquiry, wedding] = await Promise.all([
                 supabase.from('option_groups').select('menu_id').eq('required', true),
                 // Made-to-order products (Wedding Cakes): "+" opens the page with "Send an enquiry".
                 supabase.from('menu').select('id, categories!inner(enquiry_only)').eq('categories.enquiry_only', true),
+                // Any wedding cake, wherever it's filed.
+                supabase.from('menu').select('id').ilike('name', '%wedding%'),
             ]);
             if (opts.error) { requiredOptionIds = null; return new Set<string>(); }
             return new Set([
                 ...(opts.data ?? []).map((r: { menu_id: string }) => r.menu_id),
                 ...(enquiry.data ?? []).map((r: { id: string }) => r.id),
+                ...(wedding.data ?? []).map((r: { id: string }) => r.id),
             ]);
         })();
     }
