@@ -11,7 +11,7 @@ import ProductImage from "@/components/ProductImage";
 import {getCampaignProgress, getCategories, getChristmasBanner,getHomeProducts, getOrders, getProductsNeedingChoices, getPromotions, HomeProduct} from "@/lib/api";
 import {CAMPAIGN_FLYER, campaignDaysLeft, campaignGoal, campaignLive} from "@/constants/campaign";
 import {formatNaira} from "@/lib/format";
-import {snapMainCategories, snapProducts, warmCatalog} from "@/lib/catalog";
+import {priceOnRequest, snapMainCategories, snapProducts, warmCatalog} from "@/lib/catalog";
 import {prefetchThumbs} from "@/lib/images";
 import useFetch from "@/lib/useFetch";
 import {useAppConfig} from "@/lib/appConfig";
@@ -352,7 +352,7 @@ function ProductRow({ title, note, items, onSeeAll, onAdd }: {
             </View>
             <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
             <View style={styles.productFoot}>
-              <Text style={styles.productPrice}>{formatNaira(item.price)}</Text>
+              <Text style={styles.productPrice}>{priceOnRequest(item) ? 'Price on request' : formatNaira(item.price)}</Text>
               {item.is_available === false ? (
                 <Text style={styles.soldOut}>Sold out</Text>
               ) : (

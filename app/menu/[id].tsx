@@ -11,7 +11,7 @@ import Animated, {
 
 import useFetch from "@/lib/useFetch";
 import { cachedCategory, cachedOptions, cachedProduct } from "@/lib/productCache";
-import { snapCategory, snapMenu, snapOptions, snapPath, snapProduct } from "@/lib/catalog";
+import { priceOnRequest, snapCategory, snapMenu, snapOptions, snapPath, snapProduct } from "@/lib/catalog";
 import { getCategory, getMenu, getMenuItem, getMenuItemCustomizations, getProductOptions } from "@/lib/api";
 import ProductOptions, { answerableGroups, answersToCart, missingRequired, OptionAnswers, StepHeader } from "@/components/ProductOptions";
 import { useCartStore } from "@/store/cart.store";
@@ -108,7 +108,7 @@ const SimilarCard = ({ item }: { item: MenuItem }) => (
             <ProductImage imageUrl={item.image_url} className="size-full" resizeMode="cover" />
         </View>
         <Text style={styles.similarName} numberOfLines={2}>{item.name}</Text>
-        <Text style={styles.similarPrice}>{formatNaira(item.price)}</Text>
+        <Text style={styles.similarPrice}>{priceOnRequest(item) ? "Price on request" : formatNaira(item.price)}</Text>
     </TouchableOpacity>
 );
 
@@ -237,7 +237,7 @@ export default function ProductDetails() {
     };
 
     const share = () => {
-        Share.share({ message: `${item.name} – ${formatNaira(item.price)} on U Angel Foods. Every order helps feed someone in need.` }).catch(() => {});
+        Share.share({ message: `${item.name}${enquiry ? "" : ` – ${formatNaira(item.price)}`} on U Angel Foods. Every order helps feed someone in need.` }).catch(() => {});
     };
 
     const handleAddToCart = () => {

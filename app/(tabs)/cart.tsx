@@ -15,6 +15,7 @@ import {getCampaignProducts, getMenu, getProductsNeedingChoices} from "@/lib/api
 import useFetch from "@/lib/useFetch";
 import useDeliveryFee from "@/lib/useDeliveryFee";
 import {getAppConfig} from "@/lib/appConfig";
+import {priceOnRequest} from "@/lib/catalog";
 import {CartItemType, MenuItem} from "@/type";
 
 import { notify } from "@/lib/notice";
@@ -38,7 +39,7 @@ const SuggestionCard = ({ item }: { item: MenuItem }) => {
             </View>
             <Text style={styles.sugName} numberOfLines={2}>{item.name}</Text>
             <View style={styles.sugBottom}>
-                <Text style={styles.sugPrice}>{formatNaira(item.price)}</Text>
+                <Text style={styles.sugPrice}>{priceOnRequest(item) ? 'Price on request' : formatNaira(item.price)}</Text>
                 <Pressable
                     style={styles.sugAdd}
                     hitSlop={8}

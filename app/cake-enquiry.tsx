@@ -13,7 +13,7 @@ import { supportWhatsApp } from "@/constants";
 import { getAppConfig } from "@/lib/appConfig";
 import ProductOptions, { answerableGroups, answersToCart, missingRequired, OptionAnswers } from "@/components/ProductOptions";
 import { createServiceRequest, getCategory, getMenuItem, getProductOptions } from "@/lib/api";
-import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
+import { formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
 import { notify } from "@/lib/notice";
 import useFetch from "@/lib/useFetch";
 import useAuthStore from "@/store/auth.store";
@@ -113,12 +113,12 @@ export default function CakeEnquiry() {
                 event_time: null,
                 venue_type: null,
                 needs: ["Cake"],
-                // "Flavour: Red Velvet" → { question: "Flavour", answer: "Red Velvet (+₦15,000)" }
+                // "Flavour: Red Velvet" → { question: "Flavour", answer: "Red Velvet" } (wedding cakes have no set prices)
                 answers: answersToCart(groups, answers).map((c) => {
                     const at = c.name.indexOf(": ");
                     const q = at > 0 ? c.name.slice(0, at) : c.name;
                     const a = (at > 0 ? c.name.slice(at + 2) : c.text ?? "").replace(/^"|"$/g, "");
-                    return { question: q, answer: c.price ? `${a} (+${formatNaira(c.price)})` : a };
+                    return { question: q, answer: a };
                 }),
             });
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -225,7 +225,7 @@ export default function CakeEnquiry() {
                     {groups.length > 0 && (
                         <View style={{ gap: 12 }}>
                             <Text style={styles.eyebrow}>YOUR CAKE</Text>
-                            <ProductOptions groups={groups} answers={answers} onChange={setAnswers} startStep={1} />
+                            <ProductOptions groups={groups} answers={answers} onChange={setAnswers} startStep={1} hidePrices />
                         </View>
                     )}
 

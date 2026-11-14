@@ -11,7 +11,7 @@ import CustomHeader from "@/components/CustomHeader";
 import ProductImage from "@/components/ProductImage";
 import SubcategoryTile from "@/components/SubcategoryTile";
 import { getCategory, getProductsNeedingChoices, getSubcategories } from "@/lib/api";
-import { Catalog, childrenOf, countIn, pathTo, productsIn, snapCategory, snapSubcategories, treeIds } from "@/lib/catalog";
+import { Catalog, childrenOf, countIn, pathTo, priceOnRequest, productsIn, snapCategory, snapSubcategories, treeIds } from "@/lib/catalog";
 import { formatNaira } from "@/lib/format";
 import useCatalog from "@/lib/useCatalog";
 import useFetch from "@/lib/useFetch";
@@ -237,8 +237,9 @@ function ShopCategory({ snap, main, sel }: { snap: Catalog; main: Category; sel?
 
 function ProductTile({ item, onAdd }: { item: MenuItem; onAdd: (p: MenuItem) => void }) {
     const soldOut = item.is_available === false;
+    const price = priceOnRequest(item) ? "Price on request" : formatNaira(item.price);
     return (
-        <Pressable style={styles.tile} onPress={() => router.push({ pathname: "/menu/[id]", params: { id: item.id } })} accessibilityLabel={`${item.name}, ${formatNaira(item.price)}${soldOut ? ", sold out" : ""}`}>
+        <Pressable style={styles.tile} onPress={() => router.push({ pathname: "/menu/[id]", params: { id: item.id } })} accessibilityLabel={`${item.name}, ${price}${soldOut ? ", sold out" : ""}`}>
             <View style={[styles.tileImg, soldOut && { opacity: 0.45 }]}>
                 <ProductImage imageUrl={item.image_url} resizeMode="cover" />
                 {!soldOut && (
@@ -248,7 +249,7 @@ function ProductTile({ item, onAdd }: { item: MenuItem; onAdd: (p: MenuItem) => 
                 )}
             </View>
             <Text style={styles.tileName} numberOfLines={2}>{item.name}</Text>
-            <Text style={styles.tilePrice}>{soldOut ? "Sold out" : formatNaira(item.price)}</Text>
+            <Text style={styles.tilePrice}>{soldOut ? "Sold out" : price}</Text>
         </Pressable>
     );
 }

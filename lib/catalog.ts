@@ -172,6 +172,17 @@ export const snapPath = (id?: string | null): Category[] | undefined => {
     return c && id ? pathTo(c, id) : undefined;
 };
 
+/**
+ * Made to order, price agreed with the customer (wedding cakes): no price is shown anywhere.
+ * Same rule as the server's is_enquiry_only(): "wedding" in the name, or filed under an enquiry-only category.
+ */
+export const priceOnRequest = (item?: { name?: string | null; category_id?: string | null } | null): boolean => {
+    if (!item) return false;
+    if (/wedding/i.test(item.name ?? '')) return true;
+    const c = catalog();
+    return !!c && !!item.category_id && pathTo(c, item.category_id).some((x) => x.enquiry_only);
+};
+
 /** Children in display order. */
 export const childrenOf = (c: Catalog, id: string) =>
     c.categories.filter((x) => x.parent_id === id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name));

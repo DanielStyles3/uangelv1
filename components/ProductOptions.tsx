@@ -113,13 +113,20 @@ const wantsList = (values: { name: string; hint?: string | null }[]) =>
  * "Make it yours" steps on the product page (size, flavour, message…), numbered from
  * `startStep`. Renders nothing for products without options.
  */
-export default function ProductOptions({ groups, answers, onChange, startStep = 1 }: {
+export default function ProductOptions({ groups, answers, onChange, startStep = 1, hidePrices = false }: {
     groups: OptionGroup[];
     answers: OptionAnswers;
     onChange: (a: OptionAnswers) => void;
     startStep?: number;
+    /** Price on request (wedding cakes): show the choices without any prices. */
+    hidePrices?: boolean;
 }) {
     if (!groups.length) return null;
+
+    /** Extra cost of a choice; always 0 when prices are hidden. */
+    const extra = (p: number | string | null | undefined) => (hidePrices ? 0 : Number(p) || 0);
+    /** "+₦5,000" / "Included", or nothing when prices are hidden. */
+    const priceTag = (p: number | string | null | undefined) => (hidePrices ? null : extra(p) ? `+${formatNaira(extra(p))}` : 'Included');
 
     const pick = (groupId: string, valueId: string, required: boolean) => {
         Haptics.selectionAsync().catch(() => {});
@@ -163,7 +170,7 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                             {typed ? (
                                 <Text style={[styles.numberNote, !tier && { color: '#B91C1C' }]}>
                                     {tier
-                                        ? `${typed} → ${cakesLabel(typed.length)}${Number(tier.price) ? ` · +${formatNaira(tier.price)}` : ''}`
+                                        ? `${typed} → ${cakesLabel(typed.length)}${extra(tier.price) ? ` · +${formatNaira(extra(tier.price))}` : ''}`
                                         : `We make numbers up to ${maxDigits} digit${maxDigits === 1 ? '' : 's'}`}
                                 </Text>
                             ) : null}
@@ -176,7 +183,7 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                                                 {on && <View style={styles.cardTick}><Ionicons name="checkmark" size={12} color="#fff" /></View>}
                                                 <Text style={styles.cardName}>{t.digits === 1 ? 'Single digit' : t.digits === 2 ? 'Two digits' : `${t.digits} digits`}</Text>
                                                 <Text style={styles.cardHint}>{t.digits === 1 ? 'e.g. 5' : t.digits === 2 ? 'e.g. 25' : `e.g. ${'1'.padEnd(t.digits, '0')}`} · {cakesLabel(t.digits)}</Text>
-                                                <Text style={styles.cardPrice}>{Number(t.price) ? `+${formatNaira(t.price)}` : 'Included'}</Text>
+                                                {priceTag(t.price) ? <Text style={styles.cardPrice}>{priceTag(t.price)}</Text> : null}
                                             </View>
                                         );
                                     })}
@@ -230,12 +237,12 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                                     return (
                                         <TouchableOpacity key={v.id} onPress={() => pick(g.id, v.id, g.required)} style={styles.swatchItem}
                                             accessibilityRole="radio" accessibilityState={{ checked: on }}
-                                            accessibilityLabel={`${v.name}${Number(v.price) ? `, plus ${formatNaira(v.price)}` : ''}`}>
+                                            accessibilityLabel={`${v.name}${extra(v.price) ? `, plus ${formatNaira(extra(v.price))}` : ''}`}>
                                             <View style={[styles.swatchRing, on && styles.swatchRingOn]}>
                                                 <Swatch colour={v.colour!} size={40} />
                                             </View>
                                             <Text style={[styles.swatchName, on && { color: INK }]}>{v.name}</Text>
-                                            {Number(v.price) ? <Text style={styles.swatchPrice}>+{formatNaira(v.price)}</Text> : null}
+                                            {extra(v.price) ? <Text style={styles.swatchPrice}>+{formatNaira(extra(v.price))}</Text> : null}
                                         </TouchableOpacity>
                                     );
                                 })}
@@ -244,7 +251,7 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                     );
                 }
 
-                const label = (v: (typeof values)[number]) => `${v.name}${Number(v.price) ? `, plus ${formatNaira(v.price)}` : ''}`;
+                const label = (v: (typeof values)[number]) => `${v.name}${extra(v.price) ? `, plus ${formatNaira(extra(v.price))}` : ''}`;
 
                 // Long names or many choices: a full-width list, radio on the left, price on the right.
                 if (wantsList(values)) {
@@ -268,9 +275,9 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                                                 </View>
                                                 {v.hint ? <Text style={styles.rowHint}>{v.hint}</Text> : null}
                                             </View>
-                                            <Text style={[styles.rowPrice, !Number(v.price) && styles.rowPriceFree]}>
-                                                {Number(v.price) ? `+${formatNaira(v.price)}` : 'Included'}
-                                            </Text>
+                                            {priceTag(v.price) ? (
+                                                <Text style={[styles.rowPrice, !extra(v.price) && styles.rowPriceFree]}>{priceTag(v.price)}</Text>
+                                            ) : null}
                                         </TouchableOpacity>
                                     );
                                 })}
@@ -300,7 +307,9 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                                             <Text style={styles.cardName}>{v.name}</Text>
                                         </View>
                                         {v.hint ? <Text style={styles.cardHint}>{v.hint}</Text> : null}
-                                        <Text style={[styles.cardPrice, !Number(v.price) && styles.rowPriceFree]}>{Number(v.price) ? `+${formatNaira(v.price)}` : 'Included'}</Text>
+                                        {priceTag(v.price) ? (
+                                            <Text style={[styles.cardPrice, !extra(v.price) && styles.rowPriceFree]}>{priceTag(v.price)}</Text>
+                                        ) : null}
                                     </TouchableOpacity>
                                 );
                             })}
