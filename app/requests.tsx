@@ -10,6 +10,7 @@ import ScalePress from "@/components/ScalePress";
 import ScreenHeader from "@/components/ScreenHeader";
 import useFetch from "@/lib/useFetch";
 import { snapMainCategories } from "@/lib/catalog";
+import { getAppConfig, telNumber, whatsappNumber } from "@/lib/appConfig";
 import { cancelServiceRequest, getCategories, getServiceRequests } from "@/lib/api";
 import { formatNaira, formatNigerianPhone } from "@/lib/format";
 import { popIn, riseIn, settle } from "@/lib/motion";
@@ -22,7 +23,6 @@ const RUST = "#C2410C";   // orange text on light backgrounds (readable)
 const INK = "#181C2E";
 const GREY = "#5B5B66";
 const BG = "#F6F6F8";
-const SUPPORT_PHONE = "+2347049055555";
 const TAB_PAD = 4;
 
 type Tab = "active" | "past";
@@ -65,15 +65,18 @@ const shortDate = (iso: string) => {
 };
 const reference = (r: ServiceRequest) => r.id.slice(0, 8).toUpperCase();
 
+// The shop's number from Admin › App settings.
+const supportPhone = () => getAppConfig().contact.phone;
+
 const whatsapp = (r: ServiceRequest) => {
     tap();
     const text = `Hello U Angel Foods, I'm following up on my ${r.event_type} request for ${eventDate(r.event_date).toDateString()} (ref ${reference(r)}).`;
-    Linking.openURL(`https://wa.me/${SUPPORT_PHONE.replace("+", "")}?text=${encodeURIComponent(text)}`).catch(() =>
-        notify("WhatsApp not available", "Please call us on 0704 905 5555."));
+    Linking.openURL(`https://wa.me/${whatsappNumber(supportPhone())}?text=${encodeURIComponent(text)}`).catch(() =>
+        notify("WhatsApp not available", `Please call us on ${supportPhone()}.`));
 };
 const call = () => {
     tap();
-    Linking.openURL(`tel:${SUPPORT_PHONE}`).catch(() => notify("Couldn’t start the call", "Please call us on 0704 905 5555."));
+    Linking.openURL(`tel:${telNumber(supportPhone())}`).catch(() => notify("Couldn’t start the call", `Please call us on ${supportPhone()}.`));
 };
 
 const Chip = ({ text }: { text: string }) => (

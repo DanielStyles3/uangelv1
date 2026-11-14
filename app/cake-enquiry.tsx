@@ -9,7 +9,8 @@ import Animated, { FadeInDown, ZoomIn } from "react-native-reanimated";
 import EventCalendar, { toISODate } from "@/components/EventCalendar";
 import ProductImage from "@/components/ProductImage";
 import StatePicker from "@/components/StatePicker";
-import { SUPPORT_WHATSAPP } from "@/constants";
+import { supportWhatsApp } from "@/constants";
+import { getAppConfig } from "@/lib/appConfig";
 import { createServiceRequest, getCategory, getMenuItem } from "@/lib/api";
 import { formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
 import { notify } from "@/lib/notice";
@@ -23,8 +24,9 @@ const INK = "#181C2E";
 const GREY = "#5B5B66";
 const LINE = "#E8E8EE";
 const BG = "#F6F6F8";
-const GUESTS = [50, 100, 150, 200, 300, 500];
-const TIERS = ["1 tier", "2 tiers", "3 tiers", "4+ tiers", "Not sure"];
+// Quick picks from Admin › App settings.
+const guestsList = () => getAppConfig().lists.cakeGuests;
+const tiersList = () => getAppConfig().lists.cakeTiers;
 const digitsOnly = (s: string) => s.replace(/[^\d]/g, "");
 
 /**
@@ -62,7 +64,7 @@ export default function CakeEnquiry() {
     const budgetNum = Number(digitsOnly(budget)) || 0;
     const cakeName = product?.name ?? "Wedding cake";
     const whatsapp = () =>
-        Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(
+        Linking.openURL(`https://wa.me/${supportWhatsApp()}?text=${encodeURIComponent(
             `Hello U Angel Foods, I just sent a wedding cake enquiry (${cakeName}${date ? `, for ${date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` : ""}). Can we talk about the design?`,
         )}`).catch(() => {});
 
@@ -187,7 +189,7 @@ export default function CakeEnquiry() {
 
                     <Field title="How many guests should it serve?">
                         <View style={styles.chips}>
-                            {GUESTS.map((n) => (
+                            {guestsList().map((n) => (
                                 <TouchableOpacity key={n} style={[styles.chip, guestCount === n && styles.chipOn]} onPress={() => { tap(); setGuests(String(n)); }}>
                                     <Text style={[styles.chipText, guestCount === n && { color: ORANGE }]}>{n}</Text>
                                 </TouchableOpacity>
@@ -198,7 +200,7 @@ export default function CakeEnquiry() {
 
                     <Field title="Tiers">
                         <View style={styles.chips}>
-                            {TIERS.map((t) => (
+                            {tiersList().map((t) => (
                                 <TouchableOpacity key={t} style={[styles.chip, tiers === t && styles.chipOn]} onPress={() => { tap(); setTiers(t); }}>
                                     <Text style={[styles.chipText, tiers === t && { color: ORANGE }]}>{t}</Text>
                                 </TouchableOpacity>

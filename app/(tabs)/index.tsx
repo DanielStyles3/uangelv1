@@ -9,11 +9,12 @@ import CustomButton from "@/components/CustomButton";
 import PromoCarousel, {PromoSlide} from "@/components/PromoCarousel";
 import ProductImage from "@/components/ProductImage";
 import {getCampaignProgress, getCategories, getChristmasBanner,getHomeProducts, getOrders, getProductsNeedingChoices, getPromotions, HomeProduct} from "@/lib/api";
-import {CAMPAIGN_FLYER, CAMPAIGN_GOAL, campaignDaysLeft, campaignLive} from "@/constants/campaign";
+import {CAMPAIGN_FLYER, campaignDaysLeft, campaignGoal, campaignLive} from "@/constants/campaign";
 import {formatNaira} from "@/lib/format";
 import {snapMainCategories, snapProducts, warmCatalog} from "@/lib/catalog";
 import {prefetchThumbs} from "@/lib/images";
 import useFetch from "@/lib/useFetch";
+import {useAppConfig} from "@/lib/appConfig";
 import useAuthStore from "@/store/auth.store";
 import {useCartStore} from "@/store/cart.store";
 import {Category, OrderItem} from "@/type";
@@ -40,6 +41,7 @@ const openProduct = (id: string) => router.push({ pathname: '/menu/[id]', params
  */
 export default function Index() {
   const { user } = useAuthStore();
+  const cfg = useAppConfig();   // wording from Admin › App settings
   const addItem = useCartStore((s) => s.addItem);
   // Everything shows instantly from what's saved on the phone / the shop snapshot, then refreshes quietly.
   const { data: categories, loading, error, refetch } = useFetch({ fn: getCategories, key: 'shop:categories', initial: snapMainCategories });
@@ -133,11 +135,11 @@ export default function Index() {
     const christmas: PromoSlide[] = campaignLive() && xmas?.enabled !== false ? [{
       id: 'christmas',
       eyebrow: xmas?.eyebrow?.trim() || 'Christmas pre-order',
-      title: xmas?.title?.trim() || `Help us reach ${CAMPAIGN_GOAL.toLocaleString('en-NG')} pre-orders`,
+      title: xmas?.title?.trim() || `Help us reach ${campaignGoal().toLocaleString('en-NG')} pre-orders`,
       cta: xmas?.cta?.trim() || 'Pre-order now', color: '#C8102E', ctaBackground: '#F5B301', ctaTextColor: '#181C2E', eyebrowColor: '#FDE68A',
       image: xmas?.image_url ? { uri: xmas.image_url } : CAMPAIGN_FLYER, onPress: () => router.push('/christmas'),
       progress: {
-        fraction: (preorders ?? 0) / CAMPAIGN_GOAL,
+        fraction: (preorders ?? 0) / campaignGoal(),
         label: `${(preorders ?? 0).toLocaleString('en-NG')} so far · ${campaignDaysLeft()} day${campaignDaysLeft() === 1 ? '' : 's'} left`,
       },
     }] : [];
@@ -185,7 +187,7 @@ export default function Index() {
         {/* Search shortcut */}
         <Pressable style={styles.search} onPress={() => router.push('/search')} accessibilityRole="search">
           <Ionicons name="search-outline" size={20} color="#9A9AA3" />
-          <Text style={styles.searchText}>Search cakes, drinks, groceries…</Text>
+          <Text style={styles.searchText}>{cfg.texts.searchHint}</Text>
         </Pressable>
 
         {firstLoad ? (
@@ -236,7 +238,7 @@ export default function Index() {
 
             {/* Order again — only for customers with past paid orders */}
             {orderAgain.length > 0 && (
-              <Section title="Order again" subtitle="Your recent favourites">
+              <Section title={cfg.texts.orderAgain} subtitle={cfg.texts.orderAgainSub}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.bleed} contentContainerStyle={styles.row}>
                   {orderAgain.map((it) => (
                     <Pressable key={it.menu_id!} style={styles.again} onPress={() => openProduct(it.menu_id!)}>
@@ -253,7 +255,7 @@ export default function Index() {
             {/* Top rated across the whole shop */}
             {topRated.length > 0 && (
               <ProductRow
-                title="Top Rated"
+                title={cfg.texts.topRated}
                 items={topRated}
                 onSeeAll={() => router.push('/search')}
                 onAdd={addToCart}
@@ -276,10 +278,10 @@ export default function Index() {
             {serviceCategories.length > 0 && (
               <View style={styles.services}>
                 <View style={styles.servicesGlow} />
-                <Text style={styles.servicesEyebrow}>CATERING & EVENTS</Text>
-                <Text style={styles.servicesTitle}>Planning something special?</Text>
+                <Text style={styles.servicesEyebrow}>{cfg.texts.servicesEyebrow}</Text>
+                <Text style={styles.servicesTitle}>{cfg.texts.servicesTitle}</Text>
                 <Text style={styles.servicesBody}>
-                  Weddings, birthdays, church & corporate. Tell us your budget and we&apos;ll call you with a quote.
+                  {cfg.texts.servicesBody}
                 </Text>
                 <View style={styles.servicesBtns}>
                   {serviceCategories.map((c) => (

@@ -9,7 +9,8 @@ import CustomHeader from "@/components/CustomHeader";
 import CustomInput from "@/components/CustomInput";
 import CustomButton from "@/components/CustomButton";
 import StatePicker from "@/components/StatePicker";
-import { DELIVERY_FEE_NOTE } from "@/constants";
+import { deliveryFeeNote } from "@/constants";
+import { getAppConfig } from "@/lib/appConfig";
 import { updateProfile } from "@/lib/api";
 import { formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
 import useAuthStore from "@/store/auth.store";
@@ -71,7 +72,7 @@ export default function DeliveryAddress() {
                     <View className="flex-row gap-3 items-center rounded-2xl p-4 -mt-4" style={{ backgroundColor: '#FFF3EC' }}>
                         <Ionicons name="bicycle-outline" size={22} color="#C43E0E" />
                         <Text className="body-medium flex-1" style={{ color: '#8A3A12' }}>
-                            We deliver to your door across Lagos. Delivery: {DELIVERY_FEE_NOTE}. There is no pick-up.
+                            {getAppConfig().delivery.areaNote} Delivery: {deliveryFeeNote()}. There is no pick-up.
                         </Text>
                     </View>
 

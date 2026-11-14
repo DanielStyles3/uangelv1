@@ -81,6 +81,11 @@ begin
     if v_method not in ('paystack', 'pay_on_delivery') then
         raise exception 'Invalid payment method';
     end if;
+    -- Admin › App settings can switch Pay on delivery off.
+    if v_method = 'pay_on_delivery'
+       and coalesce((select s.value #>> '{delivery,payOnDelivery}' from public.site_settings s where s.key = 'app'), 'true') = 'false' then
+        raise exception 'Pay on delivery isn''t available right now. Please pay online.';
+    end if;
 
     -- Fee and amounts are filled in after the items are priced (below).
     insert into public.orders (user_id, status, payment_method, payment_status, subtotal, delivery_fee, total,

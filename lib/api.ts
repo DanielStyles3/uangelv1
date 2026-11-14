@@ -630,7 +630,13 @@ export const deleteAccount = async () => {
     await supabase.auth.signOut({ scope: 'local' });
 }
 
-export const startPayment = (orderId: string, callbackUrl: string) =>
+/** Answers to the admin's extra checkout questions, saved on the customer's own new order. */
+export const saveOrderAnswers = async (orderId: string, answers: { question: string; answer: string }[]) => {
+    const { error } = await supabase.rpc('set_order_answers', { p_order: orderId, p_answers: answers });
+    if (error) throw new Error(error.message);
+}
+
+export const startPayment =(orderId: string, callbackUrl: string) =>
     invokeFn<{ authorization_url: string; reference: string }>('paystack-init', { order_id: orderId, callback_url: callbackUrl });
 
 export const verifyPayment = (reference: string) =>

@@ -9,11 +9,12 @@ import {useCartStore} from "@/store/cart.store";
 import useAuthStore from "@/store/auth.store";
 import CartItem from "@/components/CartItem";
 import ProductImage from "@/components/ProductImage";
-import {DELIVERY_FEE, images} from "@/constants";
+import {images, standardDeliveryFee} from "@/constants";
 import {formatNaira} from "@/lib/format";
 import {getCampaignProducts, getMenu, getProductsNeedingChoices} from "@/lib/api";
 import useFetch from "@/lib/useFetch";
 import useDeliveryFee from "@/lib/useDeliveryFee";
+import {getAppConfig} from "@/lib/appConfig";
 import {CartItemType, MenuItem} from "@/type";
 
 import { notify } from "@/lib/notice";
@@ -123,8 +124,8 @@ const Cart = () => {
                         <View style={styles.emptyArt}>
                             <Image source={images.emptyState} style={{ width: 170, height: 170 }} resizeMode="contain" />
                         </View>
-                        <Text style={styles.emptyTitle}>Your cart is empty</Text>
-                        <Text style={styles.emptyBody}>Cakes, drinks, market fresh and more. Add something you love.</Text>
+                        <Text style={styles.emptyTitle}>{getAppConfig().texts.emptyCartTitle}</Text>
+                        <Text style={styles.emptyBody}>{getAppConfig().texts.emptyCartBody}</Text>
                         <Pressable style={styles.primaryBtn} onPress={() => router.push('/search')}>
                             <Text style={styles.primaryBtnText}>Start shopping</Text>
                             <Ionicons name="arrow-forward" size={18} color="#fff" />
@@ -201,7 +202,7 @@ const Cart = () => {
                         <View style={styles.divider} />
                         <Row label="Total" value={feeReady || givingOnly ? formatNaira(total) : '…'} bold />
                     </View>
-                    {!givingOnly && feeReady && deliveryFee > DELIVERY_FEE && (
+                    {!givingOnly && feeReady && deliveryFee > standardDeliveryFee() && (
                         <Text style={styles.feeNote}>{formatNaira(deliveryFee)} delivery: one fee per order, the highest among your items.</Text>
                     )}
                     <View style={styles.payNote}>

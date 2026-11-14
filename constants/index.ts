@@ -1,3 +1,4 @@
+import { getAppConfig, whatsappNumber } from "@/lib/appConfig";
 import arrowBack from "../assets/icons/arrow-back.png";
 import arrowDown from "@/assets/icons/arrow-down.png";
 import arrowRight from "@/assets/icons/arrow-right.png";
@@ -41,20 +42,26 @@ import salad from "@/assets/images/salad.png";
 import success from "@/assets/images/success.png";
 import tomatoes from "@/assets/images/tomatoes.png";
 
-// Delivery fee per order, in naira: ₦2,000, or ₦5,000 when the order has anything from
-// these main categories. The server decides the real fee (public.delivery_fee_for() in
-// supabase/schema.sql); these are for display only, so keep the two in sync.
-/** U Angel Foods WhatsApp (0704 905 5555), for wa.me links. */
-export const SUPPORT_WHATSAPP = "2347049055555";
+// Contact details and delivery fees come from Admin › App settings (lib/appConfig.ts). The
+// server charges the real fee from the same settings; these are for display.
 
-export const DELIVERY_FEE = 2000;
-export const DELIVERY_FEE_MARKET = 5000;
+/** U Angel Foods WhatsApp, for wa.me links (from App settings). */
+export const supportWhatsApp = () => whatsappNumber(getAppConfig().contact.phone);
+
 export const MARKET_CATEGORIES = ["Groceries & Essentials", "The Local Market"];
-export const DELIVERY_FEE_NOTE = "usually ₦2,000, or ₦5,000 for groceries and Local Market items (some products have their own fee; each order pays the highest)";
+/** Standard delivery fee (App settings). */
+export const standardDeliveryFee = () => getAppConfig().delivery.standardFee;
+export const deliveryFeeNote = () => {
+    const d = getAppConfig().delivery;
+    return `usually ${naira(d.standardFee)}, or ${naira(d.marketFee)} for groceries and Local Market items (some products have their own fee; each order pays the highest)`;
+};
 
 /** Delivery fee for a product page, from its main category's name. */
-export const deliveryFeeForCategory = (mainCategoryName?: string | null) =>
-    mainCategoryName && MARKET_CATEGORIES.includes(mainCategoryName) ? DELIVERY_FEE_MARKET : DELIVERY_FEE;
+export const deliveryFeeForCategory = (mainCategoryName?: string | null) => {
+    const d = getAppConfig().delivery;
+    return mainCategoryName && MARKET_CATEGORIES.includes(mainCategoryName) ? d.marketFee : d.standardFee;
+};
+const naira = (n: number) => `₦${Number(n).toLocaleString("en-NG")}`;
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {
     awaiting_payment: "Awaiting payment",

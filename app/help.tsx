@@ -13,13 +13,15 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 
 import CustomHeader from "@/components/CustomHeader";
+import { AppConfig, telNumber, useAppConfig, whatsappNumber } from "@/lib/appConfig";
 
 const ORANGE = '#FD652A';
 const NAVY = '#181C2E';
 const GREY = '#878787';
 const BG = '#FAFAFA';
 
-const FAQS: { q: string; a: string }[] = [
+/** Built-in FAQ, used until the admin edits it in Admin › App settings › Help & FAQ. */
+const DEFAULT_FAQS: { q: string; a: string }[] = [
     {
         q: 'How do I place an order?',
         a: 'Browse categories on Home or search, add items to your cart, then tap Checkout and pay securely with Paystack.',
@@ -66,11 +68,13 @@ const FAQS: { q: string; a: string }[] = [
     },
 ];
 
-const CONTACTS: { label: string; value: string; url: string; icon: keyof typeof Ionicons.glyphMap; color: string; tint: string }[] = [
-    { label: 'WhatsApp', value: '0704 905 5555', url: 'https://wa.me/2347049055555', icon: 'logo-whatsapp', color: '#1FA855', tint: '#E7F7EE' },
-    { label: 'Call us', value: '0704 905 5555', url: 'tel:+2347049055555', icon: 'call-outline', color: ORANGE, tint: '#FFF1EA' },
-    { label: 'Email', value: 'uangelfoods@gmail.com', url: 'mailto:uangelfoods@gmail.com', icon: 'mail-outline', color: NAVY, tint: '#EEF0F5' },
-    { label: 'Instagram', value: '@uangelfoods', url: 'https://instagram.com/uangelfoods', icon: 'logo-instagram', color: '#D6249F', tint: '#FCE9F5' },
+// Contact details from Admin › App settings.
+type Contact = { label: string; value: string; url: string; icon: keyof typeof Ionicons.glyphMap; color: string; tint: string };
+const contactsFrom = (c: AppConfig['contact']): Contact[] => [
+    { label: 'WhatsApp', value: c.phone, url: `https://wa.me/${whatsappNumber(c.phone)}`, icon: 'logo-whatsapp', color: '#1FA855', tint: '#E7F7EE' },
+    { label: 'Call us', value: c.phone, url: `tel:${telNumber(c.phone)}`, icon: 'call-outline', color: ORANGE, tint: '#FFF1EA' },
+    ...(c.email ? [{ label: 'Email', value: c.email, url: `mailto:${c.email}`, icon: 'mail-outline' as const, color: NAVY, tint: '#EEF0F5' }] : []),
+    ...(c.instagram ? [{ label: 'Instagram', value: `@${c.instagram.replace(/^@/, '')}`, url: `https://instagram.com/${c.instagram.replace(/^@/, '')}`, icon: 'logo-instagram' as const, color: '#D6249F', tint: '#FCE9F5' }] : []),
 ];
 
 const FaqItem =({ q, a, open, onToggle }: { q: string; a: string; open: boolean; onToggle: () => void }) => {
@@ -109,6 +113,9 @@ const FaqItem =({ q, a, open, onToggle }: { q: string; a: string; open: boolean;
 
 const Help = () => {
     const [openIndex, setOpenIndex] = useState<number | null>(null);
+    const cfg = useAppConfig();
+    const FAQS = cfg.faq.length ? cfg.faq : DEFAULT_FAQS;
+    const CONTACTS = contactsFrom(cfg.contact);
 
     return (
         <SafeAreaView style={styles.safe} edges={['top']}>

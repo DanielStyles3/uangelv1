@@ -9,9 +9,11 @@ import CustomInput from "@/components/CustomInput";
 import CustomButton from "@/components/CustomButton";
 import StatePicker from "@/components/StatePicker";
 import PaymentInfoStripe from "@/components/PaymentInfoStripe";
-import { DELIVERY_FEE } from "@/constants";
+import { standardDeliveryFee } from "@/constants";
+import { getAppConfig, useAppConfig } from "@/lib/appConfig";
+import FormQuestions, { answersForSave, FormAnswers, firstMissing } from "@/components/FormQuestions";
 import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
-import { getCampaignProducts, getDeliveryQuote, placeOrder, updateProfile } from "@/lib/api";
+import { getCampaignProducts, getDeliveryQuote, placeOrder, saveOrderAnswers, updateProfile } from "@/lib/api";
 import useFetch from "@/lib/useFetch";
 import { openPayment } from "@/lib/payments";
 import useDeliveryFee from "@/lib/useDeliveryFee";
@@ -86,6 +88,9 @@ export default function Checkout() {
     const [giftFrom, setGiftFrom] = useState('');
     const [giftNote, setGiftNote] = useState('');
     const [platform, setPlatform] = useState<'Instagram' | 'X (Twitter)' | 'TikTok' | 'Facebook'>('Instagram');
+    // Admin › App settings: whether Pay on delivery is offered, and any extra checkout questions.
+    const cfg = useAppConfig();
+    const [extra, setExtra] = useState<FormAnswers>({});
 
     if (!isAuthenticated) return <Redirect href="/sign-in" />;
     if (items.length === 0 && !isSubmitting) return <Redirect href="/cart" />;
@@ -95,7 +100,9 @@ export default function Checkout() {
     const deliveryFee = mixed ? (split ? quote!.split : quote!.together) : standardFee;
     const subtotal = getTotalPrice();
     const total = subtotal + deliveryFee;
-    const payOnDelivery = !givingOnly && paymentMethod === 'pay_on_delivery';
+    const podOffered = !givingOnly && cfg.delivery.payOnDelivery;
+    const payOnDelivery = podOffered && paymentMethod === 'pay_on_delivery';
+    const extraQuestions = givingOnly ? [] : cfg.checkoutQuestions;
     // What Paystack charges now (the server works out the real amounts).
     const payNow = payOnDelivery ? deliveryFee : total;
 
@@ -108,6 +115,8 @@ export default function Checkout() {
 
         if (!givingOnly && (!address || !city || !form.state)) return notify('Delivery address', 'Please enter your street address, city/area and state.');
         if (!phone) return notify('Phone number', 'Please enter a valid Nigerian phone number, e.g. 0803 123 4567.');
+        const missingQ = firstMissing(extraQuestions, extra);
+        if (missingQ) return notify('One more thing', `Please answer: ${missingQ.question}`);
 
         const landmark = form.landmark.trim();
 
@@ -131,9 +140,13 @@ export default function Checkout() {
                     state: form.state,
                     phone,
                     note: form.note.trim() || undefined,
-                    paymentMethod,
+                    paymentMethod: payOnDelivery ? 'pay_on_delivery' : 'paystack',
                     deliveryPlan: split ? 'split' : 'together',
                 });
+
+            // Answers to the admin's extra checkout questions, saved on the order (best effort).
+            const extraAnswers = answersForSave(extraQuestions, extra);
+            if (extraAnswers.length) await saveOrderAnswers(orderId, extraAnswers).catch((e) => console.log('order answers', e));
 
             if (!givingOnly && saveAddress && user) {
                 // Best effort: the order is already placed even if this fails.
@@ -338,6 +351,14 @@ export default function Checkout() {
 
                     {/* Pay everything now, or pay the delivery fee now and the items to the rider.
                         Online payments go through Paystack: card, bank transfer or USSD. */}
+                    {/* Extra questions the admin added (Admin › App settings › Checkout questions) */}
+                    {extraQuestions.length > 0 && (
+                        <View className="gap-3">
+                            <Text className="h3-bold text-dark-100">A few more details</Text>
+                            <FormQuestions questions={extraQuestions} answers={extra} onChange={setExtra} />
+                        </View>
+                    )}
+
                     <View className="gap-3">
                         <Text className="h3-bold text-dark-100">Payment</Text>
                         <PaymentOption
@@ -347,7 +368,7 @@ export default function Checkout() {
                             selected={!payOnDelivery}
                             onPress={() => setPaymentMethod('paystack')}
                         />
-                        {!givingOnly && <PaymentOption
+                        {podOffered && <PaymentOption
                             icon="bicycle"
                             title="Pay on delivery"
                             body={feeReady
@@ -356,7 +377,7 @@ export default function Checkout() {
                             selected={payOnDelivery}
                             onPress={() => setPaymentMethod('pay_on_delivery')}
                         />}
-                        <Text className="body-regular text-gray-200">Your order is confirmed as soon as the online payment goes through.</Text>
+                        <Text className="body-regular text-gray-200">{getAppConfig().texts.checkoutPayNote}</Text>
                     </View>
 
                     <View className="border border-gray-200 p-5 rounded-2xl">
@@ -378,7 +399,7 @@ export default function Checkout() {
                         ) : (
                             <PaymentInfoStripe label={mixed ? 'Delivery (everything tomorrow)' : 'Delivery fee'} value={givingOnly ? 'Free' : feeReady || mixed ? formatNaira(deliveryFee) : '…'} />
                         )}
-                        {!mixed && feeReady && deliveryFee > DELIVERY_FEE && (
+                        {!mixed && feeReady && deliveryFee > standardDeliveryFee() && (
                             <Text className="body-regular text-gray-200">{formatNaira(deliveryFee)} delivery: one fee per order, the highest among your items.</Text>
                         )}
                         <View className="border-t border-gray-300 my-2" />

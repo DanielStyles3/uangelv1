@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
 
 import ProductImage from "@/components/ProductImage";
-import { CAMPAIGN_END, CAMPAIGN_FLYER, CAMPAIGN_GOAL, campaignLive } from "@/constants/campaign";
+import { CAMPAIGN_FLYER, campaignEnd, campaignGoal, campaignLive } from "@/constants/campaign";
 import { getCampaignProducts, getCampaignProgress } from "@/lib/api";
 import { formatNaira } from "@/lib/format";
 import useFetch from "@/lib/useFetch";
@@ -31,7 +31,7 @@ const POINTS: { icon: IconName; tint: string; color: string; title: string; text
 
 function useCountdown() {
     const calc = () => {
-        const mins = Math.max(0, Math.floor((CAMPAIGN_END - Date.now()) / 60000));
+        const mins = Math.max(0, Math.floor((campaignEnd() - Date.now()) / 60000));
         return { d: Math.floor(mins / 1440), h: Math.floor(mins / 60) % 24, m: mins % 60 };
     };
     const [left, setLeft] = useState(calc);
@@ -49,7 +49,7 @@ export default function Christmas() {
     const left = useCountdown();
     const live = campaignLive();
     const done = count ?? 0;
-    const pct = Math.min(100, (done / CAMPAIGN_GOAL) * 100);
+    const pct = Math.min(100, (done / campaignGoal()) * 100);
     const openProduct = (id: string) => router.push({ pathname: "/menu/[id]", params: { id } });
 
     return (
@@ -73,7 +73,7 @@ export default function Christmas() {
                         <Ionicons name="sparkles" size={12} color={RED_DEEP} />
                         <Text style={styles.eyebrow}>CHRISTMAS 2026 CAMPAIGN</Text>
                     </View>
-                    <Text style={styles.heroTitle}>Help us reach{"\n"}10,000 pre-orders</Text>
+                    <Text style={styles.heroTitle}>Help us reach{"\n"}{campaignGoal().toLocaleString("en-NG")} pre-orders</Text>
                     <Text style={styles.heroText}>Between now and 25 December. Every order feeds someone in need.</Text>
                     <Image
                         source={CAMPAIGN_FLYER}
@@ -87,7 +87,7 @@ export default function Christmas() {
                 <Animated.View entering={FadeInDown.delay(80).duration(400)} style={styles.progress}>
                     <View style={styles.progressTop}>
                         <Text style={styles.count}>{done.toLocaleString("en-NG")}</Text>
-                        <Text style={styles.countOf}>of {CAMPAIGN_GOAL.toLocaleString("en-NG")} pre-orders</Text>
+                        <Text style={styles.countOf}>of {campaignGoal().toLocaleString("en-NG")} pre-orders</Text>
                     </View>
                     <View style={styles.bar}>
                         <View style={[styles.barFill, { width: `${Math.max(2, pct)}%` }]} />

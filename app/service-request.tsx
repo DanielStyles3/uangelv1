@@ -11,6 +11,7 @@ import StatePicker from "@/components/StatePicker";
 import ProductImage from "@/components/ProductImage";
 import { createServiceRequest, getCategory, getRequestQuestions, getSubcategories } from "@/lib/api";
 import { RequestQuestion } from "@/type";
+import { getAppConfig } from "@/lib/appConfig";
 import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
 import useFetch from "@/lib/useFetch";
 import useAuthStore from "@/store/auth.store";
@@ -25,10 +26,12 @@ const LINE = "#E8E8EE";
 const BG = "#F6F6F8";
 const PURPLE = "#6B21A8";
 const isCustomName = (n?: string | null) => !!n && n.trim().toLowerCase() === "customised event";
-const NEEDS: [IconName, string][] = [
-    ["restaurant", "Food"], ["wine", "Drinks"], ["gift", "Cake"], ["balloon", "Decor"],
-    ["umbrella", "Chairs & canopies"], ["people", "Waiters"], ["mic", "MC / DJ"], ["storefront", "Food stands"],
-];
+// "What do you need?" comes from Admin › App settings; known ones keep their icon.
+const NEED_ICONS: Record<string, IconName> = {
+    "Food": "restaurant", "Drinks": "wine", "Cake": "gift", "Decor": "balloon",
+    "Chairs & canopies": "umbrella", "Waiters": "people", "MC / DJ": "mic", "Food stands": "storefront",
+};
+const needsList = (): [IconName, string][] => getAppConfig().lists.serviceNeeds.map((n) => [NEED_ICONS[n] ?? "checkmark-circle-outline", n]);
 const TIMES: [IconName, string, string][] = [["sunny", "Morning", "Before 12pm"], ["partly-sunny", "Afternoon", "12pm – 4pm"], ["moon", "Evening", "After 4pm"]];
 const PLACES: [IconName, string][] = [["home", "Indoor"], ["leaf", "Outdoor"], ["help-circle", "Not sure yet"]];
 const STEP_TITLES = ["Your event", "Guests & budget", "Venue", "Your details"];
@@ -251,11 +254,12 @@ export default function ServiceRequestScreen() {
 
                     <Animated.View entering={FadeInDown.delay(260)} style={styles.doneCard}>
                         <Text style={styles.doneCardTitle}>WHAT HAPPENS NEXT</Text>
-                        {([
-                            ["call", "We call you within 24 hours", `on ${formatNigerianPhone(form.phone)}`],
-                            ["logo-whatsapp", "You get a quote", "on WhatsApp, with menu options"],
-                            ["checkmark-done", "You confirm", "and we handle everything on the day"],
-                        ] as [IconName, string, string][]).map(([icon, b, t], i, all) => (
+                        {/* Steps from Admin › App settings (first one shows their number when it says "on the number…") */}
+                        {getAppConfig().texts.requestSentSteps.map((s, i): [IconName, string, string] => [
+                            (["call", "logo-whatsapp", "checkmark-done"] as IconName[])[i] ?? "ellipse-outline",
+                            s.title,
+                            i === 0 && /number you gave/i.test(s.text) ? `on ${formatNigerianPhone(form.phone)}` : s.text,
+                        ]).map(([icon, b, t], i, all) => (
                             <View key={b} style={styles.tlRow}>
                                 <View style={{ alignItems: "center" }}>
                                     <View style={styles.tlIcon}><Ionicons name={icon} size={16} color={ORANGE} /></View>
@@ -511,7 +515,7 @@ export default function ServiceRequestScreen() {
 
                                 <Section title="What do you need?" hint="Tick everything that applies.">
                                     <View style={styles.grid2}>
-                                        {NEEDS.map(([icon, n]) => (
+                                        {needsList().map(([icon, n]) => (
                                             <OptionCard key={n} icon={icon} label={n} on={form.needs.includes(n)} onPress={() => toggleNeed(n)} style={styles.half} check />
                                         ))}
                                     </View>

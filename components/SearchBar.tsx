@@ -1,4 +1,5 @@
 import {images} from "@/constants";
+import { getAppConfig } from "@/lib/appConfig";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import { Image, TextInput, TouchableOpacity, View } from "react-native";
@@ -22,7 +23,7 @@ const Searchbar = () => {
         <View className="searchbar">
             <TextInput
                 className="flex-1 p-5"
-                placeholder="Search cakes, drinks, groceries…"
+                placeholder={getAppConfig().texts.searchHint}
                 value={query}
                 onChangeText={handleSearch}
                 onSubmitEditing={handleSubmit}

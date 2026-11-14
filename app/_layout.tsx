@@ -10,6 +10,7 @@ import useAuthStore from "@/store/auth.store";
 import AnimatedSplash from "@/components/AnimatedSplash";
 import { NoticeHost } from "@/lib/notice";
 import { listenForShopChanges, warmCatalog } from "@/lib/catalog";
+import { warmAppConfig } from "@/lib/appConfig";
 import { hydrateDataCache } from "@/lib/dataCache";
 
 // Keep the native splash up until <AnimatedSplash> has drawn its first frame.
@@ -67,6 +68,7 @@ export default Sentry.wrap(function RootLayout() {
     hydrateDataCache().finally(() => {
       setCacheReady(true);
       warmCatalog();
+      warmAppConfig();
       listenForShopChanges();
     });
   }, []);

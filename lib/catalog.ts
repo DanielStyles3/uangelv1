@@ -1,4 +1,5 @@
 import { getHomeProducts, HomeProduct } from "@/lib/api";
+import { warmAppConfig } from "@/lib/appConfig";
 import { emitShopChange, getCached, warm } from "@/lib/dataCache";
 import { prefetchThumbs } from "@/lib/images";
 import { supabase } from "@/lib/supabase";
@@ -73,11 +74,12 @@ export const listenForShopChanges = () => {
         // Several rows usually change together (a product + its photo + its choices): wait a moment.
         timer = setTimeout(() => {
             timer = null;
-            warmCatalog(true).finally(emitShopChange);
+            Promise.all([warmCatalog(true), warmAppConfig(true)]).finally(emitShopChange);
         }, 1500);
     };
     let channel = supabase.channel("shop-changes");
-    for (const table of ["menu", "categories", "option_groups", "option_values", "promotions"]) {
+    // site_settings = App settings (contacts, fees, wording, forms) and the banners' text.
+    for (const table of ["menu", "categories", "option_groups", "option_values", "promotions", "site_settings", "request_questions"]) {
         channel = channel.on("postgres_changes", { event: "*", schema: "public", table }, changed);
     }
     channel.subscribe();

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { DELIVERY_FEE } from "@/constants";
+import { standardDeliveryFee } from "@/constants";
 import { getDeliveryFee } from "@/lib/api";
 
 // Fee per set of products, so Cart → Checkout doesn't ask the server twice.
@@ -27,5 +27,5 @@ export default function useDeliveryFee(menuIds: string[]): { fee: number; ready:
     }, [key]);
 
     const known = cache.get(key) ?? (result?.key === key ? result.fee : undefined);
-    return { fee: known ?? DELIVERY_FEE, ready: known !== undefined };
+    return { fee: known ?? standardDeliveryFee(), ready: known !== undefined };
 }

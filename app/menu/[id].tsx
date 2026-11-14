@@ -15,7 +15,8 @@ import { snapCategory, snapMenu, snapOptions, snapPath, snapProduct } from "@/li
 import { getCategory, getMenu, getMenuItem, getMenuItemCustomizations, getProductOptions } from "@/lib/api";
 import ProductOptions, { answerableGroups, answersToCart, missingRequired, OptionAnswers, StepHeader } from "@/components/ProductOptions";
 import { useCartStore } from "@/store/cart.store";
-import { deliveryFeeForCategory, SUPPORT_WHATSAPP } from "@/constants";
+import { deliveryFeeForCategory, supportWhatsApp } from "@/constants";
+import { getAppConfig } from "@/lib/appConfig";
 import { formatNaira } from "@/lib/format";
 import ProductImage from "@/components/ProductImage";
 import { CartCustomization, Customization, MenuItem } from "@/type";
@@ -319,7 +320,7 @@ export default function ProductDetails() {
                     {/* Mission */}
                     <Animated.View entering={FadeInDown.delay(200).springify().damping(16)} style={styles.mission}>
                         <Ionicons name="heart" size={18} color={ORANGE} />
-                        <Text style={styles.missionText}>This order helps feed someone in need. U Are An Angel.</Text>
+                        <Text style={styles.missionText}>{getAppConfig().texts.charityLine}</Text>
                     </Animated.View>
 
                     {/* Made to order: how the enquiry works */}
@@ -449,7 +450,7 @@ export default function ProductDetails() {
                 <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
                     <TouchableOpacity
                         style={styles.waBtn}
-                        onPress={() => Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(`Hello U Angel Foods, I’d like a wedding cake like “${item.name}”. Can we talk about the design?`)}`).catch(() => {})}
+                        onPress={() => Linking.openURL(`https://wa.me/${supportWhatsApp()}?text=${encodeURIComponent(`Hello U Angel Foods, I’d like a wedding cake like “${item.name}”. Can we talk about the design?`)}`).catch(() => {})}
                         accessibilityLabel="Chat with us on WhatsApp"
                     >
                         <Ionicons name="logo-whatsapp" size={22} color="#fff" />
