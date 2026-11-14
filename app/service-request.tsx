@@ -86,8 +86,9 @@ const OptionCard = ({ icon, label, sub, on, onPress, style, check }: {
             <Ionicons name={icon} size={18} color={on ? "#fff" : ORANGE} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.optLabel} numberOfLines={1}>{label}</Text>
-            {sub ? <Text style={styles.optSub} numberOfLines={1}>{sub}</Text> : null}
+            {/* Labels can come from App settings, so let them wrap instead of cutting off. */}
+            <Text style={styles.optLabel} numberOfLines={3}>{label}</Text>
+            {sub ? <Text style={styles.optSub} numberOfLines={2}>{sub}</Text> : null}
         </View>
         {check && (
             <View style={[styles.check, on && styles.checkOn]}>{on && <Ionicons name="checkmark" size={12} color="#fff" />}</View>
