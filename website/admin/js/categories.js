@@ -97,11 +97,15 @@
   }
 
   function subsOf(mainId) { return (S && S.subsBy[mainId]) || []; }
+  /** Products in a category and everything inside it (any depth). */
   function productCount(cat) {
     if (!cat) return 0;
-    if (cat.parent_id) return S.countBySub[cat.id] || 0;
-    return subsOf(cat.id).reduce(function (n, s) { return n + (S.countBySub[s.id] || 0); }, 0);
+    return (S.countBySub[cat.id] || 0) + subsOf(cat.id).reduce(function (n, s) { return n + productCount(s); }, 0);
   }
+  /** 0 = main category, 1 = subcategory (tab in the app), 2 = group (chip), 3 = section (heading). */
+  function depthOf(c) { var d = 0; for (var i = 0; c && c.parent_id && i < 10; i++) { d++; c = S.byId[c.parent_id]; } return d; }
+  function levelNoun(depth) { return depth <= 0 ? 'category' : depth === 1 ? 'subcategory' : depth === 2 ? 'group' : 'section'; }
+  var treeOpen = {};   // main id → the subcategory whose groups & sections are shown
 
   /* Photo or placeholder. `cls` sizes it; the placeholder is a tinted box with the initial. */
   function pic(c, cls) {
@@ -192,7 +196,7 @@
     return '<div class="cg-subs" id="cg-subs-' + esc(m.id) + '">' +
       '<p class="cg-subs-note">Subcategories, in the order shown on the ' + esc(m.name) + ' page</p>' +
       '<div class="cg-grid">' + subs.map(function (s, j) {
-        var pc = S.countBySub[s.id] || 0;
+        var pc = productCount(s), inner = subsOf(s.id).length;
         return '<div class="cg-sub" data-sub="' + esc(s.id) + '" data-parent="' + esc(m.id) + '">' +
           '<div class="cg-sub-img">' + pic(s, 'cg-sub-pic') +
             '<button type="button" class="cg-grab" draggable="true" data-drag-sub="' + esc(s.id) + '" aria-label="Drag to reorder ' + esc(s.name) + '" title="Drag to reorder">' + I_GRIP + '</button>' +
@@ -203,10 +207,46 @@
               '<button type="button" class="cg-icon sm" data-move-sub="' + esc(s.id) + '" data-dir="-1" aria-label="Move ' + esc(s.name) + ' earlier"' + (j === 0 ? ' disabled' : '') + '>' + I_LEFT + '</button>' +
               '<button type="button" class="cg-icon sm" data-move-sub="' + esc(s.id) + '" data-dir="1" aria-label="Move ' + esc(s.name) + ' later"' + (j === subs.length - 1 ? ' disabled' : '') + '>' + I_RIGHT + '</button>' +
               '<button type="button" class="cg-edit" data-edit-sub="' + esc(s.id) + '">Edit</button>' +
-            '</div></div></div>';
+            '</div>' +
+            (service ? '' : '<button type="button" class="cg-inner' + (treeOpen[m.id] === s.id ? ' on' : '') + '" data-tree="' + esc(s.id) + '" aria-expanded="' + (treeOpen[m.id] === s.id) + '">' +
+              (inner ? plural(inner, 'group') : 'Groups & sections') + ' ▾</button>') +
+          '</div></div>';
       }).join('') +
       '<button type="button" class="cg-add" data-add-sub="' + esc(m.id) + '"><span>+</span>Add subcategory</button>' +
-      '</div></div>';
+      '</div>' +
+      (!service && treeOpen[m.id] && S.byId[treeOpen[m.id]] ? treeHtml(S.byId[treeOpen[m.id]]) : '') +
+      '</div>';
+  }
+
+  /**
+   * Groups and sections inside a subcategory, like a supermarket aisle in the app:
+   *   tab "Fruits & Vegetables" → chips "Fruits", "Vegetables" → headings "Bananas", "Citrus"…
+   */
+  function treeHtml(s) {
+    var groups = subsOf(s.id);
+    var arrows = function (c, list, j) {
+      return '<button type="button" class="cg-icon sm" data-move-sub="' + esc(c.id) + '" data-dir="-1" aria-label="Move ' + esc(c.name) + ' earlier"' + (j === 0 ? ' disabled' : '') + '>' + I_LEFT + '</button>' +
+        '<button type="button" class="cg-icon sm" data-move-sub="' + esc(c.id) + '" data-dir="1" aria-label="Move ' + esc(c.name) + ' later"' + (j === list.length - 1 ? ' disabled' : '') + '>' + I_RIGHT + '</button>';
+    };
+    return '<div class="cg-tree" aria-label="Groups and sections in ' + esc(s.name) + '">' +
+      '<div class="cg-tree-h"><div><b>Inside “' + esc(s.name) + '”</b>' +
+        '<small>In the app, <b>' + esc(s.name) + '</b> is a tab. <b>Groups</b> are the buttons under it (e.g. Fruits, Vegetables, Herbs) and <b>sections</b> are the headings inside a group (e.g. Bananas, Citrus). Put products in the most specific one. Empty ones are hidden from customers.</small></div>' +
+        '<button type="button" class="cg-icon" data-tree="' + esc(s.id) + '" aria-label="Close">×</button></div>' +
+      (groups.length ? groups.map(function (g, j) {
+        var secs = subsOf(g.id);
+        return '<div class="cg-tree-g">' +
+          '<div class="cg-tree-row"><span class="cg-tree-dot"></span><b>' + esc(g.name) + '</b><small>' + plural(productCount(g), 'product') + '</small>' +
+            '<span class="cg-tree-sp"></span>' + arrows(g, groups, j) +
+            '<button type="button" class="cg-edit" data-edit-sub="' + esc(g.id) + '">Edit</button></div>' +
+          '<div class="cg-tree-secs">' + secs.map(function (x, k) {
+            return '<span class="cg-tree-sec"><span>' + esc(x.name) + ' <small>' + productCount(x) + '</small></span>' + arrows(x, secs, k) +
+              '<button type="button" class="cg-icon sm" data-edit-sub="' + esc(x.id) + '" aria-label="Edit ' + esc(x.name) + '">✎</button></span>';
+          }).join('') +
+            '<button type="button" class="cg-tree-add" data-add-in="' + esc(g.id) + '">+ Section in ' + esc(g.name) + '</button></div>' +
+        '</div>';
+      }).join('') : '<p class="cg-help" style="margin:4px 0 10px">No groups yet. Its products show as one grid in the app.</p>') +
+      '<button type="button" class="cg-add cg-tree-addg" data-add-in="' + esc(s.id) + '"><span>+</span>Add group in ' + esc(s.name) + '</button>' +
+    '</div>';
   }
 
   function previewHtml() {
@@ -259,6 +299,14 @@
     if (b.getAttribute('data-act') === 'add-main') return openEditor('main', null, null);
     if ((v = b.getAttribute('data-edit'))) return S.byId[v] && openEditor('main', S.byId[v], null);
     if ((v = b.getAttribute('data-add-sub'))) return S.byId[v] && openEditor('sub', null, S.byId[v]);
+    if ((v = b.getAttribute('data-add-in'))) return S.byId[v] && openEditor('sub', null, S.byId[v]);
+    if ((v = b.getAttribute('data-tree'))) {
+      var sub = S.byId[v], mainId = sub && sub.parent_id;
+      if (!mainId) return;
+      treeOpen[mainId] = treeOpen[mainId] === v ? null : v;
+      renderAll();
+      return;
+    }
     if ((v = b.getAttribute('data-edit-sub'))) return S.byId[v] && openEditor('sub', S.byId[v], S.byId[S.byId[v].parent_id]);
     if ((v = b.getAttribute('data-move-main'))) return moveBy(S.mains, v, Number(b.getAttribute('data-dir')), '[data-move-main="');
     if ((v = b.getAttribute('data-move-sub'))) { var c = S.byId[v]; return c && moveBy(subsOf(c.parent_id), v, Number(b.getAttribute('data-dir')), '[data-move-sub="'); }
@@ -609,7 +657,12 @@
         } else {
           S.cats.push(saved);
           if (isMain) { expanded[saved.id] = true; previewId = saved.id; }
-          else { expanded[parent.id] = true; previewId = parent.id; }
+          else {
+            var top = parent; while (top.parent_id && S.byId[top.parent_id]) top = S.byId[top.parent_id];
+            expanded[top.id] = true; previewId = top.id;
+            // Added inside a subcategory (a group or section): keep that panel open.
+            if (parent.parent_id) { var tab = parent; while (tab.parent_id && tab.parent_id !== top.id) tab = S.byId[tab.parent_id]; treeOpen[top.id] = tab.id; }
+          }
         }
         reindex();
         dispose();
@@ -629,9 +682,10 @@
     var actions = [];
     if (editing) actions.push({ label: 'Delete', variant: 'danger', onClick: function (close) { tryDelete(item, close); } });
     actions.push({ label: 'Cancel', variant: 'ghost', onClick: function (close) { dispose(); close(); } });
-    actions.push({ label: editing ? 'Save changes' : (isMain ? 'Create category' : 'Add subcategory'), variant: 'primary', onClick: function () { save(); } });
+    var noun = isMain ? 'category' : levelNoun(depthOf(parent) + 1);   // subcategory / group / section
+    actions.push({ label: editing ? 'Save changes' : (isMain ? 'Create category' : 'Add ' + noun), variant: 'primary', onClick: function () { save(); } });
     m = Admin.modal({
-      title: editing ? (isMain ? 'Edit category' : 'Edit subcategory') : (isMain ? 'New category' : 'New subcategory'),
+      title: (editing ? 'Edit ' : 'New ') + noun,
       body: form,
       className: 'cg-drawer',
       actions: actions,

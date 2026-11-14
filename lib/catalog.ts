@@ -43,14 +43,21 @@ export const loadCatalog = async (): Promise<Catalog> => {
     return { categories, products, options };
 };
 
-/** Load (or refresh) the snapshot and pull every small photo onto the phone. */
-export const warmCatalog = () =>
-    warm(CATALOG_KEY, loadCatalog).then(() => {
+/**
+ * Load (or refresh) the snapshot and pull every small photo onto the phone. Screens call this when
+ * they open; it only really fetches if the copy is over 30s old (or `force`, for live changes).
+ */
+let warmedAt = 0;
+export const warmCatalog = (force = false): Promise<void> => {
+    if (!force && catalog() && Date.now() - warmedAt < 30_000) return Promise.resolve();
+    warmedAt = Date.now();
+    return warm(CATALOG_KEY, loadCatalog).then(() => {
         const c = catalog();
         if (c) prefetchThumbs([...c.categories.map((x) => x.image_url), ...c.products.map((p) => p.image_url)]);
     });
+};
 
-const catalog = () => getCached<Catalog>(CATALOG_KEY);
+export const catalog = () => getCached<Catalog>(CATALOG_KEY);
 
 /**
  * Live shop: when the admin adds or edits a product, category, choice or promotion, refresh the
@@ -66,7 +73,7 @@ export const listenForShopChanges = () => {
         // Several rows usually change together (a product + its photo + its choices): wait a moment.
         timer = setTimeout(() => {
             timer = null;
-            warmCatalog().finally(emitShopChange);
+            warmCatalog(true).finally(emitShopChange);
         }, 1500);
     };
     let channel = supabase.channel("shop-changes");
@@ -119,12 +126,60 @@ export const snapProduct =(id?: string | null): MenuItem | undefined =>
 /** Every product, best-rated first (Home rows). */
 export const snapProducts = (): HomeProduct[] | undefined => catalog()?.products;
 
-/** Products of a section (or of a main category and all its sections), A–Z like the server. */
+/** Products of a category and everything inside it (any depth), A–Z like the server. */
 export const snapMenu = (categoryId?: string | null): MenuItem[] | undefined => {
     const c = catalog();
     if (!c || !categoryId) return undefined;
-    const ids = new Set([categoryId, ...c.categories.filter((x) => x.parent_id === categoryId).map((x) => x.id)]);
+    const ids = treeIds(c, categoryId);
     return c.products
         .filter((p) => p.category_id && ids.has(p.category_id))
         .sort((a, b) => a.name.localeCompare(b.name));
+};
+
+// ---------------------------------------------------------------------------
+// Tree helpers (any depth): Local Market › Fruits & Vegetables › Fruits › Bananas
+// ---------------------------------------------------------------------------
+
+/** A category and all the categories inside it. */
+export const treeIds = (c: Catalog, id: string): Set<string> => {
+    const out = new Set([id]);
+    let grew = true;
+    while (grew) {
+        grew = false;
+        for (const x of c.categories) {
+            if (x.parent_id && out.has(x.parent_id) && !out.has(x.id)) { out.add(x.id); grew = true; }
+        }
+    }
+    return out;
+};
+
+/** From the top: [main, …, the category itself]. */
+export const pathTo = (c: Catalog, id?: string | null): Category[] => {
+    const byId = new Map(c.categories.map((x) => [x.id, x]));
+    const out: Category[] = [];
+    let cur = id ? byId.get(id) : undefined;
+    for (let i = 0; cur && i < 10; i++) {
+        out.unshift(cur);
+        cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+    }
+    return out;
+};
+
+export const snapPath = (id?: string | null): Category[] | undefined => {
+    const c = catalog();
+    return c && id ? pathTo(c, id) : undefined;
+};
+
+/** Children in display order. */
+export const childrenOf = (c: Catalog, id: string) =>
+    c.categories.filter((x) => x.parent_id === id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name));
+
+/** Products sitting directly in this category (not in the ones inside it). */
+export const productsIn = (c: Catalog, id: string) =>
+    c.products.filter((p) => p.category_id === id).sort((a, b) => a.name.localeCompare(b.name));
+
+/** How many products are in this category or anywhere inside it (empty branches are hidden). */
+export const countIn = (c: Catalog, id: string) => {
+    const ids = treeIds(c, id);
+    return c.products.reduce((n, p) => n + (p.category_id && ids.has(p.category_id) ? 1 : 0), 0);
 };

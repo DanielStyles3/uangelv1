@@ -74,7 +74,34 @@
   }
 
   function subOf(p) { return S.catById[p.category_id] || null; }
-  function mainOf(p) { var s = subOf(p); return s ? (s.parent_id ? S.catById[s.parent_id] : s) : null; }
+  /** The top category of a branch (any depth: Local Market › Fruits & Vegetables › Fruits › Bananas). */
+  function rootCat(c) { for (var i = 0; c && c.parent_id && i < 10; i++) c = S.catById[c.parent_id] || null; return c || null; }
+  function mainOf(p) { return rootCat(subOf(p)); }
+  /** Every category inside a main one, depth-first in display order: [{ c, depth }] (depth 1 = subcategory). */
+  function branchOf(mainId) {
+    var out = [];
+    (function walk(id, depth) {
+      (S.subsBy[id] || []).forEach(function (c) { out.push({ c: c, depth: depth }); walk(c.id, depth + 1); });
+    })(mainId, 1);
+    return out;
+  }
+  /** "Fruits & Vegetables › Fruits › Bananas" (below the main category). */
+  function pathName(c) {
+    var names = [];
+    for (var i = 0; c && c.parent_id && i < 10; i++) { names.unshift(c.name); c = S.catById[c.parent_id]; }
+    return names.join(' › ');
+  }
+  /** <option>s for a whole branch, indented by depth. */
+  function branchOptions(mainId, selected) {
+    return branchOf(mainId).map(function (x) {
+      return '<option value="' + esc(x.c.id) + '"' + (selected === x.c.id ? ' selected' : '') + '>' +
+        (x.depth > 1 ? '    '.repeat(x.depth - 1) + '└ ' : '') + esc(x.c.name) + '</option>';
+    }).join('');
+  }
+  function inBranch(catId, topId) {
+    for (var c = S.catById[catId], i = 0; c && i < 10; i++, c = c.parent_id ? S.catById[c.parent_id] : null) if (c.id === topId) return true;
+    return false;
+  }
   /** Show the "Sizes & options" shortcut on cakes and on anything that already has options. */
   function hasOptionsUI(p) {
     if ((S.optGroups || []).some(function (g) { return g.menu_id === p.id; })) return true;
@@ -114,7 +141,7 @@
             '<select class="select" data-main aria-label="Category"><option value="">All categories</option>' +
               S.mains.map(function (m) { return '<option value="' + esc(m.id) + '"' + (ui.main === m.id ? ' selected' : '') + '>' + esc(m.name) + '</option>'; }).join('') + '</select>' +
             '<select class="select" data-sub aria-label="Subcategory"' + (ui.main ? '' : ' disabled') + '><option value="">' + (ui.main ? 'All subcategories' : 'Pick a category first') + '</option>' +
-              (ui.main ? (S.subsBy[ui.main] || []).map(function (s) { return '<option value="' + esc(s.id) + '"' + (ui.sub === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') : '') + '</select>' +
+              (ui.main ? branchOptions(ui.main, ui.sub) : '') + '</select>' +
             '<select class="select" data-sort aria-label="Sort">' +
               [['name', 'Name A–Z'], ['sold', 'Best selling (30 days)'], ['price_asc', 'Price: low to high'], ['price_desc', 'Price: high to low'], ['newest', 'Newest first']].map(function (o) {
                 return '<option value="' + o[0] + '"' + (ui.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
@@ -166,7 +193,7 @@
     var q = norm(ui.q), best = ui.chip === 'best' ? bestIds() : null;
     var list = shopProducts().filter(function (p) {
       if (q && norm(p.name).indexOf(q) === -1 && norm(p.description).indexOf(q) === -1) return false;
-      if (ui.sub && p.category_id !== ui.sub) return false;
+      if (ui.sub && !inBranch(p.category_id, ui.sub)) return false;   // the group and everything inside it
       if (ui.main && !ui.sub) { var m = mainOf(p); if (!m || m.id !== ui.main) return false; }
       if (ui.chip === 'off' && p.is_available !== false) return false;
       if (ui.chip === 'nophoto' && p.image_url) return false;
@@ -279,7 +306,7 @@
     var draft = {
       name: editing ? p.name : '',
       price: editing ? String(Number(p.price) || '') : '',
-      main: startSub ? (startSub.parent_id || startSub.id) : (ui.main || ''),
+      main: startSub ? rootCat(startSub).id : (ui.main || ''),
       sub: startSub && startSub.parent_id ? startSub.id : (!editing && ui.sub ? ui.sub : ''),
       description: editing ? (p.description || '') : '',
       on: editing ? p.is_available !== false : true,
@@ -306,11 +333,9 @@
     }
     function subOptions() {
       if (!draft.main) return '<option value="">Choose a category first</option>';
-      var subs = S.subsBy[draft.main] || [];
-      if (!subs.length) return '<option value="">This category has no subcategories yet</option>';
-      return '<option value="">Choose a subcategory</option>' + subs.map(function (s) {
-        return '<option value="' + esc(s.id) + '"' + (draft.sub === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>';
-      }).join('');
+      // Every level inside the category (subcategory › group › section), indented.
+      if (!(S.subsBy[draft.main] || []).length) return '<option value="">This category has no subcategories yet</option>';
+      return '<option value="">Choose where it goes</option>' + branchOptions(draft.main, draft.sub);
     }
     function addonChips(type) {
       var list = S.customs.filter(function (c) { return c.type === type; }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
@@ -359,8 +384,9 @@
         '<div class="field"><label for="' + uid + '-main">Category <span class="cg-req" aria-hidden="true">*</span></label>' +
           '<select id="' + uid + '-main" name="main" class="select">' + mainOptions() + '</select>' +
           '<span class="cg-err" data-err="main" role="alert"></span></div>' +
-        '<div class="field"><label for="' + uid + '-sub">Subcategory <span class="cg-req" aria-hidden="true">*</span></label>' +
+        '<div class="field"><label for="' + uid + '-sub">Where it goes <span class="cg-req" aria-hidden="true">*</span></label>' +
           '<select id="' + uid + '-sub" name="sub" class="select"' + (draft.main ? '' : ' disabled') + '>' + subOptions() + '</select>' +
+          '<span class="cg-help">Pick the most specific place, e.g. Fruits & Vegetables › Fruits › Bananas. Add new ones on the Categories page.</span>' +
           '<span class="cg-err" data-err="sub" role="alert"></span></div>' +
       '</div>' +
       '<div class="field"><label for="' + uid + '-desc">Description <span class="cg-opt">(optional)</span></label>' +
@@ -661,14 +687,24 @@
         (groups.length ? groups.map(function (g, i) {
           return '<div class="pp-og">' +
             '<div class="pp-og-h"><b>' + esc(g.name) + '</b>' +
-              '<span class="pp-optchip">' + (g.kind === 'text' ? 'Customer types (max ' + (g.max_length || 300) + ')' : 'Choose one') + '</span>' +
+              '<span class="pp-optchip">' + (g.kind === 'text' ? 'Customer types (max ' + (g.max_length || 300) + ')' : g.kind === 'number' ? 'Customer types a number · priced by digits' : 'Choose one') + '</span>' +
+              (g.kind === 'single' && !g.option_values.length ? '<span class="pp-optchip req">No choices yet: hidden in the app</span>' : '') +
               (g.required ? '<span class="pp-optchip req">Required</span>' : '') +
               '<span class="pr-spacer"></span>' +
               '<button type="button" class="cg-icon sm" data-gmove="' + g.id + '" data-dir="-1" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
               '<button type="button" class="cg-icon sm" data-gmove="' + g.id + '" data-dir="1" aria-label="Move down"' + (i === groups.length - 1 ? ' disabled' : '') + '>↓</button>' +
               '<button type="button" class="btn btn-ghost btn-sm" data-gedit="' + g.id + '">Edit</button>' +
               '<button type="button" class="btn btn-ghost btn-sm" data-gdel="' + g.id + '" style="color:var(--red)">Delete</button></div>' +
-            (g.kind === 'single'
+            (g.kind === 'number'
+              ? '<div class="pp-ov">' + g.option_values.map(function (v) {
+                  var d = digitsOf(v.name);
+                  return '<span class="pp-ovc"><b>' + (d === 1 ? 'Single digit' : d === 2 ? 'Two digits' : d + ' digits') + '</b>' +
+                    ' <small>' + (d ? d + ' number-shaped cake' + (d === 1 ? '' : 's') + ' · ' : '') + (Number(v.price) ? '+' + esc(naira(v.price)) + ' = ' + esc(naira(Number(p.price) + Number(v.price))) : 'included') + '</small>' +
+                    '<button type="button" data-vedit="' + v.id + '" data-g="' + g.id + '" aria-label="Edit price">✎</button>' +
+                    '<button type="button" data-vdel="' + v.id + '" aria-label="Delete">×</button></span>';
+                }).join('') + '<button type="button" class="btn btn-ghost btn-sm" data-vadd="' + g.id + '">' + I.plus + 'Price for more digits</button>' +
+                '<p class="cg-help" style="margin:6px 0 0;flex-basis:100%">Customers type the number (e.g. 5 or 25). One number-shaped cake per digit; the price above is added for that many digits.</p></div>'
+            : g.kind === 'single'
               ? '<div class="pp-ov">' + g.option_values.map(function (v, vi) {
                   return '<span class="pp-ovc">' +
                     (g.option_values.length > 1 ? '<button type="button" data-vmove="' + v.id + '" data-g="' + g.id + '" data-dir="-1" aria-label="Move ' + esc(v.name) + ' left"' + (vi === 0 ? ' disabled' : '') + '>◀</button>' : '') +
@@ -683,6 +719,7 @@
         }).join('') : '<p class="cg-help">No options yet.</p>') +
         '<div class="pp-og-add"><button type="button" class="btn btn-ghost btn-sm" data-gadd="single">' + I.plus + 'Add a “choose one” question</button>' +
           '<button type="button" class="btn btn-ghost btn-sm" data-gadd="text">' + I.plus + 'Add a “customer types” question</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-gadd="number">' + I.plus + 'Add a “number on the cake” question</button>' +
           (others.length && !groups.length ? '<select class="select" data-copy aria-label="Copy options from another product"><option value="">Copy options from…</option>' +
             others.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') +
         '</div>' +
@@ -709,6 +746,9 @@
               '</div>' + (x.help ? '<span class="cg-help">' + esc(x.help) + '</span>' : '') + '</div>';
           }
           if (x.type === 'check') return '<label style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" name="' + x.name + '"' + (initial[x.name] ? ' checked' : '') + '> ' + esc(x.label) + '</label>';
+          if (x.type === 'select') return '<div class="field"><label for="og-' + x.name + '">' + esc(x.label) + '</label><select id="og-' + x.name + '" name="' + x.name + '" class="select">' +
+            x.options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (initial[x.name] === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>' +
+            (x.help ? '<span class="cg-help">' + esc(x.help) + '</span>' : '') + '</div>';
           return '<div class="field"><label for="og-' + x.name + '">' + esc(x.label) + '</label><input id="og-' + x.name + '" name="' + x.name + '" class="input"' +
             (x.type === 'color' ? ' type="color"' : '') + (x.mode ? ' inputmode="' + x.mode + '"' : '') + ' placeholder="' + esc(x.ph || '') + '" value="' + esc(initial[x.name] == null ? '' : initial[x.name]) + '">' +
             (x.help ? '<span class="cg-help">' + esc(x.help) + '</span>' : '') + '</div>';
@@ -773,10 +813,35 @@
       return hit ? hit[1] : null;
     }
     function money(v) { var n = Number(String(v || '0').replace(/[,\s₦]/g, '')); return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null; }
+    // Number questions: each price row is named "1 digit", "2 digits"… (the app and server read the leading number).
+    function digitsOf(n) { var m = /^\s*(\d+)/.exec(String(n || '')); return m ? Number(m[1]) : 0; }
+    function digitsName(d) { return d + (d === 1 ? ' digit' : ' digits'); }
 
     body.addEventListener('click', async function (e) {
       var b = e.target.closest('button'); if (!b || b.disabled) return;
       var v, g;
+      if (b.getAttribute('data-gadd') === 'number') {
+        // Number cakes: the customer types the number; the price depends on how many digits it has.
+        var na = await ask('New “number on the cake” question', [
+          { name: 'name', label: 'Question', ph: 'What number would you like on your cake?' },
+          { name: 'p1', label: 'Extra price for a single digit (₦)', mode: 'decimal', ph: '0',
+            help: 'One number-shaped cake, e.g. 5. Added to the base price of ' + naira(p.price) + '; 0 = included.' },
+          { name: 'p2', label: 'Extra price for two digits (₦)', mode: 'decimal', ph: '0',
+            help: 'Two number-shaped cakes, e.g. 25. Leave empty if you only make single digits.' },
+          { name: 'placeholder', label: 'Example for customers (optional)', ph: 'e.g. 5 or 25' },
+          { name: 'required', label: 'Customers must answer this', type: 'check' }
+        ], { name: 'What number would you like on your cake?', required: true });
+        if (!na) return;
+        var p1 = money(na.p1), p2 = na.p2 === '' ? null : money(na.p2);
+        if (p1 == null || (na.p2 !== '' && p2 == null)) { A.toast('Enter the prices as numbers, e.g. 15000.', 'error'); return; }
+        var gi = await A.sb.from('option_groups').insert({ menu_id: p.id, name: na.name, kind: 'number', required: !!na.required,
+          placeholder: na.placeholder || null, sort_order: groups.reduce(function (mx, x) { return Math.max(mx, x.sort_order || 0); }, 0) + 1 }).select('id').single();
+        if (gi.error) { A.toast('Couldn’t save: ' + (/kind_check/.test(errMsg(gi.error)) ? 'run supabase/number-cakes.sql first.' : errMsg(gi.error)), 'error'); return; }
+        var tiers = [{ group_id: gi.data.id, name: digitsName(1), price: p1, sort_order: 1 }];
+        if (p2 != null) tiers.push({ group_id: gi.data.id, name: digitsName(2), price: p2, sort_order: 2 });
+        await run(A.sb.from('option_values').insert(tiers), 'Number question added');
+        return;
+      }
       if ((v = b.getAttribute('data-gadd'))) {
         var text = v === 'text';
         var a = await ask(text ? 'New “customer types” question' : 'New “choose one” question', [
@@ -793,16 +858,27 @@
       }
       if ((v = b.getAttribute('data-gedit'))) {
         g = groups.find(function (x) { return x.id === v; }); if (!g) return;
-        var t = g.kind === 'text';
+        var t = g.kind === 'text', isNum = g.kind === 'number';
         var r = await ask('Edit question', [
           { name: 'name', label: 'Question' },
+          // Fix a question made as the wrong type (e.g. a "choose one" that should be a box to type in).
+          isNum ? null : { name: 'kind', label: 'Type', type: 'select',
+            options: [['single', 'Choose one (from a list)'], ['text', 'Customer types (a box to write in)']],
+            help: g.kind === 'single' && g.option_values.length ? 'Switching to “customer types” removes this question’s choices.' : '' },
+          (t || isNum) ? null : { name: 'max_length', label: 'If “customer types”: longest answer (characters)', mode: 'numeric', ph: '40' },
           t ? { name: 'max_length', label: 'Longest answer (characters)', mode: 'numeric' } : null,
-          t ? { name: 'placeholder', label: 'Example for customers (optional)' } : null,
+          { name: 'placeholder', label: 'Example for customers (optional)' },
           { name: 'required', label: 'Customers must answer this', type: 'check' }
         ].filter(Boolean), g);
         if (!r) return;
-        var upd = { name: r.name, required: !!r.required };
-        if (t) { upd.max_length = Number(r.max_length) || g.max_length || 40; upd.placeholder = r.placeholder || null; }
+        var kind = isNum ? 'number' : (r.kind || g.kind);
+        var upd = { name: r.name, required: !!r.required, kind: kind, placeholder: r.placeholder || null };
+        upd.max_length = kind === 'text' ? (Number(r.max_length) || g.max_length || 40) : null;
+        if (kind === 'text' && g.kind === 'single' && g.option_values.length) {
+          if (!await A.confirm('Turn “' + g.name + '” into a box customers type in? Its ' + g.option_values.length + ' choice(s) will be removed.', { danger: true, confirmLabel: 'Change type' })) return;
+          var dv = await A.sb.from('option_values').delete().eq('group_id', g.id);
+          if (dv.error) { A.toast('Couldn’t change it: ' + errMsg(dv.error), 'error'); return; }
+        }
         await run(A.sb.from('option_groups').update(upd).eq('id', g.id), 'Saved');
         return;
       }
@@ -824,6 +900,23 @@
         var gid = b.getAttribute('data-vadd') || b.getAttribute('data-g');
         g = groups.find(function (x) { return x.id === gid; });
         var cur = b.hasAttribute('data-vedit') ? g.option_values.find(function (x) { return x.id === v; }) : null;
+        if (g.kind === 'number') {
+          // Number questions: a price per digit count.
+          var have = g.option_values.map(function (x) { return digitsOf(x.name); });
+          var nextD = cur ? digitsOf(cur.name) : (Math.max.apply(null, have.concat([0])) + 1);
+          var nv = await ask(cur ? 'Price for ' + digitsName(nextD) : 'Price for more digits', [
+            { name: 'digits', label: 'Digits', mode: 'numeric', ph: String(nextD) },
+            { name: 'price', label: 'Extra price (₦)', mode: 'decimal', ph: '0', help: 'Added to the base price of ' + naira(p.price) + ' when the number has this many digits.' }
+          ], { digits: String(nextD), price: cur ? (Number(cur.price) || '') : '' });
+          if (!nv) return;
+          var dd = Math.round(Number(nv.digits)), np = money(nv.price);
+          if (!(dd >= 1 && dd <= 6) || np == null) { A.toast('Enter digits (1–6) and a price, e.g. 2 and 30000.', 'error'); return; }
+          if (g.option_values.some(function (x) { return digitsOf(x.name) === dd && (!cur || x.id !== cur.id); })) { A.toast('There’s already a price for ' + digitsName(dd) + '.', 'error'); return; }
+          var nrow = { name: digitsName(dd), price: np, sort_order: dd };
+          if (cur) await run(A.sb.from('option_values').update(nrow).eq('id', cur.id), 'Saved');
+          else { nrow.group_id = g.id; await run(A.sb.from('option_values').insert(nrow), 'Price added'); }
+          return;
+        }
         var c = await ask(cur ? 'Edit choice' : 'New choice for “' + g.name + '”', [
           { name: 'name', label: 'Choice', ph: 'e.g. 8 inch' },
           { name: 'price', label: 'Extra price (₦)', mode: 'decimal', ph: '0',

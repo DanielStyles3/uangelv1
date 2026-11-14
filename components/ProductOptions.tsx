@@ -22,18 +22,53 @@ const Swatch = ({ colour, size }: { colour: string; size: number }) =>
 /** What the customer has chosen: option value per 'single' group, text per 'text' group. */
 export type OptionAnswers = { picks: Record<string, string>; texts: Record<string, string> };
 
-/** Names of required questions that are still unanswered. */
+// ---------------------------------------------------------------------------
+// Number cakes: the customer types a number; one number-shaped cake per digit. The admin prices
+// each digit count with choices named "1 digit", "2 digits"… (same rule as the server).
+// ---------------------------------------------------------------------------
+const digitsOf = (name: string) => Number(/^\s*(\d+)/.exec(name)?.[1] ?? NaN);
+export const digitTiers = (g: OptionGroup) =>
+    g.option_values
+        .map((v) => ({ ...v, digits: digitsOf(v.name) }))
+        .filter((v) => Number.isFinite(v.digits) && v.digits > 0)
+        .sort((a, b) => a.digits - b.digits);
+/** "007" → "7"; anything that isn't digits → "". */
+const cleanNumber = (s: string) => {
+    const t = s.trim();
+    if (!/^\d+$/.test(t)) return '';
+    return t.replace(/^0+(?=\d)/, '');
+};
+const numberTier = (g: OptionGroup, typed: string) => {
+    const n = cleanNumber(typed);
+    return n ? digitTiers(g).find((t) => t.digits === n.length) : undefined;
+};
+const cakesLabel = (k: number) => `${k} number-shaped cake${k === 1 ? '' : 's'}`;
+
+/** Questions customers can actually answer: a "choose one" question with no choices yet is skipped. */
+export const answerableGroups = (groups: OptionGroup[]) =>
+    groups.filter((g) => g.kind !== 'single' || (g.option_values?.length ?? 0) > 0);
+
+/** Names of required questions that are still unanswered (or a number we can't make). */
 export const missingRequired = (groups: OptionGroup[], a: OptionAnswers): string[] =>
     groups
-        .filter((g) => g.required && (g.kind === 'single' ? !a.picks[g.id] : !(a.texts[g.id] ?? '').trim()))
-        .map((g) => g.name);
+        .filter((g) => {
+            const typed = (a.texts[g.id] ?? '').trim();
+            if (g.kind === 'number') return (g.required || !!typed) && !numberTier(g, typed);
+            return g.required && (g.kind === 'single' ? !a.picks[g.id] : !typed);
+        })
+        .map((g) => (g.kind === 'number' ? 'the number' : g.name));
 
-/** The answers as cart lines (priced options + text), in question order. */
+/** The answers as cart lines (priced options, the number, text), in question order. */
 export const answersToCart = (groups: OptionGroup[], a: OptionAnswers): CartCustomization[] =>
     groups.flatMap((g): CartCustomization[] => {
         if (g.kind === 'single') {
             const v = g.option_values.find((x) => x.id === a.picks[g.id]);
             return v ? [{ id: v.id, name: `${g.name}: ${cleanOptionName(v.name)}`, price: Number(v.price), type: 'option' }] : [];
+        }
+        if (g.kind === 'number') {
+            const n = cleanNumber(a.texts[g.id] ?? '');
+            const tier = numberTier(g, n);
+            return tier ? [{ id: g.id, name: `Number: ${n} (${cakesLabel(n.length)})`, price: Number(tier.price), type: 'number', text: n }] : [];
         }
         const text = (a.texts[g.id] ?? '').trim();
         return text ? [{ id: g.id, name: `${g.name}: "${text}"`, price: 0, type: 'text', text }] : [];
@@ -80,6 +115,53 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                 const values = g.option_values.map((v) => ({ ...v, name: cleanOptionName(v.name), colour: optionColour(v.name, v.swatch) }));
                 const swatches = g.kind === 'single' && values.length > 0 && values.every((v) => !!v.colour);
                 const chosen = g.kind === 'single' ? values.find((v) => v.id === answers.picks[g.id]) : undefined;
+
+                if (g.kind === 'number') {
+                    const tiers = digitTiers(g);
+                    const maxDigits = tiers.length ? tiers[tiers.length - 1].digits : 2;
+                    const typed = cleanNumber(answers.texts[g.id] ?? '');
+                    const tier = numberTier(g, typed);
+                    return (
+                        <View key={g.id} style={styles.group}>
+                            <StepHeader step={step} title={g.name} required={g.required} />
+                            <View style={[styles.numberBox, typed && tier ? styles.numberBoxOn : null]}>
+                                <TextInput
+                                    value={answers.texts[g.id] ?? ''}
+                                    // Digits only, never longer than the biggest number the bakers make.
+                                    onChangeText={(t) => type(g.id, t.replace(/\D/g, '').slice(0, maxDigits))}
+                                    placeholder={g.placeholder || (maxDigits > 1 ? 'e.g. 5 or 25' : 'e.g. 5')}
+                                    placeholderTextColor="#B5B5BF"
+                                    keyboardType="number-pad"
+                                    maxLength={maxDigits}
+                                    style={styles.numberInput}
+                                    accessibilityLabel={g.name}
+                                />
+                            </View>
+                            {typed ? (
+                                <Text style={[styles.numberNote, !tier && { color: '#B91C1C' }]}>
+                                    {tier
+                                        ? `${typed} → ${cakesLabel(typed.length)}${Number(tier.price) ? ` · +${formatNaira(tier.price)}` : ''}`
+                                        : `We make numbers up to ${maxDigits} digit${maxDigits === 1 ? '' : 's'}`}
+                                </Text>
+                            ) : null}
+                            {tiers.length > 0 && (
+                                <View style={styles.cardGrid}>
+                                    {tiers.map((t) => {
+                                        const on = !!tier && tier.id === t.id;
+                                        return (
+                                            <View key={t.id} style={[styles.card, styles.tierCard, { width: tiers.length <= 3 ? `${100 / tiers.length - 2}%` as `${number}%` : '48.4%' }, on && styles.cardOn]}>
+                                                {on && <View style={styles.cardTick}><Ionicons name="checkmark" size={12} color="#fff" /></View>}
+                                                <Text style={styles.cardName}>{t.digits === 1 ? 'Single digit' : t.digits === 2 ? 'Two digits' : `${t.digits} digits`}</Text>
+                                                <Text style={styles.cardHint}>{t.digits === 1 ? 'e.g. 5' : t.digits === 2 ? 'e.g. 25' : `e.g. ${'1'.padEnd(t.digits, '0')}`} · {cakesLabel(t.digits)}</Text>
+                                                <Text style={styles.cardPrice}>{Number(t.price) ? `+${formatNaira(t.price)}` : 'Included'}</Text>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            )}
+                        </View>
+                    );
+                }
 
                 if (g.kind === 'text') {
                     const max = g.max_length ?? 300;
@@ -193,4 +275,10 @@ const styles = StyleSheet.create({
     inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, borderRadius: 16, backgroundColor: '#F5F5F7', paddingHorizontal: 14 },
     input: { flex: 1, fontFamily: 'Quicksand-SemiBold', fontSize: 16, color: INK, paddingVertical: 10 },
     count: { fontFamily: 'Quicksand-SemiBold', fontSize: 12, color: '#5B5B66' },
+
+    numberBox: { height: 84, borderRadius: 20, backgroundColor: '#F5F5F7', borderWidth: 2, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+    numberBoxOn: { borderColor: ORANGE, backgroundColor: '#FFF4EE' },
+    numberInput: { width: '100%', textAlign: 'center', fontFamily: 'Quicksand-Bold', fontSize: 40, color: INK, paddingVertical: 0 },
+    numberNote: { fontFamily: 'Quicksand-Bold', fontSize: 14, color: '#C2410C', textAlign: 'center' },
+    tierCard: { minHeight: 96 },
 });

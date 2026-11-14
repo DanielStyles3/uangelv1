@@ -255,3 +255,31 @@
 @media (hover: none) and (pointer: coarse) {
   .cg-grab { display: none; }
 }
+
+/* Groups & sections inside a subcategory (the app's chips and headings) */
+.cg-inner {
+  margin-top: 8px; width: 100%; border: 1px dashed var(--line); background: transparent; border-radius: 10px;
+  padding: 6px 8px; font: inherit; font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer; text-align: left;
+}
+.cg-inner:hover, .cg-inner.on { border-color: var(--orange); color: #8A3A12; background: var(--orange-soft); }
+.cg-tree { margin-top: 14px; padding: 14px 16px; border-radius: var(--radius-sm); background: #FAFAFC; border: 1px solid var(--line); }
+.cg-tree-h { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.cg-tree-h b { font-size: 15px; }
+.cg-tree-h small { display: block; margin-top: 4px; color: var(--muted); font-size: 12.5px; line-height: 1.5; max-width: 640px; }
+.cg-tree-g { background: var(--card); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.cg-tree-row { display: flex; align-items: center; gap: 8px; }
+.cg-tree-row small { color: var(--muted); font-weight: 600; }
+.cg-tree-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); flex: none; }
+.cg-tree-sp { flex: 1; }
+.cg-tree-secs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px 16px; }
+.cg-tree-sec {
+  display: inline-flex; align-items: center; gap: 2px; padding: 3px 4px 3px 12px; border-radius: 999px;
+  background: #F3F3F6; font-size: 13px; font-weight: 700;
+}
+.cg-tree-sec small { color: var(--muted); font-weight: 700; margin-left: 2px; }
+.cg-tree-add {
+  border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 4px 12px;
+  font: inherit; font-size: 12.5px; font-weight: 700; color: var(--muted); cursor: pointer;
+}
+.cg-tree-add:hover { border-color: var(--orange); color: #8A3A12; }
+.cg-tree-addg { margin-top: 4px; }

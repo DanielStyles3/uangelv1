@@ -195,7 +195,8 @@
     list.forEach(function (c) {
       if (!c) return;
       // Cake choices (size, flavour…) and typed answers (message on the cake) come first, one per line.
-      var k = c.type === 'option' || c.type === 'text' ? 'option' : c.type === 'side' ? 'side' : 'topping';
+      // (and the number on a number cake, with its price)
+      var k = c.type === 'option' || c.type === 'text' || c.type === 'number' ? 'option' : c.type === 'side' ? 'side' : 'topping';
       groups[k].push(esc(c.name) + (Number(c.price) ? ' (+' + esc(A.formatNaira(c.price)) + ')' : ''));
     });
     var out = [];

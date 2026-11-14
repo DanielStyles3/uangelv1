@@ -209,9 +209,9 @@ export interface CartCustomization {
     id: string;
     name: string;
     price: number;
-    /** 'topping' | 'side' (add-ons), 'option' (a chosen option value), 'text' (id = option group id). */
+    /** 'topping' | 'side' (add-ons), 'option' (a chosen option value), 'text' / 'number' (id = option group id). */
     type: string;
-    /** For type 'text': what the customer typed (e.g. the message on the cake). */
+    /** For type 'text' / 'number': what the customer typed (the message on the cake, the number). */
     text?: string;
 }
 
@@ -220,8 +220,11 @@ export interface OptionGroup {
     id: string;
     menu_id: string;
     name: string;
-    /** 'single' = pick one value; 'text' = type something. */
-    kind: 'single' | 'text';
+    /**
+     * 'single' = pick one value; 'text' = type something; 'number' = type a number (number cakes),
+     * priced by its digit count: option_values named "1 digit", "2 digits"… carry each price.
+     */
+    kind: 'single' | 'text' | 'number';
     required: boolean;
     max_length: number | null;
     placeholder: string | null;

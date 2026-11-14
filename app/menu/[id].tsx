@@ -11,9 +11,9 @@ import Animated, {
 
 import useFetch from "@/lib/useFetch";
 import { cachedCategory, cachedOptions, cachedProduct } from "@/lib/productCache";
-import { snapCategory, snapMenu, snapOptions, snapProduct } from "@/lib/catalog";
+import { snapCategory, snapMenu, snapOptions, snapPath, snapProduct } from "@/lib/catalog";
 import { getCategory, getMenu, getMenuItem, getMenuItemCustomizations, getProductOptions } from "@/lib/api";
-import ProductOptions, { answersToCart, missingRequired, OptionAnswers, StepHeader } from "@/components/ProductOptions";
+import ProductOptions, { answerableGroups, answersToCart, missingRequired, OptionAnswers, StepHeader } from "@/components/ProductOptions";
 import { useCartStore } from "@/store/cart.store";
 import { deliveryFeeForCategory, SUPPORT_WHATSAPP } from "@/constants";
 import { formatNaira } from "@/lib/format";
@@ -166,15 +166,17 @@ export default function ProductDetails() {
         );
     }
 
-    const mainCategory = subcategory && !subcategory.parent_id ? subcategory : parentCategory;
+    // The whole branch from the top (works at any depth: Local Market › Fruits › Bananas).
+    const branch = snapPath(subcategoryId) ?? [];
+    const mainCategory = branch[0] ?? (subcategory && !subcategory.parent_id ? subcategory : parentCategory);
     const accent = mainCategory?.color ?? ORANGE;
     // The product's own delivery settings (Admin › Products) win over its category's.
     const deliveryNote = item.delivery_note || mainCategory?.delivery_note || "Same-day delivery";
     const deliveryShort = /var/i.test(deliveryNote) ? "Varies" : /next/i.test(deliveryNote) ? "Next day" : "Same day";
     // Made to order (Wedding Cakes): no cart. Customers send an enquiry; design and price are agreed on WhatsApp.
-    const enquiry = !!subcategory?.enquiry_only || !!parentCategory?.enquiry_only;
+    const enquiry = !!subcategory?.enquiry_only || !!parentCategory?.enquiry_only || branch.some((c) => c.enquiry_only);
     const deliveryFee = item.delivery_fee != null ? Number(item.delivery_fee) : deliveryFeeForCategory(mainCategory?.name);
-    const groups = optionGroups ?? [];
+    const groups = answerableGroups(optionGroups ?? []);
     // The page opens before its choices (size, flavour…) and category arrive; adding waits for them
     // so a required choice or a made-to-order product is never skipped.
     const ready = optionGroups != null && (!subcategoryId || !!subcategory) && (!parentId || !!parentCategory);
@@ -255,7 +257,7 @@ export default function ProductDetails() {
                                 hitSlop={6}
                             >
                                 <Text style={[styles.crumbText, { color: accent }]} numberOfLines={1}>
-                                    {[mainCategory?.name, subcategory?.parent_id ? subcategory.name : null].filter(Boolean).join("  ›  ")}
+                                    {(branch.length ? branch.map((c) => c.name) : [mainCategory?.name, subcategory?.parent_id ? subcategory.name : null]).filter(Boolean).join("  ›  ")}
                                 </Text>
                             </TouchableOpacity>
                         )}

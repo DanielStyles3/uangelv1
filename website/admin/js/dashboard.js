@@ -318,8 +318,10 @@
       var catById = {}, mainOfMenu = {};
       cats.forEach(function (c) { catById[c.id] = c; });
       menu.forEach(function (m) {
+        // Walk up to the top category (products can sit several levels deep).
         var c = catById[m.category_id];
-        mainOfMenu[m.id] = c ? (c.parent_id ? catById[c.parent_id] : c) : null;
+        for (var i = 0; c && c.parent_id && i < 10; i++) c = catById[c.parent_id];
+        mainOfMenu[m.id] = c || null;
       });
 
       // Sales by main category

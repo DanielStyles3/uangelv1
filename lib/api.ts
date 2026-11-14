@@ -257,9 +257,9 @@ export const getMenu = async ({ category, query, limit }: GetMenuParams): Promis
     let request = supabase.from('menu').select(MENU_COLUMNS).eq('is_campaign', false).order('name');
 
     if (category) {
-        const { data: children, error } = await supabase.from('categories').select('id').eq('parent_id', category);
-        if (error) throw new Error(error.message);
-        request = request.in('category_id', [category, ...(children ?? []).map((c) => c.id)]);
+        // The category and everything inside it, at any depth (Local Market › Fruits › Bananas).
+        const tree = await getCategoryTree();
+        request = request.in('category_id', [...descendantIds(tree, category)]);
     }
     if (query) request = request.ilike('name', `%${query.replace(/[%_]/g, '\\$&')}%`);
     if (limit) request = request.limit(Number(limit));
@@ -308,23 +308,67 @@ export type HomeProduct = MenuItem & { main_category_id: string | null };
  * feeds Home's "Top rated" row and its per-category rows.
  */
 export const getHomeProducts = async (): Promise<HomeProduct[]> => {
-    type Row = MenuItem & { categories?: { image_url: string | null; parent_id: string | null } | null };
-    const rows = unwrap(
-        await supabase.from('menu')
-            .select('id, name, description, image_url, emoji, price, rating, calories, protein, is_available, category_id, created_at, categories(image_url, parent_id)')
+    type Row = MenuItem & { categories?: { image_url: string | null } | null };
+    const [res, tree] = await Promise.all([
+        supabase.from('menu')
+            .select('id, name, description, image_url, emoji, price, rating, calories, protein, is_available, category_id, delivery_fee, delivery_note, created_at, categories(image_url)')
             .eq('is_campaign', false)
             .order('rating', { ascending: false, nullsFirst: false })
             .order('name')
-            .limit(500)
-    ) as unknown as Row[];
+            .limit(500),
+        getCategoryTree(),
+    ]);
+    const rows = unwrap(res) as unknown as Row[];
 
     return rememberProducts(rows.map(({ categories, ...item }) => ({
         ...item,
         image_url: item.image_url ?? categories?.image_url ?? null,
-        // Products sit in a subcategory; its parent is the main category (or it IS one).
-        main_category_id: categories?.parent_id ?? item.category_id,
+        // The top of the product's branch (works at any depth: Local Market › Fruits › Bananas).
+        main_category_id: rootId(tree, item.category_id),
     })));
 }
+
+// ---------------------------------------------------------------------------
+// The category tree (id → parent), for any-depth lookups. Small, so fetched whole.
+// ---------------------------------------------------------------------------
+type Tree = Map<string, string | null>;
+let treeRequest: Promise<Tree> | null = null;
+let treeAt = 0;
+const getCategoryTree = (): Promise<Tree> => {
+    // Reused for a minute (Home + a category page ask at the same time); refreshed after that.
+    if (!treeRequest || Date.now() - treeAt > 60_000) {
+        treeAt = Date.now();
+        treeRequest = (async () => {
+            const rows = unwrap(await supabase.from('categories').select('id, parent_id')) as { id: string; parent_id: string | null }[];
+            return new Map(rows.map((r) => [r.id, r.parent_id]));
+        })();
+        treeRequest.catch(() => { treeRequest = null; });
+    }
+    return treeRequest;
+};
+onShopChange(() => { treeRequest = null; });
+
+const rootId = (tree: Tree, id: string | null | undefined): string | null => {
+    let cur = id ?? null;
+    for (let i = 0; cur && i < 10; i++) {
+        const parent = tree.get(cur);
+        if (!parent) return cur;
+        cur = parent;
+    }
+    return cur;
+};
+
+const descendantIds = (tree: Tree, id: string): Set<string> => {
+    const out = new Set([id]);
+    let grew = true;
+    while (grew) {
+        grew = false;
+        for (const [child, parent] of tree) {
+            if (parent && out.has(parent) && !out.has(child)) { out.add(child); grew = true; }
+        }
+    }
+    return out;
+};
 
 /**
  * Christmas pre-order products (menu.is_campaign, set in Admin › Products): no delivery,
@@ -472,9 +516,10 @@ export const placeOrder = async ({ items, address, city, state, phone, note, pay
             return {
                 menu_id: item.id,
                 quantity: item.quantity,
-                customization_ids: all.filter((c) => c.type !== 'option' && c.type !== 'text').map((c) => c.id),
+                customization_ids: all.filter((c) => c.type !== 'option' && c.type !== 'text' && c.type !== 'number').map((c) => c.id),
                 option_ids: all.filter((c) => c.type === 'option').map((c) => c.id),
-                texts: all.filter((c) => c.type === 'text').map((c) => ({ group_id: c.id, text: c.text ?? '' })),
+                // Typed answers: messages, and the number on a number cake (the server prices it by digits).
+                texts: all.filter((c) => c.type === 'text' || c.type === 'number').map((c) => ({ group_id: c.id, text: c.text ?? '' })),
             };
         }),
         p_address: address,
