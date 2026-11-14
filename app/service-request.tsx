@@ -9,7 +9,8 @@ import Animated, { FadeIn, FadeInDown, ZoomIn } from "react-native-reanimated";
 import EventCalendar, { datesLabel, durationLabel, toISODate } from "@/components/EventCalendar";
 import StatePicker from "@/components/StatePicker";
 import ProductImage from "@/components/ProductImage";
-import { createServiceRequest, getCategory, getSubcategories } from "@/lib/api";
+import { createServiceRequest, getCategory, getRequestQuestions, getSubcategories } from "@/lib/api";
+import { RequestQuestion } from "@/type";
 import { formatNaira, formatNigerianPhone, normalizeNigerianPhone } from "@/lib/format";
 import useFetch from "@/lib/useFetch";
 import useAuthStore from "@/store/auth.store";
@@ -108,6 +109,16 @@ export default function ServiceRequestScreen() {
     // Options under the chosen type (Catering › Events › Wedding Parties…).
     const { data: options } = useFetch({ fn: getSubcategories, params: { parentId: typeId ?? "" }, skip: !typeId });
 
+    // The chosen type's own questions (Private Chef: cuisine, what the chef should do…), then its option's.
+    const { data: questionsRaw } = useFetch({ fn: getRequestQuestions, params: { ids: [typeId, optionId].filter(Boolean).join(",") }, skip: !typeId, key: "shop:request-questions" });
+    const questions: RequestQuestion[] = typeId ? (questionsRaw ?? []).filter((q) => q.category_id === typeId || q.category_id === optionId) : [];
+    const [qa, setQa] = useState<Record<string, string | string[]>>({});
+    const answerOf = (q: RequestQuestion) => {
+        const a = qa[q.id];
+        return Array.isArray(a) ? a.join(", ") : (a ?? "").trim();
+    };
+    const unanswered = questions.find((q) => q.required && !answerOf(q));
+
     const [step, setStep] = useState(0);
     const [form, setForm] = useState({
         customName: "",
@@ -145,7 +156,7 @@ export default function ServiceRequestScreen() {
 
     // Cheap checks, so no memo needed (the React Compiler couldn't preserve one here).
     const valid = [
-        !!picked && (!isCustom || !!form.customName.trim())
+        !!picked && (!isCustom || !!form.customName.trim()) && !unanswered
             && (form.dateMode === "specific" ? form.dates.length > 0 : !!form.date && (form.dateMode !== "range" || !!form.endDate)),
         guests > 0 && budget > 0,
         !!form.address.trim() && !!form.city.trim() && !!form.state,
@@ -165,6 +176,7 @@ export default function ServiceRequestScreen() {
         const msg = [
             !picked ? "Please choose your type of event."
                 : isCustom && !form.customName.trim() ? "Please tell us what you’re celebrating."
+                : unanswered ? `Please answer: ${unanswered.question}`
                 : form.dateMode === "specific" ? "Please tap every day you need us on the calendar."
                 : !form.date ? (form.dateMode === "range" ? "Please tap the first day on the calendar." : "Please pick the date of your event.")
                 : "Please tap the last day on the calendar, or choose a length like 1 month.",
@@ -212,6 +224,7 @@ export default function ServiceRequestScreen() {
                 event_time: form.time,
                 venue_type: form.place,
                 needs: form.needs,
+                answers: questions.map((q) => ({ question: q.question, answer: answerOf(q) })).filter((a) => a.answer),
             });
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             setSubmitted(true);
@@ -355,6 +368,41 @@ export default function ServiceRequestScreen() {
                                             placeholder="e.g. Naming ceremony, graduation party" accessibilityLabel="What are you celebrating?" />
                                     </Animated.View>
                                 )}
+
+                                {/* The service's own questions (set in the admin), e.g. Private Chef: cuisine, what to cook */}
+                                {questions.map((q) => (
+                                    <Animated.View key={q.id} entering={FadeInDown.springify().damping(16)}>
+                                        <Section title={q.question} hint={q.kind === "multi" ? "Tick all that apply." : q.required ? undefined : "Optional"}>
+                                            {q.kind === "text" ? (
+                                                <IconInput icon="create-outline" value={(qa[q.id] as string) ?? ""} multiline maxLength={1000}
+                                                    onChangeText={(v) => setQa((p) => ({ ...p, [q.id]: v }))}
+                                                    placeholder={q.placeholder ?? "Tell us the details"} accessibilityLabel={q.question} />
+                                            ) : (
+                                                <View style={styles.chips}>
+                                                    {q.choices.map((c) => {
+                                                        const cur = qa[q.id];
+                                                        const on = q.kind === "multi" ? Array.isArray(cur) && cur.includes(c) : cur === c;
+                                                        return (
+                                                            <TouchableOpacity key={c} style={[styles.chip, on && styles.chipOn]}
+                                                                onPress={() => {
+                                                                    tap();
+                                                                    setQa((p) => {
+                                                                        if (q.kind !== "multi") return { ...p, [q.id]: p[q.id] === c && !q.required ? "" : c };
+                                                                        const list = Array.isArray(p[q.id]) ? (p[q.id] as string[]) : [];
+                                                                        return { ...p, [q.id]: list.includes(c) ? list.filter((x) => x !== c) : [...list, c] };
+                                                                    });
+                                                                }}
+                                                                accessibilityRole={q.kind === "multi" ? "checkbox" : "radio"} accessibilityState={{ checked: on }}>
+                                                                {on && <Ionicons name="checkmark-circle" size={15} color={ORANGE} />}
+                                                                <Text style={[styles.chipText, on && { color: ORANGE }]}>{c}</Text>
+                                                            </TouchableOpacity>
+                                                        );
+                                                    })}
+                                                </View>
+                                            )}
+                                        </Section>
+                                    </Animated.View>
+                                ))}
 
                                 <Section title="When?" hint="One event, a run of days (up to a year), or separate days.">
                                     <View style={styles.seg}>

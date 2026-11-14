@@ -175,8 +175,25 @@ export interface ServiceRequest {
     needs?: string[];
     /** The amount the business quoted (set in the admin). */
     quote_amount?: number | null;
+    /** Answers to the service's own questions (e.g. Private Chef: cuisine, what the chef should do). */
+    answers?: RequestAnswer[];
     status: ServiceRequestStatus;
     created_at: string;
+}
+
+export interface RequestAnswer { question: string; answer: string }
+
+/** A question a service type asks in its request form (set in Admin › Categories). */
+export interface RequestQuestion {
+    id: string;
+    category_id: string;
+    question: string;
+    /** 'single' = pick one, 'multi' = pick any, 'text' = type an answer. */
+    kind: 'single' | 'multi' | 'text';
+    choices: string[];
+    required: boolean;
+    placeholder: string | null;
+    sort_order: number;
 }
 
 export type NewServiceRequest = Omit<ServiceRequest, 'id' | 'user_id' | 'status' | 'created_at' | 'quote_amount'>;

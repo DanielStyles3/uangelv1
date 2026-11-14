@@ -229,6 +229,10 @@
             return '<a class="rq-tpl" href="' + esc(waUrl(r, t[1])) + '" target="_blank" rel="noopener" title="' + esc(t[1]) + '">' + esc(t[0]) + '</a>';
           }).join('') + '</div>' : '') + '</div>' +
         '<dl class="rq-kv">' +
+          // Their answers to the service's own questions (e.g. Private Chef: cuisine, what the chef should do).
+          (Array.isArray(r.answers) ? r.answers.map(function (a) {
+            return a && a.answer ? '<dt>' + esc(a.question) + '</dt><dd><b>' + esc(a.answer) + '</b></dd>' : '';
+          }).join('') : '') +
           '<dt>' + (r.end_date || (r.event_dates && r.event_dates.length > 1) ? 'Dates' : 'Event date') + '</dt><dd>' + (p ? esc(p.wd + ', ' + p.day + ' ' + p.mon + ' ' + p.year) + esc(untilText(r)) + (n != null ? ' · <b>' + esc(whenText(n)) + '</b>' : '') : '—') + '</dd>' +
           (r.event_time ? '<dt>Time of day</dt><dd>' + esc(r.event_time) + '</dd>' : '') +
           '<dt>Guests</dt><dd>' + A.formatNumber(r.guest_count) + '</dd>' +

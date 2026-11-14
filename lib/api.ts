@@ -15,6 +15,7 @@ import {
     ServiceRequest,
     PlaceOrderParams,
     ProfileUpdate,
+    RequestQuestion,
     SignInParams,
     SubcategoryWithCount,
     User,
@@ -569,6 +570,22 @@ export const getProfileStats = async (): Promise<{ orders: number; requests: num
 // ---------------------------------------------------------------------------
 // Service requests (Catering, Events & Celebrations)
 // ---------------------------------------------------------------------------
+
+/**
+ * The questions a service type asks (e.g. Private Chef: cuisine, what the chef should do), for the
+ * chosen type and the option inside it. [] if none (or before the table exists).
+ */
+export const getRequestQuestions = async ({ ids }: { ids: string }): Promise<RequestQuestion[]> => {
+    const list = ids.split(',').filter(Boolean);
+    if (!list.length) return [];
+    const { data, error } = await supabase.from('request_questions')
+        .select('id, category_id, question, kind, choices, required, placeholder, sort_order')
+        .in('category_id', list)
+        .order('sort_order');
+    if (error) return [];
+    // The type's questions first, then the more specific option's.
+    return ((data ?? []) as RequestQuestion[]).sort((a, b) => list.indexOf(a.category_id) - list.indexOf(b.category_id) || a.sort_order - b.sort_order);
+}
 
 export const createServiceRequest = async (request: NewServiceRequest): Promise<string> => {
     const { data, error } = await supabase.from('service_requests').insert(request).select('id').single();

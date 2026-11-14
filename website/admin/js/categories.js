@@ -82,18 +82,22 @@
     };
   }
   function reindex() {
-    var counts = S.countBySub, total = S.menuTotal;
+    var counts = S.countBySub, total = S.menuTotal, q = S.qCount;
     index(S.cats, null);
-    S.countBySub = counts; S.menuTotal = total;
+    S.countBySub = counts; S.menuTotal = total; S.qCount = q || {};
   }
 
   async function load() {
     var sb = Admin.sb;
     var r = await Promise.all([
       fetchAll(function () { return sb.from('categories').select(COLS).order('sort_order', { ascending: true }).order('name'); }),
-      fetchAll(function () { return sb.from('menu').select('id,category_id').order('id'); })
+      fetchAll(function () { return sb.from('menu').select('id,category_id').order('id'); }),
+      // Service questionnaires (empty until supabase/request-questions.sql has run).
+      sb.from('request_questions').select('id,category_id').then(function (x) { return x.error ? [] : (x.data || []); })
     ]);
     index(r[0], r[1]);
+    S.qCount = {};
+    r[2].forEach(function (q) { S.qCount[q.category_id] = (S.qCount[q.category_id] || 0) + 1; });
   }
 
   function subsOf(mainId) { return (S && S.subsBy[mainId]) || []; }
@@ -208,8 +212,12 @@
               '<button type="button" class="cg-icon sm" data-move-sub="' + esc(s.id) + '" data-dir="1" aria-label="Move ' + esc(s.name) + ' later"' + (j === subs.length - 1 ? ' disabled' : '') + '>' + I_RIGHT + '</button>' +
               '<button type="button" class="cg-edit" data-edit-sub="' + esc(s.id) + '">Edit</button>' +
             '</div>' +
-            (service ? '' : '<button type="button" class="cg-inner' + (treeOpen[m.id] === s.id ? ' on' : '') + '" data-tree="' + esc(s.id) + '" aria-expanded="' + (treeOpen[m.id] === s.id) + '">' +
-              (inner ? plural(inner, 'group') : 'Groups & sections') + ' ▾</button>') +
+            (service
+              // Services: the questions customers answer in the request form (e.g. Private Chef: cuisine).
+              ? '<button type="button" class="cg-inner" data-questions="' + esc(s.id) + '">' +
+                  ((S.qCount || {})[s.id] ? plural(S.qCount[s.id], 'question') : 'Add questions') + ' ✎</button>'
+              : '<button type="button" class="cg-inner' + (treeOpen[m.id] === s.id ? ' on' : '') + '" data-tree="' + esc(s.id) + '" aria-expanded="' + (treeOpen[m.id] === s.id) + '">' +
+                  (inner ? plural(inner, 'group') : 'Groups & sections') + ' ▾</button>') +
           '</div></div>';
       }).join('') +
       '<button type="button" class="cg-add" data-add-sub="' + esc(m.id) + '"><span>+</span>Add subcategory</button>' +
@@ -300,6 +308,7 @@
     if ((v = b.getAttribute('data-edit'))) return S.byId[v] && openEditor('main', S.byId[v], null);
     if ((v = b.getAttribute('data-add-sub'))) return S.byId[v] && openEditor('sub', null, S.byId[v]);
     if ((v = b.getAttribute('data-add-in'))) return S.byId[v] && openEditor('sub', null, S.byId[v]);
+    if ((v = b.getAttribute('data-questions'))) return S.byId[v] && openQuestions(S.byId[v]);
     if ((v = b.getAttribute('data-tree'))) {
       var sub = S.byId[v], mainId = sub && sub.parent_id;
       if (!mainId) return;
@@ -691,6 +700,128 @@
       actions: actions,
       onClose: dispose
     });
+  }
+
+  /* ---------------- Service questions (request form) ---------------- */
+
+  var Q_KINDS = { single: 'Pick one', multi: 'Pick any', text: 'Customer types' };
+
+  /**
+   * The questions a service asks in its request form, e.g. Private Chef: "What cuisine would you like?"
+   * (pick any: Local, Continental…) and "What would you like the chef to do?" (a box to type in).
+   */
+  function openQuestions(cat) {
+    var body = document.createElement('div');
+    body.className = 'cg-form';
+    var list = [];
+    var m = Admin.modal({
+      title: 'Questions · ' + cat.name, body: body, wide: true,
+      onClose: function () { S.qCount[cat.id] = list.length; renderAll(); },
+      actions: [{ label: 'Done', variant: 'primary', onClick: function (close) { close(); } }]
+    });
+
+    async function reload() {
+      var res = await Admin.sb.from('request_questions').select('*').eq('category_id', cat.id).order('sort_order');
+      if (res.error) {
+        body.innerHTML = '<p class="cg-err">' + esc(/request_questions/.test(errMsg(res.error)) ? 'Run supabase/request-questions.sql first.' : errMsg(res.error)) + '</p>';
+        return;
+      }
+      list = res.data || [];
+      paint();
+    }
+    function paint() {
+      body.innerHTML =
+        '<p class="cg-help" style="margin:0">Customers answer these when they send a <b>' + esc(cat.name) + '</b> request, before the date, guests and budget. ' +
+          'Use them to learn what they want, e.g. the cuisine, or what the chef should do. You still call them and send a quote.</p>' +
+        (list.length ? list.map(function (q, i) {
+          return '<div class="cg-tree-g"><div class="cg-tree-row"><span class="cg-tree-dot"></span><b>' + esc(q.question) + '</b>' +
+            '<small>' + Q_KINDS[q.kind] + (q.required ? ' · required' : ' · optional') + '</small><span class="cg-tree-sp"></span>' +
+            '<button type="button" class="cg-icon sm" data-qmove="' + esc(q.id) + '" data-dir="-1" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>' + I_UP + '</button>' +
+            '<button type="button" class="cg-icon sm" data-qmove="' + esc(q.id) + '" data-dir="1" aria-label="Move down"' + (i === list.length - 1 ? ' disabled' : '') + '>' + I_DOWN + '</button>' +
+            '<button type="button" class="cg-edit" data-qedit="' + esc(q.id) + '">Edit</button>' +
+            '<button type="button" class="cg-edit" data-qdel="' + esc(q.id) + '" style="color:var(--red)">Delete</button></div>' +
+            (q.kind !== 'text' && q.choices && q.choices.length ? '<div class="cg-tree-secs">' + q.choices.map(function (c) { return '<span class="cg-tree-sec" style="padding-right:12px">' + esc(c) + '</span>'; }).join('') + '</div>'
+              : q.placeholder ? '<p class="cg-help" style="margin:6px 0 0 16px">Example shown: “' + esc(q.placeholder) + '”</p>' : '') +
+          '</div>';
+        }).join('') : '<p class="cg-help">No questions yet. Customers only fill in the date, guests, budget and venue.</p>') +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-qadd="text">+ Box to type in</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-qadd="single">+ Pick one</button>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-qadd="multi">+ Pick any</button></div>';
+    }
+
+    function form(q, kind) {
+      return new Promise(function (resolve) {
+        var f = document.createElement('form'); f.className = 'cg-form'; f.noValidate = true;
+        var choice = kind !== 'text';
+        f.innerHTML =
+          '<div class="field"><label for="rq-q">Question</label><input id="rq-q" name="question" class="input" maxlength="120" value="' + esc(q ? q.question : '') + '" placeholder="' +
+            (choice ? 'e.g. What cuisine would you like?' : 'e.g. What would you like the chef to do?') + '"></div>' +
+          '<div class="field"><label for="rq-k">Type</label><select id="rq-k" name="kind" class="select">' +
+            Object.keys(Q_KINDS).map(function (k) { return '<option value="' + k + '"' + (k === kind ? ' selected' : '') + '>' + Q_KINDS[k] + '</option>'; }).join('') + '</select></div>' +
+          '<div class="field" data-choices' + (choice ? '' : ' hidden') + '><label for="rq-c">Choices (one per line)</label>' +
+            '<textarea id="rq-c" name="choices" class="textarea" rows="5" placeholder="Local (Nigerian)&#10;Continental&#10;Baking &amp; pastries">' + esc(q && q.choices ? q.choices.join('\n') : '') + '</textarea></div>' +
+          '<div class="field" data-ph' + (choice ? ' hidden' : '') + '><label for="rq-p">Example for customers (optional)</label><input id="rq-p" name="placeholder" class="input" maxlength="160" value="' + esc(q && q.placeholder || '') + '" placeholder="e.g. Cook dinner for 6 every Saturday"></div>' +
+          '<label style="display:flex;gap:8px;align-items:center;font-weight:700"><input type="checkbox" name="required"' + (q ? (q.required ? ' checked' : '') : ' checked') + '> Customers must answer this</label>' +
+          '<button type="submit" hidden></button>';
+        f.elements.kind.addEventListener('change', function () {
+          var c = f.elements.kind.value !== 'text';
+          f.querySelector('[data-choices]').hidden = !c; f.querySelector('[data-ph]').hidden = c;
+        });
+        var done = false;
+        function submit(close) {
+          var question = f.elements.question.value.trim(), k = f.elements.kind.value;
+          var choices = f.elements.choices.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+          if (!question) { f.elements.question.focus(); return; }
+          if (k !== 'text' && choices.length < 2) { Admin.toast('Add at least two choices, one per line.', 'error'); f.elements.choices.focus(); return; }
+          done = true; close();
+          resolve({ question: question, kind: k, choices: k === 'text' ? [] : choices, required: f.elements.required.checked,
+            placeholder: k === 'text' ? (f.elements.placeholder.value.trim() || null) : null });
+        }
+        var mm = Admin.modal({ title: q ? 'Edit question' : 'New question', body: f, onClose: function () { if (!done) resolve(null); },
+          actions: [{ label: 'Cancel', variant: 'ghost', onClick: function (close) { close(); } }, { label: 'Save', variant: 'primary', onClick: function (close) { submit(close); } }] });
+        f.addEventListener('submit', function (e) { e.preventDefault(); submit(mm.close); });
+      });
+    }
+    async function run(q, ok) {
+      var res = await q;
+      if (res.error) { Admin.toast('Couldn’t save: ' + errMsg(res.error), 'error'); return; }
+      if (ok) Admin.toast(ok, 'success', { duration: 1600 });
+      await reload();
+    }
+
+    body.addEventListener('click', async function (e) {
+      var b = e.target.closest('button'); if (!b || b.disabled) return;
+      var v, q;
+      if ((v = b.getAttribute('data-qadd'))) {
+        var a = await form(null, v); if (!a) return;
+        a.category_id = cat.id;
+        a.sort_order = list.reduce(function (mx, x) { return Math.max(mx, x.sort_order || 0); }, 0) + 1;
+        return run(Admin.sb.from('request_questions').insert(a), 'Question added');
+      }
+      if ((v = b.getAttribute('data-qedit'))) {
+        q = list.find(function (x) { return x.id === v; }); if (!q) return;
+        var u = await form(q, q.kind); if (!u) return;
+        return run(Admin.sb.from('request_questions').update(u).eq('id', q.id), 'Saved');
+      }
+      if ((v = b.getAttribute('data-qdel'))) {
+        q = list.find(function (x) { return x.id === v; });
+        if (q && await Admin.confirm('Delete the question “' + q.question + '”?', { danger: true, confirmLabel: 'Delete' }))
+          return run(Admin.sb.from('request_questions').delete().eq('id', q.id), 'Deleted');
+        return;
+      }
+      if ((v = b.getAttribute('data-qmove'))) {
+        var i = list.findIndex(function (x) { return x.id === v; }), j = i + Number(b.getAttribute('data-dir'));
+        var order = list.slice(); order.splice(j, 0, order.splice(i, 1)[0]);
+        var res = await Promise.all(order.map(function (x, k) { return Admin.sb.from('request_questions').update({ sort_order: k + 1 }).eq('id', x.id); }));
+        var bad = res.find(function (x) { return x.error; }); if (bad) Admin.toast('Couldn’t reorder: ' + errMsg(bad.error), 'error');
+        return reload();
+      }
+    });
+
+    body.innerHTML = '<p class="cg-help">Loading…</p>';
+    reload();
+    return m;
   }
 
   async function tryDelete(c, closeEditor) {
