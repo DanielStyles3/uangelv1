@@ -17,7 +17,7 @@
         "backgroundColor": "#FD652A"
       },
       "package": "com.uangelfoods.app",
-      "versionCode": 20
+      "versionCode": 21
     },
     "web": {
       "bundler": "metro",
