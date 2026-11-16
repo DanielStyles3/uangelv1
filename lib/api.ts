@@ -543,7 +543,8 @@ export const getOrders = async (): Promise<Order[]> => {
     return unwrap(
         await supabase
             .from('orders')
-            .select(`${ORDER_COLUMNS}, order_items (id, menu_id, name, quantity, image_url)`)
+            // Full item rows, so an order opened from this list shows instantly and completely.
+            .select(`${ORDER_COLUMNS}, order_items (id, order_id, menu_id, name, image_url, unit_price, quantity, customizations, line_total)`)
             .order('created_at', { ascending: false })
     ) as unknown as Order[];
 }

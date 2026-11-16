@@ -114,7 +114,11 @@ export default function OrderDetails() {
     // Opens instantly with the copy from My orders, then refreshes.
     const { data: order, loading, refetch } = useFetch({
         fn: getOrder, params: { id }, key: 'me:order',
-        initial: () => getCached<Order[]>('me:orders:{}')?.find((o) => o.id === id),
+        // Only a complete copy (older lists didn't include item prices and choices).
+        initial: () => {
+            const o = getCached<Order[]>('me:orders:{}')?.find((x) => x.id === id);
+            return o && (o.order_items ?? []).every((i) => i.line_total != null && Array.isArray(i.customizations)) ? o : undefined;
+        },
     });
     // Christmas pre-order products, to word the "payment successful" message for giving orders.
     const { data: packs } = useFetch({ fn: getCampaignProducts });
@@ -175,14 +179,14 @@ export default function OrderDetails() {
         let added = 0;
         for (const item of items) {
             if (!item.menu_id) continue; // product no longer exists
-            const extras = item.customizations.reduce((s, c) => s + Number(c.price), 0);
+            const extras = (item.customizations ?? []).reduce((s, c) => s + Number(c.price), 0);
             addItem({
                 id: item.menu_id,
                 name: item.name,
                 price: Number(item.unit_price) - extras,
                 image_url: item.image_url,
                 // Keeps cake choices too (size, flavour) and typed answers (the message on the cake).
-                customizations: item.customizations.map((c) => ({ id: c.id, name: c.name, price: Number(c.price), type: c.type, ...(c.text ? { text: c.text } : {}) })),
+                customizations: (item.customizations ?? []).map((c) => ({ id: c.id, name: c.name, price: Number(c.price), type: c.type, ...(c.text ? { text: c.text } : {}) })),
             }, item.quantity);
             added++;
         }
@@ -319,8 +323,8 @@ export default function OrderDetails() {
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
-                                {item.customizations.length > 0 && (
-                                    <Text style={styles.itemExtras} numberOfLines={2}>+ {item.customizations.map((c) => c.name).join(', ')}</Text>
+                                {(item.customizations ?? []).length > 0 && (
+                                    <Text style={styles.itemExtras} numberOfLines={2}>+ {(item.customizations ?? []).map((c) => c.name).join(', ')}</Text>
                                 )}
                                 <Text style={styles.itemQty}>{item.quantity} × {formatNaira(item.unit_price)}</Text>
                             </View>
