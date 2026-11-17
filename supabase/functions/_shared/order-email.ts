@@ -6,7 +6,7 @@ type Sql = any;
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM = "U Angel Foods <noreply@uangelfoods.com>";
-const REPLY_TO = "uangelfoods@gmail.com";
+const REPLY_TO = "info@uangelfoods.com";
 
 const esc = (s: unknown) =>
     String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));

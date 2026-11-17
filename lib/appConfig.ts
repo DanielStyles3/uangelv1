@@ -26,7 +26,7 @@ export const DEFAULT_CONFIG = {
     contact: {
         /** Shown to customers, e.g. "0704 905 5555". WhatsApp and call links are made from it. */
         phone: "0704 905 5555",
-        email: "uangelfoods@gmail.com",
+        email: "info@uangelfoods.com",
         instagram: "uangelfoods",
     },
     delivery: {

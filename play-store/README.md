@@ -10,7 +10,7 @@ Everything you need to paste into Play Console. Do this once for each app.
 | Feature graphic (1024×500) | `foods-feature-1024x500.png` | `affiliates-feature-1024x500.png` |
 | Privacy policy URL | https://uangelfoods.com/privacy | https://uangelfoods.com/privacy |
 | Account deletion URL | https://uangelfoods.com/delete-account | https://uangelfoods.com/delete-account |
-| Contact email | uangelfoods@gmail.com | uangelfoods@gmail.com |
+| Contact email | info@uangelfoods.com | info@uangelfoods.com |
 | Contact phone | +234 704 905 5555 | +234 704 905 5555 |
 | Website | https://uangelfoods.com | https://uangelfoods.com |
 
@@ -50,7 +50,7 @@ Pre-order a Christmas pack for someone in need, with no delivery fee. Add your n
 U ARE AN ANGEL
 The profit from every order funds outreach that feeds the homeless, the handicapped, orphans and widows. When you order, you help.
 
-Questions? WhatsApp or call 0704 905 5555, or email uangelfoods@gmail.com.
+Questions? WhatsApp or call 0704 905 5555, or email info@uangelfoods.com.
 ```
 
 ## U Angel Affiliates: store listing
@@ -80,7 +80,7 @@ Withdraw to any Nigerian bank account from ₦2,000. Every payout is checked by 
 
 Applications are reviewed by U Angel Foods before you can start earning.
 
-Questions? WhatsApp or call 0704 905 5555, or email uangelfoods@gmail.com.
+Questions? WhatsApp or call 0704 905 5555, or email info@uangelfoods.com.
 ```
 
 ---

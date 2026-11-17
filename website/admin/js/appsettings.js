@@ -26,7 +26,7 @@
   ];
 
   var DEFAULTS = {
-    contact: { phone: '0704 905 5555', email: 'uangelfoods@gmail.com', instagram: 'uangelfoods' },
+    contact: { phone: '0704 905 5555', email: 'info@uangelfoods.com', instagram: 'uangelfoods' },
     delivery: { standardFee: 2000, marketFee: 5000, areaNote: 'We deliver to your door across Lagos.', payOnDelivery: true },
     campaign: { goal: 10000, endsAt: '2026-12-25T23:59:00+01:00' },
     texts: {

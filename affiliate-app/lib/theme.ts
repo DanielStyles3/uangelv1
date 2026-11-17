@@ -56,7 +56,7 @@ export const SPRING = { mass: 1, damping: 20, stiffness: 180 } as const;
 export const CONTACT = {
     whatsappDisplay: '0704 905 5555',
     whatsappIntl: '2347049055555',
-    email: 'uangelfoods@gmail.com',
+    email: 'info@uangelfoods.com',
 };
 
 export const referralLink = (code: string) => `https://uangelfoods.com/r/${code}`;
