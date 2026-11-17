@@ -5,8 +5,10 @@
 type Sql = any;
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const FROM = "U Angel Foods <noreply@uangelfoods.com>";
-const REPLY_TO = "info@uangelfoods.com";
+// Customers see the email come from info@uangelfoods.com (sent through Resend; no inbox needed).
+const FROM = "U Angel Foods <info@uangelfoods.com>";
+// info@ has no inbox, so replies go to the shop's Gmail.
+const REPLY_TO = "uangelfoods@gmail.com";
 
 const esc = (s: unknown) =>
     String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
