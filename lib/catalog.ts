@@ -3,6 +3,7 @@ import { warmAppConfig } from "@/lib/appConfig";
 import { emitShopChange, getCached, warm } from "@/lib/dataCache";
 import { prefetchThumbs } from "@/lib/images";
 import { supabase } from "@/lib/supabase";
+import { AppState, AppStateStatus } from "react-native";
 import { Category, MenuItem, OptionGroup, SubcategoryWithCount } from "@/type";
 
 /**
@@ -77,12 +78,30 @@ export const listenForShopChanges = () => {
             Promise.all([warmCatalog(true), warmAppConfig(true)]).finally(emitShopChange);
         }, 1500);
     };
-    let channel = supabase.channel("shop-changes");
     // site_settings = App settings (contacts, fees, wording, forms) and the banners' text.
-    for (const table of ["menu", "categories", "option_groups", "option_values", "promotions", "site_settings", "request_questions"]) {
-        channel = channel.on("postgres_changes", { event: "*", schema: "public", table }, changed);
-    }
-    channel.subscribe();
+    const tables = ["menu", "categories", "option_groups", "option_values", "promotions", "site_settings", "request_questions"];
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    let firstLink = true; // the app already loads the shop at launch
+    const connect = () => {
+        if (retry) { clearTimeout(retry); retry = null; }
+        if (channel) supabase.removeChannel(channel);
+        let ch = supabase.channel(`shop-changes-${Date.now()}`);
+        for (const table of tables) ch = ch.on("postgres_changes", { event: "*", schema: "public", table }, changed);
+        channel = ch.subscribe((status) => {
+            // Live link failed (bad network): try again shortly, and catch up on anything missed.
+            if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") retry = setTimeout(connect, 5000);
+            if (status === "SUBSCRIBED") { if (!firstLink) changed(); firstLink = false; }
+        });
+    };
+    connect();
+    // Phones drop the live link while the app is in the background: when it's opened again,
+    // reconnect and reload the shop, so products added meanwhile show straight away.
+    let last: string | null | undefined = AppState.currentState;
+    AppState.addEventListener("change", (next: AppStateStatus) => {
+        if (/inactive|background/.test(String(last)) && next === "active") connect();
+        last = next;
+    });
 };
 
 export const snapCategory = (id?: string | null): Category | undefined =>
