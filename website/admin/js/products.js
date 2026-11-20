@@ -102,6 +102,20 @@
     for (var c = S.catById[catId], i = 0; c && i < 10; i++, c = c.parent_id ? S.catById[c.parent_id] : null) if (c.id === topId) return true;
     return false;
   }
+  /** Groups inside this level that hold products (the app shows them as buttons, e.g. Juice | Malt). */
+  function liveGroups(catId) {
+    return (S.subsBy[catId] || []).filter(function (g) {
+      return S.products.some(function (p) { return !p.is_campaign && inBranch(p.category_id, g.id); });
+    });
+  }
+  /** Warning under "Where it goes" when the chosen level has groups: products put here are easy to miss. */
+  function levelWarning(catId) {
+    var c = catId && S.catById[catId], groups = c ? liveGroups(catId) : [];
+    if (!groups.length) return '';
+    return '⚠ ' + esc(c.name) + ' has groups inside (' + groups.map(function (g) { return esc(g.name); }).join(', ') + '). ' +
+      'A product put straight here only shows under a “More ' + esc(c.name) + '” button at the end, so customers may miss it. ' +
+      'Pick one of the groups below it, or add a new group (e.g. “Fizzy Drinks”) on the Categories page.';
+  }
   /** Show the "Sizes & options" shortcut on cakes and on anything that already has options. */
   function hasOptionsUI(p) {
     if ((S.optGroups || []).some(function (g) { return g.menu_id === p.id; })) return true;
@@ -394,6 +408,7 @@
         '<div class="field"><label for="' + uid + '-sub">Where it goes <span class="cg-req" aria-hidden="true">*</span></label>' +
           '<select id="' + uid + '-sub" name="sub" class="select"' + (draft.main ? '' : ' disabled') + '>' + subOptions() + '</select>' +
           '<span class="cg-help">Pick the most specific place, e.g. Fruits & Vegetables › Fruits › Bananas. Add new ones on the Categories page.</span>' +
+          '<span class="cg-help" data-level-warn style="color:#B45309;font-weight:600"' + (levelWarning(draft.sub) ? '' : ' hidden') + '>' + levelWarning(draft.sub) + '</span>' +
           '<span class="cg-err" data-err="sub" role="alert"></span></div>' +
       '</div>' +
       '<div class="field"><label for="' + uid + '-desc">Description <span class="cg-opt">(optional)</span></label>' +
@@ -493,10 +508,12 @@
     $('[name="main"]').addEventListener('change', function () {
       draft.main = this.value; draft.sub = ''; fieldError('main', ''); fieldError('sub', '');
       var sel = $('[name="sub"]'); sel.innerHTML = subOptions(); sel.disabled = !draft.main;
+      paintLevelWarn();
       paintPhoto();
       if (draft.main) sel.focus();
     });
-    $('[name="sub"]').addEventListener('change', function () { draft.sub = this.value; fieldError('sub', ''); paintPhoto(); });
+    function paintLevelWarn() { var w = $('[data-level-warn]'), t = levelWarning(draft.sub); w.innerHTML = t; w.hidden = !t; }
+    $('[name="sub"]').addEventListener('change', function () { draft.sub = this.value; fieldError('sub', ''); paintLevelWarn(); paintPhoto(); });
     // Placeholder/help shows the category's standard fee, so an empty box is self-explanatory.
     function paintFeeHint() {
       var m = S.catById[draft.main], std = standardFee(m && m.name);

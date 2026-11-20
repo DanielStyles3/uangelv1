@@ -55,7 +55,13 @@ function ShopCategory({ snap, main, sel }: { snap: Catalog; main: Category; sel?
 
     // Only branches that actually hold products.
     const live = (c: Category) => countIn(snap, c.id) > 0;
-    const tabs = useMemo(() => childrenOf(snap, main.id).filter(live), [snap, main.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    const tabs = useMemo(() => {
+        const children = childrenOf(snap, main.id).filter(live).map(({ id, name }) => ({ id, name }));
+        if (children.length && productsIn(snap, main.id).length) {
+            children.push({ id: main.id, name: `More ${main.name}` });
+        }
+        return children;
+    }, [snap, main]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Start where we were sent (a subcategory, group or section), else the first tab.
     const start = useMemo(() => {
@@ -68,21 +74,19 @@ function ShopCategory({ snap, main, sel }: { snap: Catalog; main: Category; sel?
 
     const tab = tabs.find((t) => t.id === tabId) ?? tabs[0];
     const chips = useMemo(() => {
-        if (!tab) return [];
+        if (!tab || tab.id === main.id) return [];
         const list = childrenOf(snap, tab.id).filter(live).map((c) => ({ id: c.id, name: c.name }));
         // Products placed straight in the tab (not in one of its groups) get their own chip.
         if (list.length && productsIn(snap, tab.id).length) list.push({ id: `${tab.id}:more`, name: `More ${tab.name}` });
         return list;
-    }, [snap, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [snap, tab, main.id]); // eslint-disable-line react-hooks/exhaustive-deps
     const chip = chips.find((c) => c.id === chipId) ?? chips[0];
 
     // What's on screen: the chosen group (or the tab when it has none), as sections of products.
     const sections: Section[] = useMemo(() => {
-        if (!tab && !tabs.length) {
-            // A category with products but no subcategories at all.
+        if (!tab || tab.id === main.id) {
             return [{ key: main.id, title: null, items: productsIn(snap, main.id) }];
         }
-        if (!tab) return [];
         if (chip?.id === `${tab.id}:more`) return [{ key: chip.id, title: null, items: productsIn(snap, tab.id) }];
         const node = chip ? chip.id : tab.id;
         const subs = childrenOf(snap, node).filter(live);
@@ -98,7 +102,7 @@ function ShopCategory({ snap, main, sel }: { snap: Catalog; main: Category; sel?
                 return { key: s.id, title: s.name, items: snap.products.filter((p) => p.category_id && ids.has(p.category_id)).sort((a, b) => a.name.localeCompare(b.name)) };
             }),
         ];
-    }, [snap, main.id, tabs.length, tab, chip]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [snap, main.id, tab, chip]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Flatten into rows of 3 for a fast list.
     const rows: Row[] = useMemo(() => sections.flatMap((s) => {

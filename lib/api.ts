@@ -249,23 +249,33 @@ export const updateProfile = async (userId: string, changes: ProfileUpdate): Pro
 // Menu
 // ---------------------------------------------------------------------------
 
-/**
- * `category` may be a subcategory id (its products) or a main category id
- * (products in all of its subcategories).
- */
-export const getMenu = async ({ category, query, limit }: GetMenuParams): Promise<MenuItem[]> => {
-    // The Christmas giving pack is only reached from the Christmas page, never listed.
-    let request = supabase.from('menu').select(MENU_COLUMNS).eq('is_campaign', false).order('name');
+const MENU_PAGE_SIZE = 250;
 
-    if (category) {
-        // The category and everything inside it, at any depth (Local Market › Fruits › Bananas).
-        const tree = await getCategoryTree();
-        request = request.in('category_id', [...descendantIds(tree, category)]);
+// The Christmas giving pack is listed only on the Christmas page.
+const menuQuery = () => supabase.from('menu').select(MENU_COLUMNS).eq('is_campaign', false);
+
+const readMenuPages = async (makeQuery: () => ReturnType<typeof menuQuery>, limit?: number): Promise<MenuRow[]> => {
+    const rows: MenuRow[] = [];
+    while (!limit || rows.length < limit) {
+        const size = limit ? Math.min(MENU_PAGE_SIZE, limit - rows.length) : MENU_PAGE_SIZE;
+        const page = unwrap(await makeQuery().range(rows.length, rows.length + size - 1)) as unknown as MenuRow[];
+        rows.push(...page);
+        if (page.length < size) break; // last page
+
     }
-    if (query) request = request.ilike('name', `%${query.replace(/[%_]/g, '\\$&')}%`);
-    if (limit) request = request.limit(Number(limit));
+    return rows;
+};
 
-    return rememberProducts((unwrap(await request) as unknown as MenuRow[]).map(withFallbackPhoto));
+/** Search a category and all its descendants, or the entire shop. */
+export const getMenu = async ({ category, query, limit }: GetMenuParams): Promise<MenuItem[]> => {
+    const ids = category ? [...descendantIds(await getCategoryTree(), category)] : undefined;
+    const rows = await readMenuPages(() => {
+        let request = menuQuery().order('name').order('id');
+        if (ids) request = request.in('category_id', ids);
+        if (query) request = request.ilike('name', `%${query.replace(/[%_]/g, '\\$&')}%`);
+        return request;
+    }, limit ? Number(limit) : undefined);
+    return rememberProducts(rows.map(withFallbackPhoto));
 }
 
 /**
@@ -305,25 +315,20 @@ export const getCampaignProgress = async (): Promise<number> => {
 export type HomeProduct = MenuItem & { main_category_id: string | null };
 
 /**
- * Every product, best-rated first, tagged with its MAIN category — one request that
+ * Every product, best-rated first, tagged with its MAIN category. This
  * feeds Home's "Top rated" row and its per-category rows.
  */
 export const getHomeProducts = async (): Promise<HomeProduct[]> => {
-    type Row = MenuItem & { categories?: { image_url: string | null } | null };
-    const [res, tree] = await Promise.all([
-        supabase.from('menu')
-            .select('id, name, description, image_url, emoji, price, hide_price, rating, calories, protein, is_available, category_id, delivery_fee, delivery_note, created_at, categories(image_url)')
-            .eq('is_campaign', false)
+    const [rows, tree] = await Promise.all([
+        readMenuPages(() => menuQuery()
             .order('rating', { ascending: false, nullsFirst: false })
             .order('name')
-            .limit(500),
+            .order('id')),
         getCategoryTree(),
     ]);
-    const rows = unwrap(res) as unknown as Row[];
 
-    return rememberProducts(rows.map(({ categories, ...item }) => ({
-        ...item,
-        image_url: item.image_url ?? categories?.image_url ?? null,
+    return rememberProducts(rows.map((item) => ({
+        ...withFallbackPhoto(item),
         // The top of the product's branch (works at any depth: Local Market › Fruits › Bananas).
         main_category_id: rootId(tree, item.category_id),
     })));

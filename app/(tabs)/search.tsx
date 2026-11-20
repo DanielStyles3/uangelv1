@@ -16,7 +16,7 @@ const Search = () => {
 
     // useFetch refetches automatically whenever category/query change.
     // Results appear instantly from the shop snapshot, then the server's answer replaces them.
-    const { data, loading } = useFetch({ fn: getMenu, params: { category, query, limit: 6 }, initial: () => snapSearch(category, query, 6) });
+    const { data, loading } = useFetch({ fn: getMenu, params: { category, query }, initial: () => snapSearch(category, query) });
     const { data: categories } = useFetch({ fn: getCategories, key: 'shop:categories', initial: snapMainCategories });
 
     return (
