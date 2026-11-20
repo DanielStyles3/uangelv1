@@ -196,8 +196,17 @@
       if (!c) return;
       // Cake choices (size, flavour…) and typed answers (message on the cake) come first, one per line.
       // (and the number on a number cake, with its price)
-      var k = c.type === 'option' || c.type === 'text' || c.type === 'number' ? 'option' : c.type === 'side' ? 'side' : 'topping';
-      groups[k].push(esc(c.name) + (Number(c.price) ? ' (+' + esc(A.formatNaira(c.price)) + ')' : ''));
+      // (and the newer questions: "how many" choices, dates, photos, yes / no)
+      var k = c.type === 'side' ? 'side' : c.type === 'topping' ? 'topping' : 'option';
+      // How many: "3× Birthday Candles" (price is the whole line).
+      var n = Number(c.qty || 1), name = String(c.name || ''), at = name.indexOf(': ');
+      var label = n > 1 ? (at > 0 ? name.slice(0, at + 2) + n + '× ' + name.slice(at + 2) : n + '× ' + name) : name;
+      var html = esc(label);
+      if (c.type === 'photo' && /^https:\/\//.test(c.text || '')) {
+        html = esc(name.slice(0, at > 0 ? at : name.length)) + ': <a href="' + esc(c.text) + '" target="_blank" rel="noopener">' +
+          '<img src="' + esc(c.text) + '" alt="Customer photo" style="width:72px;height:72px;object-fit:cover;border-radius:8px;vertical-align:middle;margin:4px 0"> open photo</a>';
+      }
+      groups[k].push(html + (Number(c.price) ? ' (+' + esc(A.formatNaira(c.price)) + ')' : ''));
     });
     var out = [];
     if (groups.option.length) out.push('<div class="meta" style="background:#FBE7EF;color:#7a2347;border-radius:10px;padding:8px 10px;margin:6px 0"><strong>Customised:</strong><br>' + groups.option.join('<br>') + '</div>');

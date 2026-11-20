@@ -118,7 +118,9 @@ export default function CakeEnquiry() {
                     const at = c.name.indexOf(": ");
                     const q = at > 0 ? c.name.slice(0, at) : c.name;
                     const a = (at > 0 ? c.name.slice(at + 2) : c.text ?? "").replace(/^"|"$/g, "");
-                    return { question: q, answer: a };
+                    // A photo: the link, so the team can open it; "how many": "3× Candles".
+                    if (c.type === "photo") return { question: q, answer: c.text ?? a };
+                    return { question: q, answer: (c.qty ?? 1) > 1 ? `${c.qty}× ${a}` : a };
                 }),
             });
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});

@@ -17,7 +17,7 @@
         "backgroundColor": "#FD652A"
       },
       "package": "com.uangelfoods.app",
-      "versionCode": 24
+      "versionCode": 25
     },
     "web": {
       "bundler": "metro",
@@ -26,6 +26,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Choose a photo of the design you'd like for your order.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       [
         "expo-splash-screen",
         {

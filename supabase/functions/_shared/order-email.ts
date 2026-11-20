@@ -27,7 +27,7 @@ type Item = {
     quantity: number;
     unit_price: string;
     line_total: string;
-    customizations: { name: string; text?: string; type?: string }[];
+    customizations: { name: string; text?: string; type?: string; qty?: number }[];
     delivery_day: string | null;
 };
 
@@ -57,11 +57,19 @@ export const sendOrderReceivedEmail = async (sql: Sql, reference: string) => {
     const payOnDelivery = Number(order.balance_due ?? 0) > 0;
 
     const itemRows = items.map((i) => {
+        // The name already says it all ("Size: 8 inch", "Message: "Happy 30th"", "Date: Sat 28 Nov");
+        // how many shows as "3× Birthday Candles"; a photo gets a link.
         const extras = (i.customizations ?? [])
-            .map((c) => (c.text ? `${c.name}: “${c.text}”` : c.name))
+            .map((c) => {
+                const n = Number(c.qty ?? 1);
+                const at = c.name.indexOf(": ");
+                const label = n > 1 ? (at > 0 ? `${c.name.slice(0, at + 2)}${n}× ${c.name.slice(at + 2)}` : `${n}× ${c.name}`) : c.name;
+                if (c.type === "photo" && /^https:\/\//.test(c.text ?? "")) return `<a href="${esc(c.text ?? "")}" style="color:#C2410C">${esc(label)}</a>`;
+                return esc(label);
+            })
             .filter(Boolean);
         const sub = [
-            extras.length ? esc(extras.join(", ")) : "",
+            extras.length ? extras.join(", ") : "",
             i.delivery_day ? `Delivery: ${esc(dayLabel(i.delivery_day))}` : "",
         ].filter(Boolean).join("<br>");
         return `

@@ -394,12 +394,33 @@ export const getMenuItem = async ({ id }: { id: string }): Promise<MenuItem> => 
     return item;
 }
 
+/**
+ * A picture for a "photo" question (a design to copy): uploaded to the customer's own folder,
+ * returns its public link (the server only accepts links from this bucket).
+ */
+export const uploadOrderPhoto = async (uri: string, mimeType: string): Promise<string> => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const uid = session?.user?.id;
+    if (!uid) throw new Error('Please sign in to add a photo.');
+    const type = /png|webp|heic/i.test(mimeType) ? mimeType.toLowerCase() : 'image/jpeg';
+    const ext = type.split('/')[1].replace('jpeg', 'jpg');
+    const body = await (await fetch(uri)).arrayBuffer();
+    const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from('order-photos').upload(path, body, { contentType: type, upsert: false });
+    if (error) throw new Error(error.message);
+    return supabase.storage.from('order-photos').getPublicUrl(path).data.publicUrl;
+};
+
+/** A product's questions and their choices (the app's "Make it yours" form). */
+export const OPTION_GROUP_COLUMNS =
+    'id, menu_id, name, kind, required, max_length, placeholder, sort_order, max_select, min_days, option_values (id, group_id, name, price, hint, swatch, sort_order, max_qty)';
+
 // Only the toppings/sides linked to this menu item via menu_customizations.
 export const getMenuItemCustomizations = async ({ id }: { id: string }): Promise<Customization[]> => {
     const rows = unwrap(
         await supabase
             .from('menu_customizations')
-            .select('customizations (id, name, price, type, created_at)')
+            .select('customizations (id, name, price, type, created_at, max_qty)')
             .eq('menu_id', id)
     ) as unknown as { customizations: Customization | null }[];
 
@@ -413,7 +434,7 @@ export const getMenuItemCustomizations = async ({ id }: { id: string }): Promise
 export const getProductOptions = async ({ id }: { id: string }): Promise<OptionGroup[]> => {
     const { data, error } = await supabase
         .from('option_groups')
-        .select('id, menu_id, name, kind, required, max_length, placeholder, sort_order, option_values (id, group_id, name, price, hint, swatch, sort_order)')
+        .select(OPTION_GROUP_COLUMNS)
         .eq('menu_id', id)
         .order('sort_order');
     if (error) return [];   // e.g. before schema.sql adds the tables: the product just has no options
@@ -522,13 +543,16 @@ export const placeOrder = async ({ items, address, city, state, phone, note, pay
     const { data, error } = await supabase.rpc('place_order', {
         p_items: items.map((item) => {
             const all = item.customizations ?? [];
+            const typed = ['text', 'number', 'date', 'photo', 'yesno'];
             return {
                 menu_id: item.id,
                 quantity: item.quantity,
-                customization_ids: all.filter((c) => c.type !== 'option' && c.type !== 'text' && c.type !== 'number').map((c) => c.id),
+                // Add-ons and how many of each (per item).
+                addons: all.filter((c) => c.type === 'topping' || c.type === 'side').map((c) => ({ id: c.id, qty: c.qty ?? 1 })),
                 option_ids: all.filter((c) => c.type === 'option').map((c) => c.id),
-                // Typed answers: messages, and the number on a number cake (the server prices it by digits).
-                texts: all.filter((c) => c.type === 'text' || c.type === 'number').map((c) => ({ group_id: c.id, text: c.text ?? '' })),
+                option_qty: all.filter((c) => c.type === 'optqty').map((c) => ({ id: c.id, qty: c.qty ?? 1 })),
+                // Typed answers: messages, the number on a number cake (priced by digits), dates, photos, yes / no.
+                texts: all.filter((c) => typed.includes(c.type)).map((c) => ({ group_id: c.id, text: c.text ?? '' })),
             };
         }),
         p_address: address,

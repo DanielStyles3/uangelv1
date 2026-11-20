@@ -27,6 +27,14 @@ export const formatNigerianPhone = (phone: string | null | undefined) => {
     return `${local.slice(0, 4)} ${local.slice(4, 7)} ${local.slice(7)}`;
 };
 
+/** A chosen extra or answer as one line: "3× Birthday Candles", "Extras: 2× Fried Chicken", "Size: 8 inch". */
+export const extraLabel = (c: { name: string; qty?: number | null }) => {
+    const n = Number(c.qty ?? 1);
+    if (!(n > 1)) return c.name;
+    const i = c.name.indexOf(': ');
+    return i > 0 ? `${c.name.slice(0, i + 2)}${n}× ${c.name.slice(i + 2)}` : `${n}× ${c.name}`;
+};
+
 export const formatDateTime = (iso: string) =>
     new Date(iso).toLocaleString('en-NG', {
         day: 'numeric',

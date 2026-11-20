@@ -15,7 +15,9 @@ function areCustomizationsEqual(
     const bSorted = [...b].sort((x, y) => x.id.localeCompare(y.id));
 
     // Text options count too: two cakes with different messages are different cart lines.
-    return aSorted.every((item, idx) => item.id === bSorted[idx].id && (item.text ?? '') === (bSorted[idx].text ?? ''));
+    // …and how many: 2 candles and 3 candles are different lines.
+    return aSorted.every((item, idx) => item.id === bSorted[idx].id && (item.text ?? '') === (bSorted[idx].text ?? '')
+        && (item.qty ?? 1) === (bSorted[idx].qty ?? 1));
 }
 
 // Kept on the phone, so the cart survives closing the app and is still there when the

@@ -1,9 +1,14 @@
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 
+import QtyStepper from "@/components/QtyStepper";
+import { uploadOrderPhoto } from "@/lib/api";
 import { cleanOptionName, optionColour, RAINBOW, rainbowBands } from "@/lib/colours";
 import { formatNaira } from "@/lib/format";
+import { notify } from "@/lib/notice";
 import { CartCustomization, OptionGroup } from "@/type";
 
 const ORANGE = "#FD652A";
@@ -19,8 +24,34 @@ const Swatch = ({ colour, size }: { colour: string; size: number }) =>
         <View style={[styles.swatchBase, { width: size, height: size, borderRadius: size / 2, backgroundColor: colour }]} />
     );
 
-/** What the customer has chosen: option value per 'single' group, text per 'text' group. */
-export type OptionAnswers = { picks: Record<string, string>; texts: Record<string, string> };
+/**
+ * What the customer has chosen: option value per 'single' group; typed answer per 'text' / 'number' /
+ * 'date' (YYYY-MM-DD) / 'photo' (link) / 'yesno' group; values per 'multi' group; how many per
+ * 'qty' choice (by option value id).
+ */
+export type OptionAnswers = {
+    picks: Record<string, string>;
+    texts: Record<string, string>;
+    multi?: Record<string, string[]>;
+    counts?: Record<string, number>;
+};
+
+/** Questions answered by picking from the admin's choices. */
+const HAS_CHOICES = ['single', 'multi', 'qty'];
+
+/** "2026-11-28" → "Sat 28 Nov". */
+const dayLabel = (iso: string) => {
+    const d = new Date(`${iso}T12:00:00`);
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-NG', { weekday: 'short', day: 'numeric', month: 'short' });
+};
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** The days a customer can pick: from `minDays` ahead, for three weeks. */
+const pickableDays = (minDays: number) => Array.from({ length: 21 }, (_, i) => {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() + minDays + i);
+    return d;
+});
 
 // ---------------------------------------------------------------------------
 // Number cakes: the customer types a number; one number-shaped cake per digit. The admin prices
@@ -46,7 +77,7 @@ const cakesLabel = (k: number) => `${k} number-shaped cake${k === 1 ? '' : 's'}`
 
 /** Questions customers can actually answer: a "choose one" question with no choices yet is skipped. */
 export const answerableGroups = (groups: OptionGroup[]) =>
-    groups.filter((g) => g.kind !== 'single' || (g.option_values?.length ?? 0) > 0);
+    groups.filter((g) => !HAS_CHOICES.includes(g.kind) || (g.option_values?.length ?? 0) > 0);
 
 /** Names of required questions that are still unanswered (or a number we can't make). */
 export const missingRequired = (groups: OptionGroup[], a: OptionAnswers): string[] =>
@@ -54,7 +85,11 @@ export const missingRequired = (groups: OptionGroup[], a: OptionAnswers): string
         .filter((g) => {
             const typed = (a.texts[g.id] ?? '').trim();
             if (g.kind === 'number') return (g.required || !!typed) && !numberTier(g, typed);
-            return g.required && (g.kind === 'single' ? !a.picks[g.id] : !typed);
+            if (!g.required) return false;
+            if (g.kind === 'single') return !a.picks[g.id];
+            if (g.kind === 'multi') return !(a.multi?.[g.id]?.length);
+            if (g.kind === 'qty') return !g.option_values.some((v) => (a.counts?.[v.id] ?? 0) > 0);
+            return !typed;
         })
         .map((g) => (g.kind === 'number' ? 'the number' : g.name));
 
@@ -64,6 +99,23 @@ export const answersToCart = (groups: OptionGroup[], a: OptionAnswers): CartCust
         if (g.kind === 'single') {
             const v = g.option_values.find((x) => x.id === a.picks[g.id]);
             return v ? [{ id: v.id, name: `${g.name}: ${cleanOptionName(v.name)}`, price: Number(v.price), type: 'option' }] : [];
+        }
+        if (g.kind === 'multi') {
+            const ids = a.multi?.[g.id] ?? [];
+            return g.option_values.filter((v) => ids.includes(v.id))
+                .map((v) => ({ id: v.id, name: `${g.name}: ${cleanOptionName(v.name)}`, price: Number(v.price), type: 'option' }));
+        }
+        if (g.kind === 'qty') {
+            return g.option_values.flatMap((v): CartCustomization[] => {
+                const n = a.counts?.[v.id] ?? 0;
+                return n > 0 ? [{ id: v.id, name: `${g.name}: ${cleanOptionName(v.name)}`, price: Number(v.price) * n, type: 'optqty', qty: n, unit_price: Number(v.price) }] : [];
+            });
+        }
+        if (g.kind === 'date' || g.kind === 'photo' || g.kind === 'yesno') {
+            const t = (a.texts[g.id] ?? '').trim();
+            if (!t) return [];
+            const shown = g.kind === 'date' ? dayLabel(t) : g.kind === 'photo' ? 'photo added' : t;
+            return [{ id: g.id, name: `${g.name}: ${shown}`, price: 0, type: g.kind, text: t }];
         }
         if (g.kind === 'number') {
             const n = cleanNumber(a.texts[g.id] ?? '');
@@ -104,6 +156,45 @@ export const StepHeader = ({ step, title, required, right }: { step: number; tit
     </View>
 );
 
+/** A picture the customer attaches (a design to copy): pick from the gallery, uploaded straight away. */
+const PhotoField = ({ url, onChange, hint }: { url: string; onChange: (url: string) => void; hint?: string | null }) => {
+    const [busy, setBusy] = useState(false);
+    const pickPhoto = async () => {
+        try {
+            const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
+            if (res.canceled || !res.assets?.length) return;
+            setBusy(true);
+            const a = res.assets[0];
+            onChange(await uploadOrderPhoto(a.uri, a.mimeType ?? 'image/jpeg'));
+        } catch (e) {
+            notify("Couldn't add the photo", e instanceof Error ? e.message : 'Please try again.');
+        } finally {
+            setBusy(false);
+        }
+    };
+    if (url) {
+        return (
+            <View style={styles.photoDone}>
+                <Image source={{ uri: url }} style={styles.photoThumb} />
+                <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={styles.photoTitle}>Photo added</Text>
+                    <TouchableOpacity onPress={pickPhoto} hitSlop={6}><Text style={styles.photoLink}>Change</Text></TouchableOpacity>
+                </View>
+                <TouchableOpacity onPress={() => onChange('')} style={styles.photoRemove} accessibilityLabel="Remove the photo">
+                    <Ionicons name="trash-outline" size={18} color="#B91C1C" />
+                </TouchableOpacity>
+            </View>
+        );
+    }
+    return (
+        <TouchableOpacity onPress={pickPhoto} disabled={busy} activeOpacity={0.85} style={styles.photoBox} accessibilityRole="button" accessibilityLabel="Add a photo">
+            {busy ? <ActivityIndicator color={ORANGE} /> : <Ionicons name="camera-outline" size={24} color="#C2410C" />}
+            <Text style={styles.photoTitle}>{busy ? 'Adding your photo…' : 'Add a photo'}</Text>
+            {!busy && hint ? <Text style={styles.rowHint}>{hint}</Text> : null}
+        </TouchableOpacity>
+    );
+};
+
 /** Long labels (or many choices) read better as a full-width list than a cramped grid. */
 const LONG_LABEL = 14;
 const wantsList = (values: { name: string; hint?: string | null }[]) =>
@@ -136,6 +227,18 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
         onChange({ ...answers, picks });
     };
     const type = (groupId: string, text: string) => onChange({ ...answers, texts: { ...answers.texts, [groupId]: text } });
+    /** Choose several: tap to add or remove, up to the limit. */
+    const toggleMulti = (groupId: string, valueId: string, max: number) => {
+        const now = answers.multi?.[groupId] ?? [];
+        const on = now.includes(valueId);
+        if (!on && now.length >= max) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+            return;
+        }
+        Haptics.selectionAsync().catch(() => {});
+        onChange({ ...answers, multi: { ...answers.multi, [groupId]: on ? now.filter((x) => x !== valueId) : [...now, valueId] } });
+    };
+    const setCount = (valueId: string, n: number) => onChange({ ...answers, counts: { ...answers.counts, [valueId]: n } });
 
     return (
         <View style={{ gap: 26 }}>
@@ -223,6 +326,140 @@ export default function ProductOptions({ groups, answers, onChange, startStep = 
                                     {value.length}/{g.max_length}
                                 </Text>
                             ) : null}
+                        </View>
+                    );
+                }
+
+                if (g.kind === 'multi') {
+                    const max = Math.max(1, g.max_select ?? values.length);
+                    const picked = answers.multi?.[g.id] ?? [];
+                    const full = picked.length >= max;
+                    return (
+                        <View key={g.id} style={styles.group}>
+                            <StepHeader step={step} title={g.name} required={g.required} />
+                            <Text style={styles.limitNote}>
+                                {max < values.length ? `Choose up to ${max}` : 'Choose any'}{picked.length ? ` · ${picked.length} chosen` : ''}
+                            </Text>
+                            <View style={styles.list}>
+                                {values.map((v) => {
+                                    const on = picked.includes(v.id);
+                                    const locked = !on && full;
+                                    return (
+                                        <TouchableOpacity key={v.id} onPress={() => toggleMulti(g.id, v.id, max)} activeOpacity={0.85}
+                                            style={[styles.row, on && styles.rowOn, locked && { opacity: 0.5 }]}
+                                            accessibilityRole="checkbox" accessibilityState={{ checked: on, disabled: locked }}
+                                            accessibilityLabel={`${v.name}${extra(v.price) ? `, plus ${formatNaira(extra(v.price))}` : ''}`}>
+                                            <View style={[styles.box, on && styles.boxOn]}>
+                                                {on && <Ionicons name="checkmark" size={14} color="#fff" />}
+                                            </View>
+                                            <View style={styles.rowBody}>
+                                                <View style={styles.rowNameLine}>
+                                                    {v.colour ? <Swatch colour={v.colour} size={16} /> : null}
+                                                    <Text style={styles.rowName}>{v.name}</Text>
+                                                </View>
+                                                {v.hint ? <Text style={styles.rowHint}>{v.hint}</Text> : null}
+                                            </View>
+                                            {priceTag(v.price) ? (
+                                                <Text style={[styles.rowPrice, !extra(v.price) && styles.rowPriceFree]}>{priceTag(v.price)}</Text>
+                                            ) : null}
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        </View>
+                    );
+                }
+
+                if (g.kind === 'qty') {
+                    return (
+                        <View key={g.id} style={styles.group}>
+                            <StepHeader step={step} title={g.name} required={g.required} />
+                            <View style={styles.list}>
+                                {values.map((v) => {
+                                    const n = answers.counts?.[v.id] ?? 0;
+                                    const each = extra(v.price);
+                                    return (
+                                        <View key={v.id} style={[styles.row, n > 0 && styles.rowOn]}>
+                                            <View style={styles.rowBody}>
+                                                <View style={styles.rowNameLine}>
+                                                    {v.colour ? <Swatch colour={v.colour} size={16} /> : null}
+                                                    <Text style={styles.rowName}>{v.name}</Text>
+                                                </View>
+                                                {v.hint ? <Text style={styles.rowHint}>{v.hint}</Text> : null}
+                                                {hidePrices ? null : (
+                                                    <Text style={[styles.qtyPrice, !each && { color: '#2F7A55' }]}>
+                                                        {each ? `+${formatNaira(each)} each` : 'Free'}
+                                                        {each && n > 1 ? `  ·  ${n} × ${formatNaira(each)} = ${formatNaira(each * n)}` : ''}
+                                                    </Text>
+                                                )}
+                                            </View>
+                                            <QtyStepper value={n} max={Math.max(1, v.max_qty ?? 10)} onChange={(x) => setCount(v.id, x)} label={v.name} />
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        </View>
+                    );
+                }
+
+                if (g.kind === 'date') {
+                    const chosenDay = answers.texts[g.id] ?? '';
+                    return (
+                        <View key={g.id} style={styles.group}>
+                            <StepHeader step={step} title={g.name} required={g.required} right={chosenDay ? dayLabel(chosenDay) : undefined} />
+                            {(g.min_days ?? 0) > 0 && (
+                                <Text style={styles.limitNote}>We need {g.min_days} day{g.min_days === 1 ? '' : 's'} notice</Text>
+                            )}
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }}
+                                contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
+                                {pickableDays(Math.max(0, g.min_days ?? 0)).map((d) => {
+                                    const iso = isoDay(d);
+                                    const on = chosenDay === iso;
+                                    return (
+                                        <TouchableOpacity key={iso} activeOpacity={0.85}
+                                            onPress={() => { Haptics.selectionAsync().catch(() => {}); type(g.id, on && !g.required ? '' : iso); }}
+                                            style={[styles.day, on && styles.dayOn]}
+                                            accessibilityRole="radio" accessibilityState={{ checked: on }}
+                                            accessibilityLabel={d.toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long' })}>
+                                            <Text style={[styles.dayWeek, on && { color: '#fff' }]}>{d.toLocaleDateString('en-NG', { weekday: 'short' })}</Text>
+                                            <Text style={[styles.dayNum, on && { color: '#fff' }]}>{d.getDate()}</Text>
+                                            <Text style={[styles.dayWeek, on && { color: '#fff' }]}>{d.toLocaleDateString('en-NG', { month: 'short' })}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+                    );
+                }
+
+                if (g.kind === 'photo') {
+                    return (
+                        <View key={g.id} style={styles.group}>
+                            <StepHeader step={step} title={g.name} required={g.required} />
+                            <PhotoField url={answers.texts[g.id] ?? ''} onChange={(u) => type(g.id, u)} hint={g.placeholder} />
+                        </View>
+                    );
+                }
+
+                if (g.kind === 'yesno') {
+                    const ans = answers.texts[g.id] ?? '';
+                    return (
+                        <View key={g.id} style={styles.group}>
+                            <StepHeader step={step} title={g.name} required={g.required} />
+                            <View style={{ flexDirection: 'row', gap: 9 }}>
+                                {['Yes', 'No'].map((x) => {
+                                    const on = ans === x;
+                                    return (
+                                        <TouchableOpacity key={x} activeOpacity={0.85}
+                                            onPress={() => { Haptics.selectionAsync().catch(() => {}); type(g.id, on && !g.required ? '' : x); }}
+                                            style={[styles.yesno, on && styles.cardOn]}
+                                            accessibilityRole="radio" accessibilityState={{ checked: on }}>
+                                            <Ionicons name={x === 'Yes' ? 'checkmark-circle-outline' : 'close-circle-outline'} size={19} color={on ? '#C2410C' : '#5B5B66'} />
+                                            <Text style={[styles.yesnoText, on && { color: '#9A3412' }]}>{x}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
                         </View>
                     );
                 }
@@ -379,4 +616,21 @@ const styles = StyleSheet.create({
     numberInput: { width: '100%', textAlign: 'center', fontFamily: 'Quicksand-Bold', fontSize: 40, color: INK, paddingVertical: 0 },
     numberNote: { fontFamily: 'Quicksand-Bold', fontSize: 14, color: '#C2410C', textAlign: 'center' },
     tierCard: { minHeight: 96 },
+
+    limitNote: { marginTop: -4, fontFamily: 'Quicksand-SemiBold', fontSize: 12.5, color: '#5B5B66' },
+    box: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: '#C9C9D1', alignItems: 'center', justifyContent: 'center' },
+    boxOn: { borderColor: ORANGE, backgroundColor: ORANGE },
+    qtyPrice: { fontFamily: 'Quicksand-Bold', fontSize: 12.5, color: '#C2410C' },
+    day: { width: 64, minHeight: 78, borderRadius: 16, borderWidth: 1.5, borderColor: '#E4E4EA', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', gap: 1 },
+    dayOn: { borderColor: ORANGE, backgroundColor: ORANGE },
+    dayWeek: { fontFamily: 'Quicksand-SemiBold', fontSize: 12, color: '#5B5B66' },
+    dayNum: { fontFamily: 'Quicksand-Bold', fontSize: 20, color: INK },
+    yesno: { flex: 1, minHeight: 54, borderRadius: 16, borderWidth: 1.5, borderColor: '#E4E4EA', backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    yesnoText: { fontFamily: 'Quicksand-Bold', fontSize: 15, color: INK },
+    photoBox: { minHeight: 96, borderRadius: 18, borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#D4D4DC', backgroundColor: '#FAFAFB', alignItems: 'center', justifyContent: 'center', gap: 4, padding: 14 },
+    photoDone: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: 18, borderWidth: 1.5, borderColor: ORANGE, backgroundColor: '#FFF4EE' },
+    photoThumb: { width: 64, height: 64, borderRadius: 12, backgroundColor: '#EEE' },
+    photoTitle: { fontFamily: 'Quicksand-Bold', fontSize: 14.5, color: INK },
+    photoLink: { fontFamily: 'Quicksand-Bold', fontSize: 13, color: '#C2410C' },
+    photoRemove: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
 });

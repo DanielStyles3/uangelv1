@@ -50,7 +50,7 @@
       fetchAll(function () { return sb.from('categories').select('id,name,parent_id,color,image_url,sort_order,kind').order('sort_order', { ascending: true }).order('name'); }),
       // Works before schema.sql adds is_available (then everything counts as in stock).
       menuQuery(MENU_COLS).catch(function (e) { if (missingColumn(e)) return menuQuery(MENU_COLS.replace(',is_available', '')); throw e; }),
-      fetchAll(function () { return sb.from('customizations').select('id,name,price,type').order('name'); }),
+      fetchAll(function () { return sb.from('customizations').select('id,name,price,type,max_qty').order('name'); }),
       fetchAll(function () { return sb.from('menu_customizations').select('menu_id,customization_id').order('menu_id'); }),
       // Customer options per product (cakes). Missing table (schema.sql not run yet) = none.
       fetchAll(function () { return sb.from('option_groups').select('id,menu_id,name,required').order('sort_order'); }).catch(function () { return []; }),
@@ -687,6 +687,30 @@
     return gs.map(function (g) { return '<span class="pp-optchip">' + esc(g.name) + (g.required ? ' <b>*</b>' : '') + '</span>'; }).join('');
   }
 
+  // Questions answered by picking from a list of choices.
+  var CHOICE_KINDS = ['single', 'multi', 'qty'];
+  // The question types the admin can add: [kind, button label, example].
+  var QUESTION_TYPES = [
+    ['single', 'Choose one', 'Size, flavour'],
+    ['multi', 'Choose several', 'Fillings, toppings: up to a limit you set'],
+    ['qty', 'How many (+ / −)', 'Extras or pieces: the customer taps + / −, each choice has a price (0 = free)'],
+    ['text', 'Customer types', 'Message on the cake, a name'],
+    ['number', 'Number on the cake', 'Number cakes: priced by digits'],
+    ['date', 'Date', 'When they need it: with days of notice'],
+    ['photo', 'Photo', 'A picture of the design they want'],
+    ['yesno', 'Yes / No', 'Is it a surprise? Spicy?']
+  ];
+  function kindLabel(g) {
+    if (g.kind === 'text') return 'Customer types (max ' + (g.max_length || 300) + ')';
+    if (g.kind === 'number') return 'Customer types a number · priced by digits';
+    if (g.kind === 'multi') return 'Choose several' + (g.max_select ? ' · up to ' + g.max_select : '');
+    if (g.kind === 'qty') return 'How many (+ / −)';
+    if (g.kind === 'date') return 'Date' + (g.min_days ? ' · ' + g.min_days + ' day' + (g.min_days === 1 ? '' : 's') + ' notice' : '');
+    if (g.kind === 'photo') return 'Photo upload';
+    if (g.kind === 'yesno') return 'Yes / No';
+    return 'Choose one';
+  }
+
   /** Window to manage the questions customers answer for one product. Saves straight away. */
   async function openOptions(p, onDone) {
     var body = document.createElement('div');
@@ -699,7 +723,7 @@
     });
 
     async function reload() {
-      var res = await A.sb.from('option_groups').select('id,name,kind,required,max_length,placeholder,sort_order,option_values(id,name,price,hint,swatch,sort_order)')
+      var res = await A.sb.from('option_groups').select('id,name,kind,required,max_length,placeholder,sort_order,max_select,min_days,option_values(id,name,price,hint,swatch,sort_order,max_qty)')
         .eq('menu_id', p.id).order('sort_order');
       if (res.error) {
         body.innerHTML = '';
@@ -724,8 +748,8 @@
         (groups.length ? groups.map(function (g, i) {
           return '<div class="pp-og">' +
             '<div class="pp-og-h"><b>' + esc(g.name) + '</b>' +
-              '<span class="pp-optchip">' + (g.kind === 'text' ? 'Customer types (max ' + (g.max_length || 300) + ')' : g.kind === 'number' ? 'Customer types a number · priced by digits' : 'Choose one') + '</span>' +
-              (g.kind === 'single' && !g.option_values.length ? '<span class="pp-optchip req">No choices yet: hidden in the app</span>' : '') +
+              '<span class="pp-optchip">' + esc(kindLabel(g)) + '</span>' +
+              (CHOICE_KINDS.indexOf(g.kind) >= 0 && !g.option_values.length ? '<span class="pp-optchip req">No choices yet: hidden in the app</span>' : '') +
               (g.required ? '<span class="pp-optchip req">Required</span>' : '') +
               '<span class="pr-spacer"></span>' +
               '<button type="button" class="cg-icon sm" data-gmove="' + g.id + '" data-dir="-1" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
@@ -741,12 +765,15 @@
                     '<button type="button" data-vdel="' + v.id + '" aria-label="Delete">×</button></span>';
                 }).join('') + '<button type="button" class="btn btn-ghost btn-sm" data-vadd="' + g.id + '">' + I.plus + 'Price for more digits</button>' +
                 '<p class="cg-help" style="margin:6px 0 0;flex-basis:100%">Customers type the number (e.g. 5 or 25). One number-shaped cake per digit; the price above is added for that many digits.</p></div>'
-            : g.kind === 'single'
+            : CHOICE_KINDS.indexOf(g.kind) >= 0
               ? '<div class="pp-ov">' + g.option_values.map(function (v, vi) {
+                  var qty = g.kind === 'qty';
                   return '<span class="pp-ovc">' +
                     (g.option_values.length > 1 ? '<button type="button" data-vmove="' + v.id + '" data-g="' + g.id + '" data-dir="-1" aria-label="Move ' + esc(v.name) + ' left"' + (vi === 0 ? ' disabled' : '') + '>◀</button>' : '') +
                     (v.swatch ? '<i style="background:' + esc(v.swatch) + '"></i>' : '') + esc(cleanName(v.name)) +
-                    ' <small>' + (Number(v.price) ? '+' + esc(naira(v.price)) + ' = ' + esc(naira(Number(p.price) + Number(v.price))) : 'included') + (v.hint ? ' · ' + esc(v.hint) : '') + '</small>' +
+                    ' <small>' + (qty
+                      ? (Number(v.price) ? '+' + esc(naira(v.price)) + ' each' : 'free') + ' · up to ' + (Number(v.max_qty) || 10)
+                      : (Number(v.price) ? '+' + esc(naira(v.price)) + ' = ' + esc(naira(Number(p.price) + Number(v.price))) : 'included')) + (v.hint ? ' · ' + esc(v.hint) : '') + '</small>' +
                     (g.option_values.length > 1 ? '<button type="button" data-vmove="' + v.id + '" data-g="' + g.id + '" data-dir="1" aria-label="Move ' + esc(v.name) + ' right"' + (vi === g.option_values.length - 1 ? ' disabled' : '') + '>▶</button>' : '') +
                     '<button type="button" data-vedit="' + v.id + '" data-g="' + g.id + '" aria-label="Edit ' + esc(v.name) + '">✎</button>' +
                     '<button type="button" data-vdel="' + v.id + '" aria-label="Delete ' + esc(v.name) + '">×</button></span>';
@@ -754,9 +781,10 @@
               : (g.placeholder ? '<p class="cg-help" style="margin:6px 0 0">Example shown to customers: “' + esc(g.placeholder) + '”</p>' : '')) +
           '</div>';
         }).join('') : '<p class="cg-help">No options yet.</p>') +
-        '<div class="pp-og-add"><button type="button" class="btn btn-ghost btn-sm" data-gadd="single">' + I.plus + 'Add a “choose one” question</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-gadd="text">' + I.plus + 'Add a “customer types” question</button>' +
-          '<button type="button" class="btn btn-ghost btn-sm" data-gadd="number">' + I.plus + 'Add a “number on the cake” question</button>' +
+        '<div class="pp-og-add"><b style="flex-basis:100%;font-size:13px">Add a question</b>' +
+          QUESTION_TYPES.map(function (t) {
+            return '<button type="button" class="btn btn-ghost btn-sm" data-gadd="' + t[0] + '" title="' + esc(t[2]) + '">' + I.plus + esc(t[1]) + '</button>';
+          }).join('') +
           (others.length && !groups.length ? '<select class="select" data-copy aria-label="Copy options from another product"><option value="">Copy options from…</option>' +
             others.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.name) + '</option>'; }).join('') + '</select>' : '') +
         '</div>' +
@@ -880,38 +908,54 @@
         return;
       }
       if ((v = b.getAttribute('data-gadd'))) {
-        var text = v === 'text';
-        var a = await ask(text ? 'New “customer types” question' : 'New “choose one” question', [
-          { name: 'name', label: 'Question', ph: text ? 'e.g. Message on the cake' : 'e.g. Size' },
+        var text = v === 'text', isMulti = v === 'multi', isDate = v === 'date', isPhoto = v === 'photo';
+        var qt = QUESTION_TYPES.find(function (x) { return x[0] === v; }) || ['', 'choose one'];
+        var EXAMPLES = { single: 'e.g. Size', multi: 'e.g. Fillings', qty: 'e.g. Extras', text: 'e.g. Message on the cake',
+          date: 'e.g. When do you need it?', photo: 'e.g. A picture of the design you want', yesno: 'e.g. Is it a surprise?' };
+        var a = await ask('New “' + qt[1].toLowerCase() + '” question', [
+          { name: 'name', label: 'Question', ph: EXAMPLES[v] || '' },
           text ? { name: 'max_length', label: 'Longest answer (characters)', mode: 'numeric', ph: '40' } : null,
+          isMulti ? { name: 'max_select', label: 'Most choices a customer can pick', mode: 'numeric', ph: 'e.g. 2', help: 'Leave empty to allow any number.' } : null,
+          isDate ? { name: 'min_days', label: 'Days of notice', mode: 'numeric', ph: 'e.g. 2', help: 'The earliest date customers can pick is today + this many days. 0 = today.' } : null,
           text ? { name: 'placeholder', label: 'Example for customers (optional)', ph: 'e.g. Happy 10th, Tolu!' } : null,
+          isPhoto ? { name: 'placeholder', label: 'Note for customers (optional)', ph: 'e.g. A clear photo of a cake you like' } : null,
           { name: 'required', label: 'Customers must answer this', type: 'check' }
-        ].filter(Boolean), { required: !text });
+        ].filter(Boolean), { required: v === 'single' });
         if (!a) return;
-        await run(A.sb.from('option_groups').insert({ menu_id: p.id, name: a.name, kind: v, required: !!a.required,
-          max_length: text ? (Number(a.max_length) || 40) : null, placeholder: text ? (a.placeholder || null) : null,
-          sort_order: groups.reduce(function (mx, x) { return Math.max(mx, x.sort_order || 0); }, 0) + 1 }), 'Question added');
+        var ms = isMulti && a.max_select ? Math.round(Number(a.max_select)) : null;
+        if (isMulti && a.max_select && !(ms >= 1 && ms <= 50)) { A.toast('Enter how many they can pick as a number, e.g. 2.', 'error'); return; }
+        var md = isDate ? Math.round(Number(a.min_days || 0)) : null;
+        if (isDate && !(md >= 0 && md <= 365)) { A.toast('Enter the days of notice as a number, e.g. 2.', 'error'); return; }
+        var ok = await run(A.sb.from('option_groups').insert({ menu_id: p.id, name: a.name, kind: v, required: !!a.required,
+          max_length: text ? (Number(a.max_length) || 40) : null, placeholder: (text || isPhoto) ? (a.placeholder || null) : null,
+          max_select: ms, min_days: md,
+          sort_order: groups.reduce(function (mx, x) { return Math.max(mx, x.sort_order || 0); }, 0) + 1 }),
+          CHOICE_KINDS.indexOf(v) >= 0 ? 'Question added. Now add its choices.' : 'Question added');
+        if (!ok) A.toast('If it says “kind_check”, run supabase/order-form.sql first.', 'error');
         return;
       }
       if ((v = b.getAttribute('data-gedit'))) {
         g = groups.find(function (x) { return x.id === v; }); if (!g) return;
-        var t = g.kind === 'text', isNum = g.kind === 'number';
+        var t = g.kind === 'text', isNum = g.kind === 'number', choice = CHOICE_KINDS.indexOf(g.kind) >= 0;
         var r = await ask('Edit question', [
           { name: 'name', label: 'Question' },
-          // Fix a question made as the wrong type (e.g. a "choose one" that should be a box to type in).
-          isNum ? null : { name: 'kind', label: 'Type', type: 'select',
-            options: [['single', 'Choose one (from a list)'], ['text', 'Customer types (a box to write in)']],
-            help: g.kind === 'single' && g.option_values.length ? 'Switching to “customer types” removes this question’s choices.' : '' },
-          (t || isNum) ? null : { name: 'max_length', label: 'If “customer types”: longest answer (characters)', mode: 'numeric', ph: '40' },
-          t ? { name: 'max_length', label: 'Longest answer (characters)', mode: 'numeric' } : null,
-          { name: 'placeholder', label: 'Example for customers (optional)' },
+          // Fix a question made as the wrong type (e.g. a "choose one" that should be "choose several").
+          (choice || t) ? { name: 'kind', label: 'Type', type: 'select',
+            options: [['single', 'Choose one (from a list)'], ['multi', 'Choose several (from a list)'], ['qty', 'How many of each (+ / −)'], ['text', 'Customer types (a box to write in)']],
+            help: choice && g.option_values.length ? 'Switching to “customer types” removes this question’s choices.' : '' } : null,
+          (choice || t) ? { name: 'max_select', label: 'If “choose several”: most they can pick', mode: 'numeric', ph: 'empty = any' } : null,
+          (choice || t) ? { name: 'max_length', label: 'If “customer types”: longest answer (characters)', mode: 'numeric', ph: '40' } : null,
+          g.kind === 'date' ? { name: 'min_days', label: 'Days of notice', mode: 'numeric', ph: '0', help: 'The earliest date customers can pick is today + this many days.' } : null,
+          (g.kind === 'yesno' || g.kind === 'date') ? null : { name: 'placeholder', label: g.kind === 'photo' ? 'Note for customers (optional)' : 'Example for customers (optional)' },
           { name: 'required', label: 'Customers must answer this', type: 'check' }
         ].filter(Boolean), g);
         if (!r) return;
-        var kind = isNum ? 'number' : (r.kind || g.kind);
+        var kind = (choice || t) ? (r.kind || g.kind) : g.kind;
         var upd = { name: r.name, required: !!r.required, kind: kind, placeholder: r.placeholder || null };
         upd.max_length = kind === 'text' ? (Number(r.max_length) || g.max_length || 40) : null;
-        if (kind === 'text' && g.kind === 'single' && g.option_values.length) {
+        upd.max_select = kind === 'multi' && Number(r.max_select) >= 1 ? Math.min(50, Math.round(Number(r.max_select))) : null;
+        upd.min_days = kind === 'date' ? Math.max(0, Math.min(365, Math.round(Number(r.min_days) || 0))) : null;
+        if (kind === 'text' && choice && g.option_values.length) {
           if (!await A.confirm('Turn “' + g.name + '” into a box customers type in? Its ' + g.option_values.length + ' choice(s) will be removed.', { danger: true, confirmLabel: 'Change type' })) return;
           var dv = await A.sb.from('option_values').delete().eq('group_id', g.id);
           if (dv.error) { A.toast('Couldn’t change it: ' + errMsg(dv.error), 'error'); return; }
@@ -954,20 +998,27 @@
           else { nrow.group_id = g.id; await run(A.sb.from('option_values').insert(nrow), 'Price added'); }
           return;
         }
+        var isQty = g.kind === 'qty';
         var c = await ask(cur ? 'Edit choice' : 'New choice for “' + g.name + '”', [
-          { name: 'name', label: 'Choice', ph: 'e.g. 8 inch' },
-          { name: 'price', label: 'Extra price (₦)', mode: 'decimal', ph: '0',
-            help: 'Added to the base price of ' + naira(p.price) + '. 0 means it’s included. Example: for a size that should cost ' + naira(Number(p.price) + 7000) + ' in total, enter 7000.' },
-          { name: 'hint', label: 'Small note (optional)', ph: 'e.g. serves 15–20' },
+          { name: 'name', label: 'Choice', ph: isQty ? 'e.g. Fried chicken' : 'e.g. 8 inch' },
+          isQty
+            ? { name: 'price', label: 'Price for each (₦)', mode: 'decimal', ph: '0', help: '0 = free. Customers pay this for every one they add.' }
+            : { name: 'price', label: 'Extra price (₦)', mode: 'decimal', ph: '0',
+                help: 'Added to the base price of ' + naira(p.price) + '. 0 means it’s included. Example: for a size that should cost ' + naira(Number(p.price) + 7000) + ' in total, enter 7000.' },
+          isQty ? { name: 'max_qty', label: 'Most a customer can add (per item)', mode: 'numeric', ph: '10' } : null,
+          { name: 'hint', label: 'Small note (optional)', ph: isQty ? 'e.g. 1 piece' : 'e.g. serves 15–20' },
           { name: 'swatch', label: 'Colour (for colour choices)', type: 'swatch',
             help: 'Pick the colour customers will see as a dot in the app; no emoji needed. Typing a name like “Green” picks it for you. Choose ∅ for choices that aren’t colours (sizes, flavours).' }
-        ], cur ? { name: cleanName(cur.name), price: Number(cur.price) || '', hint: cur.hint, swatch: cur.swatch || colourFromName(cleanName(cur.name)) } : {});
+        ].filter(Boolean), cur ? { name: cleanName(cur.name), price: Number(cur.price) || '', hint: cur.hint, swatch: cur.swatch || colourFromName(cleanName(cur.name)), max_qty: cur.max_qty || 10 } : { max_qty: 10 });
         if (!c) return;
         var price = money(c.price);
         if (price == null) { A.toast('Enter the extra price as a number, e.g. 2500.', 'error'); return; }
+        var mq = isQty ? Math.round(Number(c.max_qty || 10)) : null;
+        if (isQty && !(mq >= 1 && mq <= 99)) { A.toast('Enter the most they can add as a number from 1 to 99.', 'error'); return; }
         var nm = cleanName(c.name);
         var sw = /^#[0-9a-f]{6}$/i.test(c.swatch || '') ? c.swatch.toUpperCase() : null; // ∅ = not a colour
         var row = { name: nm, price: price, hint: c.hint || null, swatch: sw };
+        if (isQty) row.max_qty = mq;
         if (cur) await run(A.sb.from('option_values').update(row).eq('id', cur.id), 'Saved');
         else { row.group_id = g.id; row.sort_order = g.option_values.length + 1; await run(A.sb.from('option_values').insert(row), 'Choice added'); }
         return;
@@ -1024,10 +1075,10 @@
             if (del.error) { failed++; continue; }
             for (var q = 0; q < groups.length; q++) {
               var sg = groups[q];
-              var ins = await A.sb.from('option_groups').insert({ menu_id: ids[k], name: sg.name, kind: sg.kind, required: sg.required, max_length: sg.max_length, placeholder: sg.placeholder, sort_order: sg.sort_order }).select('id').single();
+              var ins = await A.sb.from('option_groups').insert({ menu_id: ids[k], name: sg.name, kind: sg.kind, required: sg.required, max_length: sg.max_length, placeholder: sg.placeholder, sort_order: sg.sort_order, max_select: sg.max_select == null ? null : sg.max_select, min_days: sg.min_days == null ? null : sg.min_days }).select('id').single();
               if (ins.error) { failed++; break; }
               if (sg.option_values.length) {
-                var vi2 = await A.sb.from('option_values').insert(sg.option_values.map(function (ov) { return { group_id: ins.data.id, name: ov.name, price: ov.price, hint: ov.hint, swatch: ov.swatch, sort_order: ov.sort_order }; }));
+                var vi2 = await A.sb.from('option_values').insert(sg.option_values.map(function (ov) { return { group_id: ins.data.id, name: ov.name, price: ov.price, hint: ov.hint, swatch: ov.swatch, sort_order: ov.sort_order, max_qty: ov.max_qty || 10 }; }));
                 if (vi2.error) { failed++; break; }
               }
             }
@@ -1045,14 +1096,14 @@
       if (!e.target.matches('[data-copy]') || !e.target.value) return;
       var from = S.products.find(function (x) { return x.id === e.target.value; });
       if (!from || !await A.confirm('Copy all options from “' + from.name + '”?', { confirmLabel: 'Copy' })) { e.target.value = ''; return; }
-      var src = await A.sb.from('option_groups').select('name,kind,required,max_length,placeholder,sort_order,option_values(name,price,hint,swatch,sort_order)').eq('menu_id', from.id);
+      var src = await A.sb.from('option_groups').select('name,kind,required,max_length,placeholder,sort_order,max_select,min_days,option_values(name,price,hint,swatch,sort_order,max_qty)').eq('menu_id', from.id);
       if (src.error) { A.toast('Couldn’t copy: ' + errMsg(src.error), 'error'); return; }
       for (var k = 0; k < src.data.length; k++) {
         var sg = src.data[k];
-        var ins = await A.sb.from('option_groups').insert({ menu_id: p.id, name: sg.name, kind: sg.kind, required: sg.required, max_length: sg.max_length, placeholder: sg.placeholder, sort_order: sg.sort_order }).select('id').single();
+        var ins = await A.sb.from('option_groups').insert({ menu_id: p.id, name: sg.name, kind: sg.kind, required: sg.required, max_length: sg.max_length, placeholder: sg.placeholder, sort_order: sg.sort_order, max_select: sg.max_select == null ? null : sg.max_select, min_days: sg.min_days == null ? null : sg.min_days }).select('id').single();
         if (ins.error) { A.toast('Couldn’t copy: ' + errMsg(ins.error), 'error'); break; }
         if ((sg.option_values || []).length) {
-          var vi = await A.sb.from('option_values').insert(sg.option_values.map(function (ov) { return { group_id: ins.data.id, name: ov.name, price: ov.price, hint: ov.hint, swatch: ov.swatch, sort_order: ov.sort_order }; }));
+          var vi = await A.sb.from('option_values').insert(sg.option_values.map(function (ov) { return { group_id: ins.data.id, name: ov.name, price: ov.price, hint: ov.hint, swatch: ov.swatch, sort_order: ov.sort_order, max_qty: ov.max_qty || 10 }; }));
           if (vi.error) { A.toast('Couldn’t copy: ' + errMsg(vi.error), 'error'); break; }
         }
       }
@@ -1070,12 +1121,13 @@
     var box = root.querySelector('[data-addons]');
     var list = S.customs.slice().sort(function (a, b) { return String(a.type).localeCompare(String(b.type)) || String(a.name).localeCompare(String(b.name)); });
     if (!list.length) { box.innerHTML = A.emptyState('No add-ons yet', 'Add-ons are optional things customers can add to a product, like candles or gift wrapping.', I.plus); return; }
-    box.innerHTML = '<p class="pp-note">Add-ons and extras are optional things customers can pick on a product page, like birthday candles or gift wrapping. Choose which products offer them in each product’s editor.</p>' +
+    box.innerHTML = '<p class="pp-note">Add-ons and extras are optional things customers can pick on a product page, like birthday candles or gift wrapping. Choose which products offer them in each product’s editor. Price 0 = free. With “how many”, customers tap + / − and pay the price for each one.</p>' +
       '<div class="card flush"><div class="table-wrap"><table class="table table-cards pp-atable"><thead><tr><th>Name</th><th>Type</th><th class="num">Price</th><th class="num">Used by</th><th class="text-right"><span class="sr-only">Actions</span></th></tr></thead><tbody>' +
       list.map(function (c) {
         var n = usage(c.id);
         return '<tr><td class="pp-a-name"><b>' + esc(c.name) + '</b></td><td class="pp-a-type">' + (c.type === 'side' ? 'Extra' : 'Add-on') + '</td>' +
-          '<td class="num pp-a-price">' + (Number(c.price) ? esc(naira(c.price)) : 'Free') + '</td><td class="num pp-a-used">' + plural(n, 'product') + '</td>' +
+          '<td class="num pp-a-price">' + (Number(c.price) ? esc(naira(c.price)) : 'Free') +
+            '<br><small class="cg-help" style="margin:0">' + (Number(c.max_qty) > 1 ? '+ / − up to ' + Number(c.max_qty) : 'tick once') + '</small></td><td class="num pp-a-used">' + plural(n, 'product') + '</td>' +
           '<td class="text-right nowrap pp-a-acts"><button type="button" class="btn btn-ghost btn-sm" data-aedit="' + esc(c.id) + '">Edit</button> ' +
           '<button type="button" class="btn btn-ghost btn-sm" data-adel="' + esc(c.id) + '" style="color:var(--red)">Delete</button></td></tr>';
       }).join('') + '</tbody></table></div></div>';
@@ -1095,8 +1147,22 @@
       '<div class="field"><span class="cg-lbl">Type</span><div class="cg-seg" role="radiogroup" aria-label="Type">' +
         '<button type="button" role="radio" data-type="topping">Add-on<small>e.g. candles, frosting</small></button>' +
         '<button type="button" role="radio" data-type="side">Extra<small>e.g. gift box, plates</small></button></div></div>' +
+      '<div class="field"><span class="cg-lbl">How customers pick it</span><div class="cg-seg" role="radiogroup" aria-label="How customers pick it">' +
+        '<button type="button" role="radio" data-pick="many">How many (+ / −)<small>e.g. 3 candles, 2 pieces of chicken</small></button>' +
+        '<button type="button" role="radio" data-pick="once">Just tick it<small>only once, e.g. chilled delivery</small></button></div></div>' +
+      '<div class="field" data-maxrow><label for="ad-max">Most a customer can add (per item)</label>' +
+        '<input id="ad-max" name="max_qty" class="input" inputmode="numeric" maxlength="2" value="' + esc(editing && Number(c.max_qty) > 1 ? String(c.max_qty) : '10') + '">' +
+        '<span class="cg-err" data-err="max" role="alert"></span></div>' +
       '<button type="submit" hidden aria-hidden="true" tabindex="-1"></button>';
     var type = editing ? c.type : 'topping';
+    // New add-ons: + / − by default; existing ones keep what they have.
+    var pickMany = editing ? Number(c.max_qty || 1) > 1 : true;
+    function paintPick() {
+      Array.prototype.forEach.call(form.querySelectorAll('[data-pick]'), function (b) { var on = (b.getAttribute('data-pick') === 'many') === pickMany; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+      form.querySelector('[data-maxrow]').hidden = !pickMany;
+    }
+    form.addEventListener('click', function (e) { var b = e.target.closest('[data-pick]'); if (b) { pickMany = b.getAttribute('data-pick') === 'many'; paintPick(); } });
+    paintPick();
     function paintType() { Array.prototype.forEach.call(form.querySelectorAll('[data-type]'), function (b) { var on = b.getAttribute('data-type') === type; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }); }
     form.addEventListener('click', function (e) { var b = e.target.closest('[data-type]'); if (b) { type = b.getAttribute('data-type'); paintType(); } });
     paintType();
@@ -1112,14 +1178,17 @@
       if (!name) { err('name', 'Enter a name.'); form.elements.name.focus(); return; }
       if (S.customs.some(function (x) { return norm(x.name) === norm(name) && (!editing || x.id !== c.id); })) { err('name', 'An add-on with this name already exists.'); return; }
       if (!isFinite(price) || price < 0) { err('price', 'Enter a price, or 0 for free.'); return; }
+      err('max', '');
+      var maxQty = pickMany ? Math.round(Number(form.elements.max_qty.value)) : 1;
+      if (pickMany && !(maxQty >= 2 && maxQty <= 99)) { err('max', 'Enter a number from 2 to 99.'); form.elements.max_qty.focus(); return; }
       busy = true;
       var btn = m.el.querySelector('.modal-actions .btn-primary');
       A.setLoading(btn, true, 'Saving…');
       try {
-        var payload = { name: name, price: Math.round(price * 100) / 100, type: type };
+        var payload = { name: name, price: Math.round(price * 100) / 100, type: type, max_qty: maxQty };
         var res = editing
-          ? await A.sb.from('customizations').update(payload).eq('id', c.id).select('id,name,price,type').single()
-          : await A.sb.from('customizations').insert(payload).select('id,name,price,type').single();
+          ? await A.sb.from('customizations').update(payload).eq('id', c.id).select('id,name,price,type,max_qty').single()
+          : await A.sb.from('customizations').insert(payload).select('id,name,price,type,max_qty').single();
         if (res.error) { A.toast('Couldn’t save: ' + errMsg(res.error), 'error'); return; }
         if (editing) Object.assign(c, res.data); else S.customs.push(res.data);
         m.close();

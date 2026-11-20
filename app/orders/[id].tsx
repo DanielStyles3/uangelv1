@@ -14,7 +14,7 @@ import { getCached } from "@/lib/dataCache";
 import { cancelOrder, getCampaignProducts, getOrder } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { openPayment } from "@/lib/payments";
-import { formatDateTime, formatNaira, formatNigerianPhone } from "@/lib/format";
+import { extraLabel, formatDateTime, formatNaira, formatNigerianPhone } from "@/lib/format";
 import { useCartStore } from "@/store/cart.store";
 import { Order, OrderStatus } from "@/type";
 
@@ -186,7 +186,12 @@ export default function OrderDetails() {
                 price: Number(item.unit_price) - extras,
                 image_url: item.image_url,
                 // Keeps cake choices too (size, flavour) and typed answers (the message on the cake).
-                customizations: (item.customizations ?? []).map((c) => ({ id: c.id, name: c.name, price: Number(c.price), type: c.type, ...(c.text ? { text: c.text } : {}) })),
+                customizations: (item.customizations ?? []).map((c) => ({
+                    id: c.id, name: c.name, price: Number(c.price), type: c.type,
+                    ...(c.text ? { text: c.text } : {}),
+                    ...(c.qty ? { qty: Number(c.qty) } : {}),
+                    ...(c.unit_price != null ? { unit_price: Number(c.unit_price) } : {}),
+                })),
             }, item.quantity);
             added++;
         }
@@ -324,7 +329,7 @@ export default function OrderDetails() {
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
                                 {(item.customizations ?? []).length > 0 && (
-                                    <Text style={styles.itemExtras} numberOfLines={2}>+ {(item.customizations ?? []).map((c) => c.name).join(', ')}</Text>
+                                    <Text style={styles.itemExtras} numberOfLines={2}>+ {(item.customizations ?? []).map(extraLabel).join(', ')}</Text>
                                 )}
                                 <Text style={styles.itemQty}>{item.quantity} × {formatNaira(item.unit_price)}</Text>
                             </View>

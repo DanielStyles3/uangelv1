@@ -17,8 +17,9 @@ import ProductOptions, { answerableGroups, answersToCart, missingRequired, Optio
 import { useCartStore } from "@/store/cart.store";
 import { deliveryFeeForCategory, supportWhatsApp } from "@/constants";
 import { getAppConfig } from "@/lib/appConfig";
-import { formatNaira } from "@/lib/format";
+import { extraLabel, formatNaira } from "@/lib/format";
 import ProductImage from "@/components/ProductImage";
+import QtyStepper from "@/components/QtyStepper";
 import { CartCustomization, Customization, MenuItem } from "@/type";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -75,28 +76,54 @@ const InfoTile = ({ icon, value, label }: { icon: IconName; value: string; label
     </View>
 );
 
-/** Add-on / extra as a full-width tappable row: icon, name (wraps freely) with its price under it, checkbox. */
-const AddonCard = ({ item, selected, onPress }: { item: Customization; selected: boolean; onPress: () => void }) => (
-    <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={0.85}
-        style={[styles.addon, selected && styles.addonOn]}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: selected }}
-        accessibilityLabel={`${item.name}, ${Number(item.price) > 0 ? `plus ${formatNaira(item.price)}` : "free"}`}
-    >
-        <View style={[styles.addonIcon, selected && { backgroundColor: ORANGE }]}>
-            <Ionicons name={iconFor(item.name)} size={19} color={selected ? "#fff" : ORANGE} />
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.addonName}>{item.name}</Text>
-            <Text style={[styles.addonPrice, !(Number(item.price) > 0) && { color: "#2F9B65" }]}>{Number(item.price) > 0 ? `+${formatNaira(item.price)}` : "Free"}</Text>
-        </View>
-        <View style={[styles.check, selected && styles.checkOn]}>
-            {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
-        </View>
-    </TouchableOpacity>
-);
+/**
+ * Add-on / extra as a full-width row: icon, name (wraps freely) with its price under it, then a
+ * tick box (once-only extras) or Add → − n + (the admin's "how many" limit is over 1).
+ */
+const AddonCard = ({ item, qty, onChange }: { item: Customization; qty: number; onChange: (n: number) => void }) => {
+    const selected = qty > 0;
+    const max = Math.max(1, Number(item.max_qty ?? 1));
+    const price = Number(item.price);
+    const head = (
+        <>
+            <View style={[styles.addonIcon, selected && { backgroundColor: ORANGE }]}>
+                <Ionicons name={iconFor(item.name)} size={19} color={selected ? "#fff" : ORANGE} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.addonName}>{item.name}</Text>
+                <Text style={[styles.addonPrice, !(price > 0) && { color: "#2F9B65" }]}>
+                    {price > 0 ? `+${formatNaira(price)}${max > 1 ? " each" : ""}` : "Free"}
+                </Text>
+                {max > 1 && qty > 1 && price > 0 && (
+                    <Text style={styles.addonLine}>{qty} × {formatNaira(price)} = {formatNaira(price * qty)}</Text>
+                )}
+            </View>
+        </>
+    );
+    if (max > 1) {
+        return (
+            <View style={[styles.addon, selected && styles.addonOn]}>
+                {head}
+                <QtyStepper value={qty} max={max} onChange={onChange} label={item.name} />
+            </View>
+        );
+    }
+    return (
+        <TouchableOpacity
+            onPress={() => { Haptics.selectionAsync().catch(() => {}); onChange(selected ? 0 : 1); }}
+            activeOpacity={0.85}
+            style={[styles.addon, selected && styles.addonOn]}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: selected }}
+            accessibilityLabel={`${item.name}, ${price > 0 ? `plus ${formatNaira(price)}` : "free"}`}
+        >
+            {head}
+            <View style={[styles.check, selected && styles.checkOn]}>
+                {selected && <Ionicons name="checkmark" size={13} color="#fff" />}
+            </View>
+        </TouchableOpacity>
+    );
+};
 
 const SimilarCard = ({ item }: { item: MenuItem }) => (
     <TouchableOpacity
@@ -134,7 +161,8 @@ export default function ProductDetails() {
     const parentCategory = fetchedParent ?? cachedCategory(parentId) ?? snapCategory(parentId);
     const { data: similarRaw } = useFetch({ fn: getMenu, params: { category: subcategoryId, limit: 10 }, skip: !subcategoryId, initial: () => snapMenu(subcategoryId)?.slice(0, 10) });
 
-    const [selected, setSelected] = useState<Customization[]>([]);
+    // How many of each add-on, per item (by add-on id).
+    const [addonQty, setAddonQty] = useState<Record<string, number>>({});
     const [quantity, setQuantity] = useState(1);
     const [expanded, setExpanded] = useState(false);
     const [added, setAdded] = useState(false);
@@ -161,14 +189,13 @@ export default function ProductDetails() {
     const btnScale = useSharedValue(1);
     const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: btnScale.value }] }));
 
-    const selectedIds = useMemo(() => new Set(selected.map((c) => c.id)), [selected]);
-    const addons = customizations ?? [];
+    const addons = useMemo(() => customizations ?? [], [customizations]);
+    // The chosen add-ons as cart lines: price = price × how many.
+    const selected = useMemo((): CartCustomization[] => addons.flatMap((c) => {
+        const n = addonQty[c.id] ?? 0;
+        return n > 0 ? [{ id: c.id, name: c.name, price: Number(c.price) * n, type: c.type, qty: n, unit_price: Number(c.price) }] : [];
+    }), [addons, addonQty]);
     const similar = (similarRaw ?? []).filter((m) => m.id !== id).slice(0, 8);
-
-    const toggle = (c: Customization) => {
-        Haptics.selectionAsync().catch(() => {});
-        setSelected((prev) => (prev.some((s) => s.id === c.id) ? prev.filter((s) => s.id !== c.id) : [...prev, c]));
-    };
 
     // Spinner only when we have nothing to show yet (opened from a link, not from a list).
     if (!item) {
@@ -226,8 +253,8 @@ export default function ProductDetails() {
         : { icon: "shield-checkmark-outline", value: "Paystack", label: "Secure pay" };
 
     const choiceSummary = [
-        ...optionLines.map((c) => c.name),
-        ...(selected.length ? [`+ ${selected.map((c) => c.name).join(", ")}`] : []),
+        ...optionLines.map(extraLabel),
+        ...(selected.length ? [`+ ${selected.map(extraLabel).join(", ")}`] : []),
     ];
 
     const buttonLabel = soldOut ? "Sold out right now"
@@ -251,10 +278,7 @@ export default function ProductDetails() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
             return scrollToOptions();
         }
-        const cartCustomizations: CartCustomization[] = [
-            ...optionLines,
-            ...selected.map((c) => ({ id: c.id, name: c.name, price: Number(c.price), type: c.type })),
-        ];
+        const cartCustomizations: CartCustomization[] = [...optionLines, ...selected];
         addItem({ id: item.id, name: item.name, price: Number(item.price), image_url: item.image_url, emoji: item.emoji, customizations: cartCustomizations }, quantity);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         btnScale.set(withSequence(withSpring(0.94, { damping: 10, stiffness: 400 }), withSpring(1, { damping: 8 })));
@@ -410,7 +434,8 @@ export default function ProductDetails() {
                                     <StepHeader step={groups.length + 1} title="Add-ons & extras" required={false} />
                                     <View style={styles.addonGrid}>
                                         {addons.map((c) => (
-                                            <AddonCard key={c.id} item={c} selected={selectedIds.has(c.id)} onPress={() => toggle(c)} />
+                                            <AddonCard key={c.id} item={c} qty={addonQty[c.id] ?? 0}
+                                                onChange={(n) => setAddonQty((prev) => ({ ...prev, [c.id]: n }))} />
                                         ))}
                                     </View>
                                 </View>
@@ -590,6 +615,7 @@ const styles = StyleSheet.create({
     addonIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: "#FFF1EA", alignItems: "center", justifyContent: "center" },
     addonName: { fontFamily: "Quicksand-Bold", fontSize: 14.5, lineHeight: 19, color: INK },
     addonPrice: { fontFamily: "Quicksand-Bold", fontSize: 12.5, color: "#C2410C", marginTop: 2 },
+    addonLine: { fontFamily: "Quicksand-SemiBold", fontSize: 12, color: "#2F7A55", marginTop: 1 },
     check: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: "#D6D6DD", alignItems: "center", justifyContent: "center" },
     checkOn: { backgroundColor: ORANGE, borderColor: ORANGE },
 

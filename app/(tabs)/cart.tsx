@@ -20,7 +20,7 @@ import {CartItemType, MenuItem} from "@/type";
 
 import { notify } from "@/lib/notice";
 const cartItemKey = (item: CartItemType) =>
-    [item.id, ...(item.customizations ?? []).map((c) => c.id).sort()].join('|');
+    [item.id, ...(item.customizations ?? []).map((c) => `${c.id}x${c.qty ?? 1}${c.text ?? ''}`).sort()].join('|');
 
 const Row = ({ label, value, bold }: { label: string; value: string; bold?: boolean }) => (
     <View style={styles.row}>

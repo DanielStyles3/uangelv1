@@ -77,6 +77,8 @@ export interface Customization {
     price: number;
     type: string;
     created_at: string;
+    /** 1 = a tick box; 2+ = the customer taps + / − up to this many (per item). */
+    max_qty?: number | null;
 }
 
 export interface User {
@@ -227,11 +229,19 @@ export interface DeliveryQuote {
 export interface CartCustomization {
     id: string;
     name: string;
+    /** The whole line: unit price × qty. */
     price: number;
-    /** 'topping' | 'side' (add-ons), 'option' (a chosen option value), 'text' / 'number' (id = option group id). */
+    /**
+     * 'topping' | 'side' (add-ons), 'option' (a chosen option value), 'optqty' (a "how many" choice),
+     * 'text' / 'number' / 'date' / 'photo' / 'yesno' (id = option group id).
+     */
     type: string;
-    /** For type 'text' / 'number': what the customer typed (the message on the cake, the number). */
+    /** Typed answers: the message, the number, the date (YYYY-MM-DD), the photo's link, Yes / No. */
     text?: string;
+    /** How many (add-ons and "how many" choices); missing = 1. */
+    qty?: number;
+    /** Price of one, when qty > 1 is possible. */
+    unit_price?: number;
 }
 
 /** "Customise your cake": a question on a product (Size, Flavour, Message on the cake…). */
@@ -243,11 +253,15 @@ export interface OptionGroup {
      * 'single' = pick one value; 'text' = type something; 'number' = type a number (number cakes),
      * priced by its digit count: option_values named "1 digit", "2 digits"… carry each price.
      */
-    kind: 'single' | 'text' | 'number';
+    kind: 'single' | 'multi' | 'qty' | 'text' | 'number' | 'date' | 'photo' | 'yesno';
     required: boolean;
     max_length: number | null;
     placeholder: string | null;
     sort_order: number;
+    /** 'multi': the most choices a customer can pick. */
+    max_select?: number | null;
+    /** 'date': how many days ahead the earliest date is. */
+    min_days?: number | null;
     option_values: OptionValue[];
 }
 
@@ -259,6 +273,8 @@ export interface OptionValue {
     hint: string | null;
     swatch: string | null;
     sort_order: number;
+    /** 'qty' questions: the most of this choice per item. */
+    max_qty?: number | null;
 }
 
 export interface CartItemType {

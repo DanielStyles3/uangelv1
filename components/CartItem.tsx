@@ -5,7 +5,7 @@ import Animated, { FadeInDown, FadeOutLeft, LinearTransition } from "react-nativ
 
 import { useCartStore } from "@/store/cart.store";
 import { CartItemType } from "@/type";
-import { formatNaira } from "@/lib/format";
+import { extraLabel, formatNaira } from "@/lib/format";
 import ProductImage from "@/components/ProductImage";
 
 const tap = () => Haptics.selectionAsync().catch(() => {});
@@ -44,7 +44,7 @@ const CartItem = ({ item, index = 0 }: { item: CartItemType; index?: number }) =
                 </View>
 
                 {customizations.length > 0 && (
-                    <Text style={styles.addons} numberOfLines={2}>+ {customizations.map((c) => c.name).join(", ")}</Text>
+                    <Text style={styles.addons} numberOfLines={2}>+ {customizations.map(extraLabel).join(", ")}</Text>
                 )}
                 <Text style={styles.unit}>{formatNaira(unitPrice)} each</Text>
 

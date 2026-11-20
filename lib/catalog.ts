@@ -1,4 +1,4 @@
-import { getHomeProducts, HomeProduct } from "@/lib/api";
+import { getHomeProducts, HomeProduct, OPTION_GROUP_COLUMNS } from "@/lib/api";
 import { warmAppConfig } from "@/lib/appConfig";
 import { emitShopChange, getCached, warm } from "@/lib/dataCache";
 import { prefetchThumbs } from "@/lib/images";
@@ -27,7 +27,7 @@ export const loadCatalog = async (): Promise<Catalog> => {
         supabase.from("categories").select(`${CATEGORY_COLUMNS}, menu (count)`).order("sort_order"),
         getHomeProducts(),
         supabase.from("option_groups")
-            .select("id, menu_id, name, kind, required, max_length, placeholder, sort_order, option_values (id, group_id, name, price, hint, swatch, sort_order)")
+            .select(OPTION_GROUP_COLUMNS)
             .order("sort_order"),
     ]);
     if (cats.error) throw new Error(cats.error.message);

@@ -384,7 +384,7 @@ export default function Checkout() {
                         <Text className="h3-bold text-dark-100 mb-3">Order summary</Text>
                         {items.map((item) => (
                             <PaymentInfoStripe
-                                key={[item.id, ...(item.customizations ?? []).map((c) => c.id)].join('|')}
+                                key={[item.id, ...(item.customizations ?? []).map((c) => `${c.id}x${c.qty ?? 1}${c.text ?? ''}`)].join('|')}
                                 label={`${item.quantity}× ${item.name}`}
                                 value={formatNaira((item.price + (item.customizations ?? []).reduce((s, c) => s + c.price, 0)) * item.quantity)}
                             />
