@@ -34,7 +34,8 @@ U Angel Foods brings good food to your door across Lagos, and every order helps 
 WHAT YOU CAN ORDER
 • Ready meals, snacks and drinks
 • Groceries and local market items
-• Birthday cakes made your way: choose the size, flavour, colour and message
+• Birthday cakes made your way: choose the size, flavour, colour and message, and add a photo of the design you love
+• Add-ons and extras on your meals, as many as you like: extra chicken, plantain, candles and more
 • Wedding cakes and custom designs by enquiry
 • Catering for events: one day, a date range or specific dates
 
@@ -103,8 +104,9 @@ Questions? WhatsApp or call 0704 905 5555, or email info@uangelfoods.com.
   - **Personal info:** Name, Email address, Phone number, Address
   - **Financial info:** Purchase history. Card details are entered on Paystack's page and never reach us.
   - **Messages:** Other in-app messages (enquiry notes and gift notes)
+  - **Photos and videos:** Photos. **Optional** (only when a product asks for a picture of the design the customer wants), not shared, purpose **App functionality**. The app uses Android's photo picker: it only gets the one photo the customer chooses, and asks for no storage or camera permission.
   - **App info and performance:** Crash logs and Diagnostics. These are optional for the user, not shared, and the purpose is **Analytics** (Sentry crash reports).
-- Not collected: location, contacts, photos, files, calendar, health, web history, device IDs for ads.
+- Not collected: location, contacts, files, calendar, health, web history, device IDs for ads.
 
 ### Data safety: U Angel Affiliates
 - Collects or shares data? **Yes**. Encrypted in transit? **Yes**. Deletion? **Yes** (same link).
