@@ -195,6 +195,11 @@ export default function ProductDetails() {
         const n = addonQty[c.id] ?? 0;
         return n > 0 ? [{ id: c.id, name: c.name, price: Number(c.price) * n, type: c.type, qty: n, unit_price: Number(c.price) }] : [];
     }), [addons, addonQty]);
+    // Shown as two steps: Add-ons (toppings, candles…) and Extras (sides, gift box…); empty ones are skipped.
+    const addonSections = useMemo(() => [
+        { title: "Add-ons", items: addons.filter((c) => c.type !== "side") },
+        { title: "Extras", items: addons.filter((c) => c.type === "side") },
+    ].filter((s) => s.items.length > 0), [addons]);
     const similar = (similarRaw ?? []).filter((m) => m.id !== id).slice(0, 8);
 
     // Spinner only when we have nothing to show yet (opened from a link, not from a list).
@@ -254,7 +259,9 @@ export default function ProductDetails() {
 
     const choiceSummary = [
         ...optionLines.map(extraLabel),
-        ...(selected.length ? [`+ ${selected.map(extraLabel).join(", ")}`] : []),
+        ...[["Add-ons", selected.filter((c) => c.type !== "side")], ["Extras", selected.filter((c) => c.type === "side")]]
+            .filter(([, list]) => (list as CartCustomization[]).length > 0)
+            .map(([title, list]) => `${title}: ${(list as CartCustomization[]).map(extraLabel).join(", ")}`),
     ];
 
     const buttonLabel = soldOut ? "Sold out right now"
@@ -416,7 +423,7 @@ export default function ProductDetails() {
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.makeTitle}>Make it yours</Text>
                                     <Text style={styles.makeText} numberOfLines={2}>
-                                        {groups.length ? groups.map((g) => g.name.toLowerCase()).join(", ") + (addons.length ? " & add-ons" : "") : "Add-ons & extras"}
+                                        {[...groups.map((g) => g.name.toLowerCase()), ...addonSections.map((s) => s.title.toLowerCase())].join(", ")}
                                     </Text>
                                 </View>
                                 <Ionicons name="chevron-down" size={18} color={GREY} />
@@ -429,17 +436,18 @@ export default function ProductDetails() {
                         <View style={styles.steps} onLayout={(e) => setOptionsY(e.nativeEvent.layout.y)}>
                             <ProductOptions groups={groups} answers={answers} onChange={setAnswers} startStep={1} />
 
-                            {addons.length > 0 && (
-                                <View style={{ gap: 12 }}>
-                                    <StepHeader step={groups.length + 1} title="Add-ons & extras" required={false} />
+                            {/* Add-ons (admin type "Add-on") and Extras (type "Extra") as two separate steps. */}
+                            {addonSections.map((sec, si) => (
+                                <View key={sec.title} style={{ gap: 12 }}>
+                                    <StepHeader step={groups.length + 1 + si} title={sec.title} required={false} />
                                     <View style={styles.addonGrid}>
-                                        {addons.map((c) => (
+                                        {sec.items.map((c) => (
                                             <AddonCard key={c.id} item={c} qty={addonQty[c.id] ?? 0}
                                                 onChange={(n) => setAddonQty((prev) => ({ ...prev, [c.id]: n }))} />
                                         ))}
                                     </View>
                                 </View>
-                            )}
+                            ))}
 
                             {choiceSummary.length > 0 && (
                                 <Animated.View entering={FadeInDown.springify().damping(16)} style={styles.summary}>
